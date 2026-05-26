@@ -1,0 +1,9 @@
+{
+    "disksize": 128,
+    "config": "./sysroot/boot/bootboot.conf",
+    "initrd": { "type": "tar", "gzip": false, "directory": "sysroot" },
+    "iso9660": true,
+    "partitions": [
+        { "type": "boot", "size": 16 }
+    ]
+}

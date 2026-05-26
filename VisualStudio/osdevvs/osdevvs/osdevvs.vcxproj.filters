@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="arch">
+      <UniqueIdentifier>{3f7139d5-52b9-47d1-ae59-ed1b02b90bfb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="arch\x86_64">
+      <UniqueIdentifier>{22a8e24b-3523-43f5-af11-f29f94b6bbae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="arch\x86_64\cpu">
+      <UniqueIdentifier>{ed0bdc4a-adbe-4c52-a233-3ad14b08aec7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{ab4e97de-4b9c-405c-ba7d-aa83f2bd7082}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="fs">
+      <UniqueIdentifier>{00fb8b6e-6c12-4146-b2c6-eb98c84be2c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mm">
+      <UniqueIdentifier>{a5c4c2f9-10f9-4d6a-b8b7-95b0bca487e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sched">
+      <UniqueIdentifier>{0b9d2813-0279-4047-a879-c9b7b311e645}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{15962621-46df-4448-a402-40bab06e7875}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\base\arch\x86_64\acpi.c">
+      <Filter>arch\x86_64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\kbd.c">
+      <Filter>arch\x86_64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\ports.c">
+      <Filter>arch\x86_64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\cpu.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\gdt.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\idt.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\ioapic.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\lapic.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\paging.c">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\external\printf.c">
+      <Filter>external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\fs\tar.c">
+      <Filter>fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\fs\vfs.c">
+      <Filter>fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\mm\heap.c">
+      <Filter>mm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\mm\pmm.c">
+      <Filter>mm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\mm\vmm.c">
+      <Filter>mm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\sched\process.c">
+      <Filter>sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\sched\sched.c">
+      <Filter>sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\util\spinlock.c">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\util\util.c">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\base\fb.c" />
+    <ClCompile Include="..\..\..\base\kernel.c" />
+    <ClCompile Include="..\..\..\base\memory.c" />
+    <ClCompile Include="..\..\..\base\serial.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\base\arch\x86_64\acpi.h">
+      <Filter>arch\x86_64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\kbd.h">
+      <Filter>arch\x86_64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\ports.h">
+      <Filter>arch\x86_64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\cpu.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\gdt.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\idt.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\ioapic.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\lapic.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\paging.h">
+      <Filter>arch\x86_64\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\external\bootboot.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\external\printf.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\external\ssfn.h">
+      <Filter>external</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\fs\tar.h">
+      <Filter>fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\fs\vfs.h">
+      <Filter>fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\mm\heap.h">
+      <Filter>mm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\mm\pmm.h">
+      <Filter>mm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\mm\vmm.h">
+      <Filter>mm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\sched\process.h">
+      <Filter>sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\sched\sched.h">
+      <Filter>sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\util\spinlock.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\util\util.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\base\fb.h" />
+    <ClInclude Include="..\..\..\base\kernel.h" />
+    <ClInclude Include="..\..\..\base\memory.h" />
+    <ClInclude Include="..\..\..\base\printfwrapper.h" />
+    <ClInclude Include="..\..\..\base\serial.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\base\arch\x86_64\entry.asm">
+      <Filter>arch\x86_64</Filter>
+    </None>
+    <None Include="..\..\..\base\arch\x86_64\cpu\cpu.asm">
+      <Filter>arch\x86_64\cpu</Filter>
+    </None>
+    <None Include="..\..\..\base\arch\x86_64\cpu\interrupt.asm">
+      <Filter>arch\x86_64\cpu</Filter>
+    </None>
+    <None Include="..\..\..\base\arch\x86_64\cpu\paging.asm">
+      <Filter>arch\x86_64\cpu</Filter>
+    </None>
+    <None Include="..\..\..\Makefile" />
+  </ItemGroup>
+</Project>

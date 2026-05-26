@@ -1,0 +1,46 @@
+#pragma once
+#include <stddef.h>
+#include <stdint.h>
+
+#pragma GCC diagnostic ignored "-Wvisibility"
+
+#define VFS_MAX_ALLOWED_PATH 64
+#define VFS_MAX_ALLOWED_OPEN_HANDLES 12
+
+typedef struct {
+    int (*Open)(struct VfsFile*);
+    int (*Read)(struct VfsFile*, void*, size_t); // IN file, buffer, nbytes to read   OUT status flag (0 = success, anything else is failure)
+    int (*Write)(struct VfsFile*, const void*, size_t); // IN file, buffer, nbytes to write   OUT status flag
+    int (*Close)(struct VfsFile*);
+    struct VfsFile* (*FindFile)(const char*);
+} VfsDriverOperation;
+
+typedef struct {
+    char* Name; // accessing a file would be [VfsDrive->Name]:/[Path]
+    VfsDriverOperation* DriverOps;
+} VfsDrive;
+
+#define VFS_TYPE_FILE 0x1
+#define VFS_TYPE_DIRECTORY 0x2
+
+typedef struct VfsFile {
+    const char Path[VFS_MAX_ALLOWED_PATH]; // actual full path
+    uint64_t Size; // file size in bytes
+    uint64_t Type;
+    VfsDrive* DrivePtr; // ptr back to the drive it's on
+} VfsFile;
+
+typedef struct {
+    VfsFile* Entry;
+    uint64_t CursorPos;
+    int Flag;
+    int NumProc;
+} VfsOpenFileDescr;
+
+void VfsAddDriveToList(VfsDrive* drive);
+char* VfsRemoveFormatPath(const char* in) ;
+
+int OsOpen(const char* path, int flags);
+int OsClose(int handle);
+int OsRead(int handle, void* buffer, size_t nbytes);
+int OsWrite(int handle, const void* buffer, size_t nbytes);

@@ -1,0 +1,162 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x86">
+      <Configuration>Debug</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x86">
+      <Configuration>Release</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2897ac17-c110-4f67-a55d-85c4e5306dca}</ProjectGuid>
+    <Keyword>Linux</Keyword>
+    <RootNamespace>osdevvs</RootNamespace>
+    <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
+    <ApplicationType>Linux</ApplicationType>
+    <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
+    <TargetLinuxPlatform>Generic</TargetLinuxPlatform>
+    <LinuxProjectType>{FC1A4D80-50E9-41DA-9192-61C0DBAA00D2}</LinuxProjectType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteRootDir>/mnt/c/Users/ah5k/Documents/Projects/osdev</RemoteRootDir>
+    <RemoteProjectRelDir />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <RemoteBuildCommandLine>make</RemoteBuildCommandLine>
+    <RemoteCleanCommandLine>make clean</RemoteCleanCommandLine>
+    <NMakeIncludeSearchPath>Z:\usr\include;$(ProjectDir)..\..\..\base;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <RemoteCCompileToolExe>/usr/bin/clang</RemoteCCompileToolExe>
+    <RemoteCppCompileToolExe>/usr/bin/clang</RemoteCppCompileToolExe>
+    <LocalRemoteCopySources>false</LocalRemoteCopySources>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\base\arch\x86_64\acpi.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\cpu.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\gdt.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\idt.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\ioapic.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\lapic.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\cpu\paging.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\kbd.c" />
+    <ClCompile Include="..\..\..\base\arch\x86_64\ports.c" />
+    <ClCompile Include="..\..\..\base\external\printf.c" />
+    <ClCompile Include="..\..\..\base\fb.c" />
+    <ClCompile Include="..\..\..\base\fs\tar.c" />
+    <ClCompile Include="..\..\..\base\fs\vfs.c" />
+    <ClCompile Include="..\..\..\base\kernel.c" />
+    <ClCompile Include="..\..\..\base\memory.c" />
+    <ClCompile Include="..\..\..\base\mm\heap.c" />
+    <ClCompile Include="..\..\..\base\mm\pmm.c" />
+    <ClCompile Include="..\..\..\base\mm\vmm.c" />
+    <ClCompile Include="..\..\..\base\sched\process.c" />
+    <ClCompile Include="..\..\..\base\sched\sched.c" />
+    <ClCompile Include="..\..\..\base\serial.c" />
+    <ClCompile Include="..\..\..\base\util\spinlock.c" />
+    <ClCompile Include="..\..\..\base\util\util.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\base\arch\x86_64\acpi.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\cpu.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\gdt.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\idt.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\ioapic.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\lapic.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\cpu\paging.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\kbd.h" />
+    <ClInclude Include="..\..\..\base\arch\x86_64\ports.h" />
+    <ClInclude Include="..\..\..\base\external\bootboot.h" />
+    <ClInclude Include="..\..\..\base\external\printf.h" />
+    <ClInclude Include="..\..\..\base\external\ssfn.h" />
+    <ClInclude Include="..\..\..\base\fb.h" />
+    <ClInclude Include="..\..\..\base\fs\tar.h" />
+    <ClInclude Include="..\..\..\base\fs\vfs.h" />
+    <ClInclude Include="..\..\..\base\kernel.h" />
+    <ClInclude Include="..\..\..\base\memory.h" />
+    <ClInclude Include="..\..\..\base\mm\heap.h" />
+    <ClInclude Include="..\..\..\base\mm\pmm.h" />
+    <ClInclude Include="..\..\..\base\mm\vmm.h" />
+    <ClInclude Include="..\..\..\base\printfwrapper.h" />
+    <ClInclude Include="..\..\..\base\sched\process.h" />
+    <ClInclude Include="..\..\..\base\sched\sched.h" />
+    <ClInclude Include="..\..\..\base\serial.h" />
+    <ClInclude Include="..\..\..\base\util\spinlock.h" />
+    <ClInclude Include="..\..\..\base\util\util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\base\arch\x86_64\cpu\cpu.asm" />
+    <None Include="..\..\..\base\arch\x86_64\cpu\interrupt.asm" />
+    <None Include="..\..\..\base\arch\x86_64\cpu\paging.asm" />
+    <None Include="..\..\..\base\arch\x86_64\entry.asm" />
+    <None Include="..\..\..\Makefile" />
+  </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <RemotePostBuildEvent>
+      <Command>make run-x86_64-uefi</Command>
+    </RemotePostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

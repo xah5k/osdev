@@ -1,0 +1,88 @@
+// stress test of physical memory manager
+    for (int i = 0; i < PmmLargestFreeMemorySize; i++) {
+        void* x = PmmAllocate();
+        if (x == NULL) {
+            printf("stress test of pmm: ran out of memory (x=null)\r\n");
+            break;
+        }
+        printf("stress test of pmm: x=0x%lx\r\n", x);
+        // also write to the page it returns
+        uint64_t* y = x;
+        *y = 4;
+        printf("*x = %d\r\n", *y);
+    }
+
+// test hhdm
+void* test = (void*)(0x1000 + gMmuVOffset);
+printf("test=0x%lx phys(test)=0x%lx\r\n", test, MmuGetPhys((virtaddr)test));
+
+    // stress vmm
+    printf("current vmm pool idx: %d\r\n", VmmBlockPoolIdx);
+    for (int i = 0; i < 100; i++) {
+        void* ptr = VmmAllocate(4096);
+        VmmFree(ptr);
+    }
+    printf("now vmm pool idx: %d\r\n", VmmBlockPoolIdx);
+
+// test kernel heap
+
+    void* a = MmAllocate(128);
+    void* b = MmAllocate(128);
+    void* c = MmAllocate(128);
+    void* d = MmAllocate(128);
+    void* e = MmAllocate(128);
+    printf("allocated a(0x%lx) b(0x%lx) c(0x%lx) d(0x%lx) e(0x%lx)\r\n", a, b, c, d, e);
+    MmHeapDumpMap();
+    MmFree(b);
+    MmFree(d);
+    printf("freed b and d\r\n");
+    MmHeapDumpMap();
+    MmFree(c);
+    printf("freed c\r\n");
+    MmHeapDumpMap();
+    MmFree(a);
+    MmFree(e);
+    printf("freed a and e\r\n");
+    MmHeapDumpMap();
+
+/* should result in something like:
+    allocated a(0xffff8880407cff80) b(0xffff8880407cfee8) c(0xffff8880407cfe50) d(0xffff8880407cfdb8) e(0xffff8880407cfd20)
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    freed b and d
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    kheap: Block #1: addr: @0xffff8880407cfdb8 size=152 status=0
+    kheap: Block #2: addr: @0xffff8880407cfee8 size=152 status=0
+    freed c
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    kheap: Block #1: addr: @0xffff8880407cfdb8 size=456 status=0
+    freed a and e
+    kheap: Block #0: addr: @0xffff888040000018 size=8192000 status=0
+*/
+
+/* OLD OLD OLD test if tarfs is correctly setup in vfs
+    const char* p = "initrd:/hi.txt";
+    printf("kernel: going to find file using path '%s'\r\n", p);
+    VfsFile* f = VfsFindFile(p);
+    printf("kernel: attempt to find. vfs file=0x%lx\r\n", f);
+    VfsOpen(f);
+    printf("kernel: reading vfs file into buffer\r\n");
+    const char* buffer = MmAllocate(128);
+    int x = VfsRead(f, (void*)buffer, 128);
+    printf("kernel: vfsread returned %d \r\n", x);
+    printf("kernel: dump buffer: \r\n%s\r\n", buffer);
+    printf("kernel: freeing buffer now.\r\n");
+    MmFree((void*)buffer);
+*/
+
+/* better test of vfs
+    int handle = OsOpen("initrd:/hi.txt", 0);
+    printf("kernel: handle for 'initrd:/hi.txt': %d\r\n", handle);
+    printf("kernel: attempting to read from handle\r\n");
+    char* buf = MmAllocate(128);
+    OsRead(handle, (void*)buf, 128);
+    printf("kernel: dump buffer:\r\n");
+    printf("%s", buf);
+    printf("\r\nkernel: end buffer.\r\n");
+    MmFree(buf);
+    OsClose(handle);
+*/

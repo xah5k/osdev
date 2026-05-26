@@ -1,0 +1,59 @@
+[
+  {
+    "file": "base/mm/pmm.c",
+    "arguments": [
+      "x86_64-elf-gcc",
+      "-Wall",
+      "-fpic",
+      "-ffreestanding",
+      "-mno-red-zone",
+      "-fno-stack-protector",
+      "-I./base",
+      "-D__x86_64__",
+      "-c",
+      "base/mm/pmm.c",
+      "-o",
+      "obj-x86_64/base/mm/pmm.c.o"
+    ],
+    "directory": "/home/ah5k/osdev",
+    "output": "obj-x86_64/base/mm/pmm.c.o"
+  },
+  {
+    "file": "base/serial.c",
+    "arguments": [
+      "x86_64-elf-gcc",
+      "-Wall",
+      "-fpic",
+      "-ffreestanding",
+      "-mno-red-zone",
+      "-fno-stack-protector",
+      "-I./base",
+      "-D__x86_64__",
+      "-c",
+      "base/serial.c",
+      "-o",
+      "obj-x86_64/base/serial.c.o"
+    ],
+    "directory": "/home/ah5k/osdev",
+    "output": "obj-x86_64/base/serial.c.o"
+  },
+  {
+    "file": "base/arch/x86_64/ports.c",
+    "arguments": [
+      "x86_64-elf-gcc",
+      "-Wall",
+      "-fpic",
+      "-ffreestanding",
+      "-mno-red-zone",
+      "-fno-stack-protector",
+      "-I./base",
+      "-D__x86_64__",
+      "-c",
+      "base/arch/x86_64/ports.c",
+      "-o",
+      "obj-x86_64/base/arch/x86_64/ports.c.o"
+    ],
+    "directory": "/home/ah5k/osdev",
+    "output": "obj-x86_64/base/arch/x86_64/ports.c.o"
+  }
+]
