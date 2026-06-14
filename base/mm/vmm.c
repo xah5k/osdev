@@ -45,11 +45,10 @@ VmmInternalBlock* VmmInternalAllocBlock() {
     return &VmmBlockPool[VmmBlockPoolIdx++];
 }
 
-void VmmInitalize() {
+KSTATUS VmmInitalize() {
     VmmInternalHead = VmmInternalAllocBlock();
     if (!VmmInternalHead) {
-        WriteSerial(0x3f8, "vmm: panic\r\n");
-        return;
+        return KINVALID;
     }
 
     VmmInternalHead->start = ((uint64_t)MMU_PHYS_OFFSET + 0x40000000); // 1GB after HHDM

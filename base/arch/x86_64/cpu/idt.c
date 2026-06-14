@@ -38,7 +38,7 @@ void CpuIdtAsmHandler(CpuInterruptArgs* registers) {
     if (handlers[registers->intnum]) {
         handlers[registers->intnum](registers);
     } else {
-        KernelBugcheck(UNREGISTERED_INTERRUPT, registers);
+        KdBugcheck(UNREGISTERED_INTERRUPT, registers);
         while (1) { asm ("cli; hlt"); } // though kernel bugcheck should do this for us
     }
 }

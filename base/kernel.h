@@ -8,6 +8,8 @@
 #endif
 
 
+#define ARCHS_X86_64 "x86-64"
+
 typedef struct {
     uint64_t ptr;
     uint32_t size;
@@ -26,8 +28,19 @@ typedef struct {
 
 typedef enum {
     UNREGISTERED_INTERRUPT,
-    INTENTIONAL_INVOCATION
+    INTENTIONAL_INVOCATION,
+    KERNEL_CORE_COMP_FAIL,
 } BugcheckCode;
 struct ProcessCtrlBlk* KernelGetCurrentProc();
 
-void KernelBugcheck(BugcheckCode code, CpuInterruptArgs* registers);
+typedef enum {
+    KSUCCESS,
+    KFAIL,
+    KUNSUPPORTED,
+    KINVALID
+} KSTATUS;
+
+#define KATTEMPT(x) if (!(x)) KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__)
+
+void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers);
+void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char* filename);

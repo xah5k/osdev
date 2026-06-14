@@ -24,7 +24,7 @@ static MmHeapBlockHdr* PreviousBlock;
 
 static Spinlock MmInternalHeapLock = {ATOMIC_FLAG_INIT};
 
-void MmHeapInitalize() {
+KSTATUS MmHeapInitalize() {
     MmHeapBlockHdr* Start;
     Start = VmmAllocate(MM_HEAP_SIZE);
     Start->Size = MM_HEAP_SIZE;
@@ -33,6 +33,7 @@ void MmHeapInitalize() {
     Start->Magic = MM_HEAP_MAGIC;
     BlockListHead = Start;
     PreviousBlock = NULL;
+    return KSUCCESS;
 }
 
 // dumps it out to printf

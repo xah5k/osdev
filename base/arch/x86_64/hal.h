@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-
+#include <kernel.h>
 #define HAL_DEVICE_TYPE_INPUT 0
 #define HAL_DEVICE_TYPE_TIMER 1
 
@@ -21,6 +21,6 @@ typedef struct {
 } HalTimerDevice;
 
 void HalRegisterDevice(HalDevice* device);
-void HalInitalize();
+void HalInitalize(KernelInformation* kinfo);
 
 void HalDbgListDevices();

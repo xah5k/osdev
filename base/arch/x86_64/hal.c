@@ -6,12 +6,19 @@
 #include <stddef.h>
 #include <external/printf.h>
 #include <memory.h>
+#include <arch/x86_64/cpu/gdt.h>
+#include <arch/x86_64/cpu/idt.h>
+#include <arch/x86_64/cpu/lapic.h>
+#include "arch/x86_64/kbd.h"
+#include "arch/x86_64/cpu/ioapic.h"
+
 #define HAL_INITIAL_MAX_DEVICES 32
 #define HAL_DEVLIST_ALC HAL_INITIAL_MAX_DEVICES * (sizeof(HalDevice) + 8)
 HalDevice* gDevList;
 static uint64_t index = 0;
 
-void HalInitalize() {
+
+static void HalInitDevMgr() {
 	// note the better method should be to actually detect which devices are connected and register them and their device driver based on that
 	// but for now assume there is a ps/2 keyboard and a lapic timer
 	gDevList = MmAllocate(HAL_DEVLIST_ALC);
@@ -34,6 +41,14 @@ void HalInitalize() {
 	KbdDev->ReadCode = KbdReadCode;
 	KbdInitalize(CpuGetIoApicVirtBase(), KbdDev->Header->IntVector);
 	*(volatile uint64_t*)(((uint64_t)gDevList + (sizeof(HalDevice) + 8)) * index) = (uint64_t)KbdDev;
+}
+void HalInitalize(KernelInformation* kinfo) {
+    CpuInitalizeGdt();
+    CpuInitalizeIdt();
+    asm ("sti");
+    CpuInitalizeLapic();
+    CpuInitalizeIoApic(kinfo->rsdt);
+	HalInitDevMgr();
 }
 
 void HalRegisterDevice(HalDevice* device) {

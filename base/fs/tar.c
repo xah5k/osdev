@@ -65,7 +65,6 @@ static void internalCountEntries() {
 void TarInitalizeVfs(void* archive) {
     gTarInitrdPtr = archive;
     gTarVfsDrive = MmAllocate(sizeof(VfsDrive));
-    printf("fs: tar: gTarInitrdPtr=0x%lx (passed arg 'archive'=0x%lx)\r\n", gTarInitrdPtr, archive);
     VfsDriverOperation* DriverOps = MmAllocate(sizeof(VfsDriverOperation));
     DriverOps->Open = (void*)TarFsOpen;
     DriverOps->Close = (void*)TarFsClose;
@@ -74,11 +73,8 @@ void TarInitalizeVfs(void* archive) {
     DriverOps->FindFile = (void*)TarFsFindFile;
     gTarVfsDrive->DriverOps = DriverOps;
     memcpy(gTarVfsDrive->Name, "initrd", 7);
-    printf("fs: tar: created new drive (base=0x%lx driverops=0x%lx) '%s:'\r\n", gTarVfsDrive, gTarVfsDrive->DriverOps, gTarVfsDrive->Name);
     internalCountEntries();
-    printf("fs: tar: counted %d entries in initrd\r\n", gTarFsNumEntries);
     gTarFsEntries = (VfsFile*)MmAllocate(sizeof(VfsFile) * gTarFsNumEntries);
-    printf("fs: tar: begin discovery of entries\r\n");
     // for every ustarentry we discover we add it to the list of vfsentries
     TarFileEntry* current = (TarFileEntry*)gTarInitrdPtr;
     for (int i = 0; i < gTarFsNumEntries; i++) {
@@ -97,9 +93,7 @@ void TarInitalizeVfs(void* archive) {
         //printf("fs: tar: populated vfs file entry @ 0x%lx with path %s and type 0x%x\r\n", &gTarFsEntries[i], gTarFsEntries[i].Path, gTarFsEntries[i].Type);
 
     }
-    printf("fs: tar: end discovery of entries\r\n");
     VfsAddDriveToList(gTarVfsDrive);
-    printf("fs: tar: added initrd drive to vfs internal list\r\n");
 }
 
 TarFileEntry* TarFsLookup(uint8_t* archive, char* filename) {

@@ -91,10 +91,7 @@ void CpuInitalizeLapic() {
 
     lapicphysbase = CpuGetLapicPhysicalBase();
     lapicvirtbase = (virtaddr)(lapicphysbase + gMmuVOffset);
-    printf("lapic: physical base: 0x%lx virtual base: 0x%lx\r\n", lapicphysbase, lapicvirtbase);
     // XD isn't currently possible due to how BOOTBOOT expects a kernel binary to be
     MmuMapPage((pagetable*)_x86_64_get_pml4(), lapicvirtbase, lapicphysbase, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_PWT | MMU_PAGE_BIT_PCD);
-    printf("lapic: mapped physical base to virtual\r\n");
     CpuEnableLapic();
-    printf("lapic: enabled the lapic\r\n");
 }
