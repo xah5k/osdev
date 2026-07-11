@@ -11,12 +11,8 @@ extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
 extern ThreadCtrlBlk* DeathThread;
 
-static uint32_t TidCount = 1;
 static uint64_t PidCount = 0;
-static uint32_t ThreadGetTid() {
-    uint32_t r = TidCount++;
-    return r;
-}
+
 static uint64_t ProcGetPid() {
     uint64_t r = PidCount++;
     return r;
@@ -36,11 +32,10 @@ void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* current = list;
     printf("process: List of running processes: \r\n");
     while (current != NULL) {
-        printf("process: PID %d\r\n", current->pid);
-        printf("process:    Threads:\r\n");
+        printf("process:     [*] PID %d\r\n", current->pid);
         ThreadCtrlBlk* thrc = current->ThreadListHead;
         while (thrc != NULL) {
-            printf("process:    TID %d\r\n", thrc->tid);
+            printf("process:            [*] TID %d\r\n", thrc->tid);
             thrc = thrc->ProcNext;
         }
         current = current->Next;
@@ -66,7 +61,7 @@ ThreadCtrlBlk* ThreadNew(void* entry) {
     ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(new, 0, sizeof(ThreadCtrlBlk));
     new->state = SCHED_THREAD_READY;
-    new->tid = ThreadGetTid();
+    //new->tid = ThreadGetTid();
     ThreadCreateStack(new, entry);
     return new;
 }
@@ -146,13 +141,13 @@ void ThreadEntry() {
         ThreadCtrlBlk* current2 = ReadyQueueHead;
         ThreadCtrlBlk* previous2 = NULL;
         while (current2 != NULL && current2 != c) {
-            printf("current2=0x%lx\r\n", current2);
+            //printf("current2=0x%lx\r\n", current2);
             previous2 = current2;
             current2 = current2->GlobalNext;
         }
 
         if (!current2 || current2 != c) {
-            printf("current2=0x%lx c=0x%lx\r\n", current2, c);
+           // printf("current2=0x%lx c=0x%lx\r\n", current2, c);
             KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
         }
         previous2->GlobalNext = current2->GlobalNext;
@@ -171,4 +166,6 @@ void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb) {
     tcb->ParentProc = proc;
     tcb->ProcNext = proc->ThreadListHead;
     proc->ThreadListHead = tcb;
+    proc->threads++;
+    tcb->tid = proc->threads-1;
 }
