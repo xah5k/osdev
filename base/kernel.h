@@ -32,7 +32,7 @@ typedef enum {
     KERNEL_CORE_COMP_FAIL,
 } BugcheckCode;
 struct ProcessCtrlBlk* KernelGetCurrentProc();
-
+KernelInformation* KernelGetInformation();
 typedef enum {
     KSUCCESS,
     KFAIL,
@@ -40,6 +40,7 @@ typedef enum {
     KINVALID
 } KSTATUS;
 
+#define KDBG printf("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 #define KATTEMPT(x) if (!(x)) KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__)
 
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers);

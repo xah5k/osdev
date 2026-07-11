@@ -86,3 +86,11 @@ printf("test=0x%lx phys(test)=0x%lx\r\n", test, MmuGetPhys((virtaddr)test));
     MmFree(buf);
     OsClose(handle);
 */
+
+
+/* sm bs
+    ProcessCreate(NewThr, gkInfo);
+    ProcListRunning(gkInfo);
+    for (int i = 0; i < 1000; i++) printf("%i\r\n", i);
+    ProcListRunning(gkInfo);
+*/

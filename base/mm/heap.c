@@ -129,7 +129,5 @@ void MmFree(void* ptr) {
             Current->Next = Block->Next;
         }
     }
-    // debug
-    memset(ptr, 0xAE, Block->Size - sizeof(MmHeapBlockHdr));
     SpnLckRelease(&MmInternalHeapLock);
 }

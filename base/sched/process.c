@@ -71,8 +71,9 @@ ProcessCtrlBlk* ProcessNew() {
     ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
-    new->pid = ProcGetPid();
+    new->pid = ProcGetPid()+1;
     new->nextfh = 0;
+    new->threads = 0;
     new->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->Next = NULL;
 }
@@ -98,6 +99,28 @@ void ThreadEntry() {
         if (DeathThread->StackBase) {
             MmFree((void*)DeathThread->StackBase);
         }
+        if(DeathThread->ParentProc->threads <= 0) {
+            // remove from kernel list
+            KernelInformation* kinfo = KernelGetInformation();
+            ProcessCtrlBlk* ProcList = kinfo->ProcessListHead;
+            if (DeathThread->ParentProc == ProcList){ kinfo->ProcessListHead = kinfo->ProcessListHead->Next; } else {
+                ProcessCtrlBlk* current = ProcList;
+                ProcessCtrlBlk* previous;
+                while (current != NULL) {
+                    if (current == DeathThread->ParentProc) break;
+                    previous = current;
+                    current = current->Next;
+                }
+                KATTEMPT(current);
+                if (!(current == DeathThread->ParentProc)) goto _s;
+                KATTEMPT(previous);
+                previous->Next = current->Next;
+            }
+            _s:
+            MmFree(DeathThread->ParentProc->FileHandleTable);
+            PmmFree(DeathThread->ParentProc->pml4);
+            MmFree(DeathThread->ParentProc);
+        }
         MmFree(DeathThread);
         DeathThread = NULL;
     }
@@ -114,6 +137,7 @@ void ThreadEntry() {
 
     if (c == c->ParentProc->ThreadListHead) {
         c->ParentProc->ThreadListHead = c->ParentProc->ThreadListHead->ProcNext;
+        c->ParentProc->threads--;
         goto _2;
     }
     ThreadCtrlBlk* current1 = c->ParentProc->ThreadListHead;

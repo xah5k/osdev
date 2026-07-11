@@ -3,6 +3,7 @@
 #include "fs/vfs.h"
 #include "kernel.h"
 #include "mm/heap.h"
+#include <mm/pmm.h>
 #include <sched/sched.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -104,8 +105,29 @@ void Schedule() {
         if (DeathThread->StackBase) {
             MmFree((void*)DeathThread->StackBase);
         }
+        if(DeathThread->ParentProc->threads <= 0) {
+            // remove from kernel list
+            ProcessCtrlBlk* ProcList = KernelGetInformation()->ProcessListHead;
+            if (DeathThread->ParentProc == ProcList){ ProcList = ProcList->Next;} else {
+                ProcessCtrlBlk* current = ProcList;
+                ProcessCtrlBlk* previous;
+                while (current != NULL) {
+                    if (current == DeathThread->ParentProc) break;
+                    previous = current;
+                    current = current->Next;
+                }
+                KATTEMPT(current);
+                if (!(current == DeathThread->ParentProc)) goto _s;
+                KATTEMPT(previous);
+                previous->Next = current->Next;
+            }
+            _s:
+            MmFree(DeathThread->ParentProc->FileHandleTable);
+            PmmFree(DeathThread->ParentProc->pml4);
+            MmFree(DeathThread->ParentProc);
+        }
         MmFree(DeathThread);
-        DeathThread = NULL;
+        DeathThread = NULL; 
     }
     //printf("sched: thread with tid %d is back\r\n", CurrentThread->tid);
     SpnLckRelease(&SchedSpinlock);

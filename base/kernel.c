@@ -108,6 +108,10 @@ struct ProcessCtrlBlk* KernelGetCurrentProc() {
     return gkInfo->CurrentProcess;
 }
 
+KernelInformation* KernelGetInformation() {
+    return gkInfo;
+}
+
 void KeSetupMmu() {
     kpml4 = PmmAllocate();
     memset(kpml4, 0, PAGE_SIZE);
@@ -185,11 +189,6 @@ static KernelInformation* KeCreateKinfo() {
 }
 
 
-void NewThr() {
-    printf("ay wsg cuzzysq\r\n");
-    printf("peform exit.\r\n");
-}
-
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -226,9 +225,6 @@ void KernelBootstrapProc() {
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
-
-    ProcessCreate(NewThr, gkInfo);
-    ProcListRunning(gkInfo);
     while(1);
 }
 
