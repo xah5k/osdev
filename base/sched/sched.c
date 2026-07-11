@@ -24,7 +24,7 @@ void SchedIdleThread() {
 void SchedInitalize(KernelInformation* kinfo) {
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
     KernelProc->pml4 = (virtaddr*)_x86_64_get_pml4();
-    KernelProc->cr3 = MmuGetPhys((virtaddr)KernelProc->cr3);
+    KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;
     KernelProc->nextfh = 0;
     KernelProc->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
@@ -88,10 +88,12 @@ void Schedule() {
     NextThr->state = SCHED_THREAD_RUNNING;
 
     if (NextThr->ParentProc != OldThr->ParentProc) {
+        printf("NextThr->ParentProc = 0x%lx OldThr->ParentProc = 0x%lx\r\n", NextThr->ParentProc, OldThr->ParentProc);
         gkinfoPtr->CurrentProcess = NextThr->ParentProc;
     }
 
     if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
+        printf("NextThr->ParentProc->cr3 = 0x%lx OldThr->ParentProc->cr3 = 0x%lx\r\n", NextThr->ParentProc->cr3, OldThr->ParentProc->cr3);
         _x86_64_load_pml4(NextThr->ParentProc->cr3);
     }
     asm ("cli");

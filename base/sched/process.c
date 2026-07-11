@@ -5,26 +5,30 @@
 #include <memory.h>
 #include <printfwrapper.h>
 #include "sched.h"
+#include <mm/pmm.h>
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
 extern ThreadCtrlBlk* DeathThread;
 
 static uint32_t TidCount = 1;
+static uint64_t PidCount = 0;
 static uint32_t ThreadGetTid() {
     uint32_t r = TidCount++;
     return r;
 }
+static uint64_t ProcGetPid() {
+    uint64_t r = PidCount++;
+    return r;
+}
 
 uint64_t* ProcNewPML4() {
-    uint64_t* NewPML4 = (uint64_t*)MmAllocate(PAGE_SIZE);
+    uint64_t* NewPML4 = PmmAllocate();
     memset(NewPML4, 0, PAGE_SIZE);
     uint64_t* KernelPML4 = (uint64_t*)_x86_64_get_pml4();
     memcpy(&NewPML4[256], &KernelPML4[256], 256 * sizeof(uint64_t));
     return NewPML4;
 }
-
-
 
 void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* list = kinfo->ProcessListHead;
@@ -65,6 +69,27 @@ ThreadCtrlBlk* ThreadNew(void* entry) {
     new->tid = ThreadGetTid();
     ThreadCreateStack(new, entry);
     return new;
+}
+
+// creates a new process and it makes one thread with the entry point
+ProcessCtrlBlk* ProcessNew() {
+    ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
+    new->pml4 = ProcNewPML4();
+    new->cr3 = (uint64_t)new->pml4;
+    new->pid = ProcGetPid();
+    new->nextfh = 0;
+    new->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    new->Next = NULL;
+}
+
+void ProcessCreate(void* entry, KernelInformation* kinfo) {
+    ProcessCtrlBlk* proc = ProcessNew();
+    ThreadCtrlBlk* thr = ThreadNew(entry);
+    ProcAttachThread(proc, thr);
+    ThreadAdd(thr);
+    proc->Next = kinfo->ProcessListHead;
+    kinfo->ProcessListHead = proc;
+    kinfo->CurrentProcess = proc;
 }
 
 void ThreadAdd(ThreadCtrlBlk* Tcb) {

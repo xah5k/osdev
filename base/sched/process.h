@@ -30,6 +30,8 @@ typedef struct ThreadCtrlBlk {
 
 
 ThreadCtrlBlk* ThreadNew(void* entry);
+ProcessCtrlBlk* ProcessNew();
+void ProcessCreate(void* entry, KernelInformation* kinfo);
 uint64_t* ProcNewPML4();
 void ThreadEntry();
 void ProcListRunning(KernelInformation* kinfo);

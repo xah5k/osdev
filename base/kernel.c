@@ -227,10 +227,7 @@ void KernelBootstrapProc() {
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
 
-    // test thread
-    ThreadCtrlBlk* New1 = ThreadNew(NewThr);
-    ProcAttachThread(KernelGetCurrentProc(), New1);
-    ThreadAdd(New1);
+    ProcessCreate(NewThr, gkInfo);
     ProcListRunning(gkInfo);
     while(1);
 }
