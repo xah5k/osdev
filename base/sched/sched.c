@@ -14,7 +14,8 @@
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;
-static ThreadCtrlBlk* ReadyQueueHead;
+ThreadCtrlBlk* ReadyQueueHead;
+ThreadCtrlBlk* DeathThread;
 static KernelInformation* gkinfoPtr;
 void SchedIdleThread() {
     while (1) asm("hlt");
@@ -31,12 +32,14 @@ void SchedInitalize(KernelInformation* kinfo) {
 
     // create kernel thread
     ThreadCtrlBlk* KernelThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
+    memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
     KernelThread->tid = 0;
     KernelThread->state = SCHED_THREAD_RUNNING;
-    //KernelThread->rsp = _x86_64_get_stack();
+    KernelThread->rsp = _x86_64_get_stack();
     //KernelThread->ParentProc = KernelProc;
 
     ThreadCtrlBlk* IdleThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
+    memset(IdleThread, 0, sizeof(ThreadCtrlBlk));
     ThreadCreate(IdleThread, SchedIdleThread);
     IdleThread->tid = 1;
     IdleThread->state = SCHED_THREAD_READY;
@@ -69,17 +72,22 @@ void Schedule() {
     NextThr->GlobalNext = NULL;
 
     OldThr->state = SCHED_THREAD_READY;
-
-    if (ReadyQueueHead == NULL) {
-        ReadyQueueHead = OldThr;
-    } else {
-        ThreadCtrlBlk* LastThr = ReadyQueueHead;
-        while (LastThr->GlobalNext != NULL) {
-            LastThr = LastThr->GlobalNext;
+    if (OldThr != DeathThread) {
+        OldThr->state = SCHED_THREAD_READY;
+        if (ReadyQueueHead == NULL) {
+            ReadyQueueHead = OldThr;
+        } else {
+            ThreadCtrlBlk* LastThr = ReadyQueueHead;
+            while (LastThr->GlobalNext != NULL) {
+                LastThr = LastThr->GlobalNext;
+            }
+            LastThr->GlobalNext = OldThr;
+            OldThr->GlobalNext = NULL;
         }
-        LastThr->GlobalNext = OldThr;
-        OldThr->GlobalNext = NULL;
-    }
+    } else {
+        OldThr->state = SCHED_THREAD_DEAD;
+    }    
+        
 
     CurrentThread = NextThr;
     NextThr->state = SCHED_THREAD_RUNNING;
@@ -95,6 +103,13 @@ void Schedule() {
     #ifdef __x86_64__
     _x86_64_ctxswitch(&OldThr->rsp, NextThr->rsp);
     #endif
+    if (DeathThread != NULL) {
+        if (DeathThread->StackBase) {
+            MmFree((void*)DeathThread->StackBase);
+        }
+        MmFree(DeathThread);
+        DeathThread = NULL;
+    }
     //printf("sched: thread with tid %d is back\r\n", CurrentThread->tid);
     SpnLckRelease(&SchedSpinlock);
 }

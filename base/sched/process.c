@@ -4,9 +4,11 @@
 #include <mm/heap.h>
 #include <memory.h>
 #include <printfwrapper.h>
+#include "sched.h"
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
-
+extern ThreadCtrlBlk* ReadyQueueHead;
+extern ThreadCtrlBlk* DeathThread;
 uint64_t* ProcNewPML4() {
     uint64_t* NewPML4 = (uint64_t*)MmAllocate(PAGE_SIZE);
     memset(NewPML4, 0, PAGE_SIZE);
@@ -34,7 +36,8 @@ void ProcListRunning(KernelInformation* kinfo) {
     }
 }
 void ThreadCreate(ThreadCtrlBlk* Tcb, void* entry) {
-    uint64_t* StackTop = (uint64_t*)MmAllocate(16384) + (16384 / 8);
+    uint64_t* StackBase = (uint64_t*)MmAllocate(16384);
+    uint64_t* StackTop = StackBase + (16384 / 8);
     //Tcb->StackBase = (uint64_t)StackTop - (16384 * 8);
     if ((uint64_t)StackTop % 16 != 0) StackTop--;
     *(--StackTop) = (uint64_t)ThreadEntry;
@@ -44,16 +47,82 @@ void ThreadCreate(ThreadCtrlBlk* Tcb, void* entry) {
     }
     *(--StackTop) = 0x202;
     Tcb->rsp = (uint64_t)StackTop;
+    Tcb->StackBase = (uint64_t)StackBase;
     Tcb->entry = entry;
-    //printf("sched: creating stack for thread. tid=%d actual entry=0x%lx wrapper entry=0x%lx\r\n", Tcb->tid, entry, ThreadEntry);
 }
+
+void ThreadAdd(ThreadCtrlBlk* Tcb) {
+    Tcb->GlobalNext = ReadyQueueHead;
+    ReadyQueueHead = Tcb;
+}
+
 void ThreadEntry() {
     SpnLckRelease(&SchedSpinlock);
+    if (DeathThread != NULL) {
+        if (DeathThread->StackBase) {
+            MmFree((void*)DeathThread->StackBase);
+        }
+        MmFree(DeathThread);
+        DeathThread = NULL;
+    }
     asm volatile ("sti");
     //printf("sched: wrapper: entering thread(tid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;
     if (entry) entry();
-    //printf("sched: wrapper: panic: thread exited!\r\n");
+    // handle exit
+    SpnLckAcquire(&SchedSpinlock);
+    //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
+    ThreadCtrlBlk* c = CurrentThread;
+
+    // remove it from process list of threads
+
+    if (c == c->ParentProc->ThreadListHead) {
+        c->ParentProc->ThreadListHead = c->ParentProc->ThreadListHead->ProcNext;
+        goto _2;
+    }
+    ThreadCtrlBlk* current1 = c->ParentProc->ThreadListHead;
+    ThreadCtrlBlk* previous1 = NULL;
+    while (current1 != NULL) {
+        if (current1 == c) {
+            break;
+        }
+        previous1 = current1;
+        current1 = current1->ProcNext;
+    }
+
+    KATTEMPT(current1);
+    KATTEMPT(current1 == c);
+    // unlink from list
+    previous1->ProcNext = current1->ProcNext;
+    _2:
+    if (c != CurrentThread) {
+        if (c == ReadyQueueHead) {
+            ReadyQueueHead = c->GlobalNext;
+            c->GlobalNext = NULL;
+            goto _3;
+        }
+        
+        ThreadCtrlBlk* current2 = ReadyQueueHead;
+        ThreadCtrlBlk* previous2 = NULL;
+        while (current2 != NULL && current2 != c) {
+            printf("current2=0x%lx\r\n", current2);
+            previous2 = current2;
+            current2 = current2->GlobalNext;
+        }
+
+        if (!current2 || current2 != c) {
+            printf("current2=0x%lx c=0x%lx\r\n", current2, c);
+            KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
+        }
+        previous2->GlobalNext = current2->GlobalNext;
+        current2->GlobalNext = NULL;
+    }
+    _3:
+    c->ProcNext = NULL;
+    c->GlobalNext = NULL;
+    DeathThread = c;
+    SpnLckRelease(&SchedSpinlock);
+    SchedYield();
     while (1) {asm("hlt");}
 }
 

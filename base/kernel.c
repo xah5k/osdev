@@ -32,7 +32,7 @@ void _putchar(char character) {
 }
 
 
-const char* BugcheckTable[2] = {
+const char* BugcheckTable[3] = {
     "UNREGISTERED_INTERRUPT",
     "INTENTIONAL_INVOCATION",
     "KERNEL_CORE_COMP_FAIL"
@@ -184,6 +184,12 @@ static KernelInformation* KeCreateKinfo() {
     return kInfo;
 }
 
+
+void NewThr() {
+    printf("ay wsg cuzzysq\r\n");
+    printf("peform exit.\r\n");
+}
+
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -220,6 +226,15 @@ void KernelBootstrapProc() {
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
+
+    // test thread
+    ThreadCtrlBlk* New1 = MmAllocate(sizeof(ThreadCtrlBlk));
+    ThreadCreate(New1, NewThr);
+    New1->tid = 2;
+    New1->state = SCHED_THREAD_READY;
+    ProcAttachThread(KernelGetCurrentProc(), New1);
+    ThreadAdd(New1);
+    ProcListRunning(gkInfo);
     while(1);
 }
 

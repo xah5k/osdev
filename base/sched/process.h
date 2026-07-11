@@ -34,4 +34,5 @@ void ThreadCreate(ThreadCtrlBlk* Tcb, void* entry);
 uint64_t* ProcNewPML4();
 void ThreadEntry();
 void ProcListRunning(KernelInformation* kinfo);
+void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);

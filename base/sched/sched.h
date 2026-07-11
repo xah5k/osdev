@@ -9,7 +9,7 @@
 
 #define SCHED_THREAD_READY 1
 #define SCHED_THREAD_RUNNING 2
-
+#define SCHED_THREAD_DEAD 3
 
 
 
