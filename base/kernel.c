@@ -228,10 +228,7 @@ void KernelBootstrapProc() {
     printf("kernel: initalized tarfs\r\n");
 
     // test thread
-    ThreadCtrlBlk* New1 = MmAllocate(sizeof(ThreadCtrlBlk));
-    ThreadCreate(New1, NewThr);
-    New1->tid = 2;
-    New1->state = SCHED_THREAD_READY;
+    ThreadCtrlBlk* New1 = ThreadNew(NewThr);
     ProcAttachThread(KernelGetCurrentProc(), New1);
     ThreadAdd(New1);
     ProcListRunning(gkInfo);

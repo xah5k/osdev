@@ -36,14 +36,9 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelThread->tid = 0;
     KernelThread->state = SCHED_THREAD_RUNNING;
     KernelThread->rsp = _x86_64_get_stack();
-    //KernelThread->ParentProc = KernelProc;
 
-    ThreadCtrlBlk* IdleThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
-    memset(IdleThread, 0, sizeof(ThreadCtrlBlk));
-    ThreadCreate(IdleThread, SchedIdleThread);
-    IdleThread->tid = 1;
-    IdleThread->state = SCHED_THREAD_READY;
-    //IdleThread->ParentProc = KernelProc;
+    // create idle thread
+    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread);
 
     ProcAttachThread(KernelProc, KernelThread);
     ProcAttachThread(KernelProc, IdleThread);

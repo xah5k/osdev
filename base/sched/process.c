@@ -9,6 +9,13 @@ extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
 extern ThreadCtrlBlk* DeathThread;
+
+static uint32_t TidCount = 1;
+static uint32_t ThreadGetTid() {
+    uint32_t r = TidCount++;
+    return r;
+}
+
 uint64_t* ProcNewPML4() {
     uint64_t* NewPML4 = (uint64_t*)MmAllocate(PAGE_SIZE);
     memset(NewPML4, 0, PAGE_SIZE);
@@ -35,7 +42,7 @@ void ProcListRunning(KernelInformation* kinfo) {
         current = current->Next;
     }
 }
-void ThreadCreate(ThreadCtrlBlk* Tcb, void* entry) {
+void ThreadCreateStack(ThreadCtrlBlk* Tcb, void* entry) {
     uint64_t* StackBase = (uint64_t*)MmAllocate(16384);
     uint64_t* StackTop = StackBase + (16384 / 8);
     //Tcb->StackBase = (uint64_t)StackTop - (16384 * 8);
@@ -49,6 +56,15 @@ void ThreadCreate(ThreadCtrlBlk* Tcb, void* entry) {
     Tcb->rsp = (uint64_t)StackTop;
     Tcb->StackBase = (uint64_t)StackBase;
     Tcb->entry = entry;
+}
+
+ThreadCtrlBlk* ThreadNew(void* entry) {
+    ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
+    memset(new, 0, sizeof(ThreadCtrlBlk));
+    new->state = SCHED_THREAD_READY;
+    new->tid = ThreadGetTid();
+    ThreadCreateStack(new, entry);
+    return new;
 }
 
 void ThreadAdd(ThreadCtrlBlk* Tcb) {
