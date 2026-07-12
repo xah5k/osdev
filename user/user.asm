@@ -1,8 +1,7 @@
 [BITS 64]
-[DEFAULT REL]
 
 main:
-    mov rbx, [rdi]
+    mov rbx, 0xffffffffffe05374
     mov rdi, 'H'
     call rbx
     mov rdi, 'I'

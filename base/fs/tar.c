@@ -34,7 +34,7 @@ int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes) {
         read = oct2bin((unsigned char*)FsEntry->Size, 11);
     }
     memcpy(buffer, raw, read);
-    return 0;
+    return read;
 }
 
 int TarFsGetFileSize(struct VfsFile* file) {

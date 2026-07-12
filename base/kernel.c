@@ -233,6 +233,21 @@ void KernelBootstrapProc() {
     printf("kernel: initalized tarfs\r\n");
     printf("putchar@0x%lx\r\n", _putchar);
     
+    int h = OsOpen("initrd:/user.prog", 0);
+    int sz = OsGetFileSize(h);
+    printf("program is located at initrd:/user.prog with %d size\r\n", sz);
+    const char* buf = MmAllocate(sz);
+    if (!buf) {
+        printf("memory allocation fail.\r\n");
+    } else {
+        int st = OsRead(h, buf, sz);
+        printf("bytes read: %d\r\n", st);
+        OsClose(h);
+        void (*entry)() = (void*)buf;
+        entry();
+        printf("\r\nback from program.\r\n");
+    }
+
     while(1);
 }
 
