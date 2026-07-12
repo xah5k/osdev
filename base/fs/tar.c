@@ -37,6 +37,15 @@ int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes) {
     return 0;
 }
 
+int TarFsGetFileSize(struct VfsFile* file) {
+    if (!gTarInitrdPtr || !gTarVfsDrive) return -1;
+    if (file->Type != VFS_TYPE_FILE) return -1;
+    char* DriverPath = VfsRemoveFormatPath(file->Path);
+    TarFileEntry* FsEntry = TarFsLookup(gTarInitrdPtr, DriverPath);
+    if (!FsEntry) return -1;
+    return oct2bin((unsigned char*)FsEntry->Size, 11);
+}
+
 struct VfsFile* TarFsFindFile(const char* Path) {
     for (int i = 0; i < gTarFsNumEntries; i++) {
         //printf("fs: tar: %s against %s\r\n", Path, gTarFsEntries[i].Path);
@@ -71,6 +80,7 @@ void TarInitalizeVfs(void* archive) {
     DriverOps->Read = (void*)TarFsRead;
     DriverOps->Write = NULL;
     DriverOps->FindFile = (void*)TarFsFindFile;
+    DriverOps->GetFileSize = (void*)TarFsGetFileSize;
     gTarVfsDrive->DriverOps = DriverOps;
     memcpy(gTarVfsDrive->Name, "initrd", 7);
     internalCountEntries();

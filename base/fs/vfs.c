@@ -29,6 +29,11 @@ int VfsWrite(VfsFile* file, const void* buffer, size_t nbytes) {
     else return -1;
 }
 
+int VfsGetFileSize(VfsFile* file) {
+    if (file->DrivePtr->DriverOps->GetFileSize) return file->DrivePtr->DriverOps->GetFileSize((void*)file);
+    else return -1;
+}
+
 VfsFile* VfsFindFile(const char* Path) {
     for (int i = 0; i < 16; i++) {
         if (!gVfsDrives[i]) { continue; }
@@ -45,16 +50,15 @@ void VfsAddDriveToList(VfsDrive* drive) {
 }
 
 char* VfsRemoveFormatPath(const char* in) {
-    int oglen = strlen(in);
-    char* new = (char*)in;
-    int i = 0;
-    while (*in != ':') {
-        i++;
-        in++;
+    if (in == NULL) return NULL;
+    char* p = (char*)in;
+    while (*p != 0) {
+        if (*p == ':') {
+            return p+1;
+        }
+        p++;
     }
-    i += 1;
-    memmove(new, new + i, oglen - i + 1);
-    return new;
+    return in;
 }
 
 int OsOpen(const char* path, int flags) {
@@ -71,6 +75,7 @@ int OsOpen(const char* path, int flags) {
     int handle = current->nextfh;
     current->nextfh++;
     current->FileHandleTable[handle] = desc;
+    KernelUnlockRsLck();
     return handle;
 }
 
@@ -79,6 +84,7 @@ int OsClose(int handle) {
     if (!proc) return -1;
     proc->FileHandleTable[handle] = NULL;
     proc->nextfh--;
+    KernelUnlockRsLck();
     return 0;
 }
 
@@ -86,6 +92,7 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (!proc->FileHandleTable[handle]) return -1;
     VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    KernelUnlockRsLck();
     return VfsRead(f, buffer, nbytes);
 }
 
@@ -93,5 +100,14 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (!proc->FileHandleTable[handle]) return -1;
     VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    KernelUnlockRsLck();
     return VfsWrite(f, buffer, nbytes);
+}
+
+int OsGetFileSize(int handle) {
+    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    if (!proc->FileHandleTable[handle]) return -1;
+    VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    KernelUnlockRsLck();
+    return VfsGetFileSize(f);
 }

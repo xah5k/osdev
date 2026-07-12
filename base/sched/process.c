@@ -76,6 +76,7 @@ ProcessCtrlBlk* ProcessNew() {
     new->threads = 0;
     new->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->Next = NULL;
+    return new;
 }
 
 void ProcessCreate(void* entry, KernelInformation* kinfo) {
@@ -117,6 +118,7 @@ void ThreadEntry() {
                 previous->Next = current->Next;
             }
             _s:
+            KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
             PmmFree(DeathThread->ParentProc->pml4);
             MmFree(DeathThread->ParentProc);

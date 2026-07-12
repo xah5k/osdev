@@ -108,6 +108,7 @@ void Schedule() {
         if(DeathThread->ParentProc->threads <= 0) {
             // remove from kernel list
             ProcessCtrlBlk* ProcList = KernelGetInformation()->ProcessListHead;
+            
             if (DeathThread->ParentProc == ProcList){ ProcList = ProcList->Next;} else {
                 ProcessCtrlBlk* current = ProcList;
                 ProcessCtrlBlk* previous;
@@ -122,6 +123,7 @@ void Schedule() {
                 previous->Next = current->Next;
             }
             _s:
+            KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
             PmmFree(DeathThread->ParentProc->pml4);
             MmFree(DeathThread->ParentProc);

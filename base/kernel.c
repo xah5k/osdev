@@ -8,6 +8,7 @@
 #include "fs/vfs.h"
 #include "sched/process.h"
 #include "serial.h"
+#include <util/spinlock.h>
 #include <kernel.h>
 #ifdef __x86_64__
 #include <arch/x86_64/cpu/cpu.h>
@@ -103,8 +104,13 @@ extern uint64_t PmmTotalPhysicalMem;
 pagetable* kpml4; 
 
 static KernelInformation* gkInfo;
+Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
 
+void KernelUnlockRsLck() {
+    SpnLckRelease(&KernelResourceLock);
+}
 struct ProcessCtrlBlk* KernelGetCurrentProc() {
+    SpnLckAcquire(&KernelResourceLock);
     return gkInfo->CurrentProcess;
 }
 
@@ -225,6 +231,8 @@ void KernelBootstrapProc() {
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
+    printf("putchar@0x%lx\r\n", _putchar);
+    
     while(1);
 }
 

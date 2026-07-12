@@ -11,5 +11,9 @@ _start:
     cmp [bootboot + 0xC], bx
     jne .ap
     jmp KernelBootstrapProc
+.loop:
+    cli
+    hlt
+    jmp .loop
 .ap:
     jmp KernelApplicationProc

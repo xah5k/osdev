@@ -33,6 +33,8 @@ typedef enum {
 } BugcheckCode;
 struct ProcessCtrlBlk* KernelGetCurrentProc();
 KernelInformation* KernelGetInformation();
+void KernelUnlockRsLck();
+
 typedef enum {
     KSUCCESS,
     KFAIL,

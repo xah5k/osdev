@@ -14,11 +14,16 @@ override OBJ := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
 ifeq ($(ARCH),x86_64)
 override OBJ += $(addprefix obj-$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 endif
-all: preinit $(KNAME).x86_64.elf
+all: preinit $(KNAME).x86_64.elf user
 
+.PHONY: FORCE
 
-produceimage:
+user: FORCE
+	make -C user
+
+produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
+	cp user/user.prog sysroot/
 	tools/mkbootimg bootimg.json osdev.img
 
 # Fetch external sources (like `bootboot.h`)
@@ -30,7 +35,6 @@ $(KNAME).x86_64.elf: $(OBJ)
 	@mkdir -p "$(dir $@)"
 	@x86_64-elf-ld $(LDFLAGS) $(OBJ) -o $@
 	@echo " $<"
-	@make produceimage
 
 obj-$(ARCH)/%.c.o: %.c
 	@mkdir -p "$(dir $@)"
@@ -45,7 +49,7 @@ clean:
 	@rm -rf $(KNAME).$(ARCH).elf
 	@rm -rf sysroot/boot/*.elf
 	@rm -rf osdev.img
-
+	@make -C user clean
 
 run-x86_64:
 	qemu-system-x86_64 osdev.img -M q35 $(QARG) -serial stdio
