@@ -244,8 +244,8 @@ void KernelBootstrapProc() {
         printf("bytes read: %d\r\n", st);
         OsClose(h);
         void (*entry)() = (void*)buf;
-        entry();
-        printf("\r\nback from program.\r\n");
+        ProcessCreate(entry, gkInfo);
+        printf("\r\ncreated process.\r\n");
     }
 
     while(1);
