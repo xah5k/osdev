@@ -23,7 +23,7 @@ user: FORCE
 
 produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
-	cp user/user.prog sysroot/
+	cp user/hello.elf sysroot/
 	tools/mkbootimg bootimg.json osdev.img
 
 # Fetch external sources (like `bootboot.h`)
