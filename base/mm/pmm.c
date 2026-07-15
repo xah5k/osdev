@@ -74,7 +74,8 @@ KSTATUS PmmInitalize(BOOTBOOT* b) {
 }
 
 void PmmAdjustBitmapPtr() {
-    PmmInternalBitmap += gMmuVOffset;
+    PmmInternalBitmap = (uint64_t*)((uint64_t)PmmInternalBitmap + gMmuVOffset);
+    
 }
 
 void* PmmAllocate() {
