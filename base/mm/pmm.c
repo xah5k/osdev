@@ -60,6 +60,10 @@ void* PmmAllocate() {
     return tmp;
 }
 
+void* PmmAllocatePages(int pages) {
+    SpnLckAcquire(&PmmInternalLock);
+    
+}
 void PmmFree(void *page) {
     SpnLckAcquire(&PmmInternalLock);
     PmmInternalBlock* tmp = page;

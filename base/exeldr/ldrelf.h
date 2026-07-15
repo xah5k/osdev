@@ -1,3 +1,3 @@
 #pragma once
-
-void LdrElfExecute(void* addr);
+#include <kernel.h>
+KSTATUS LdrElfExecute(void* addr);
