@@ -39,7 +39,8 @@ typedef enum {
     KSUCCESS,
     KFAIL,
     KUNSUPPORTED,
-    KINVALID
+    KINVALID,
+    KOOMERR
 } KSTATUS;
 
 #define KDBG printf("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);

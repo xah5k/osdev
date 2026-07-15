@@ -173,11 +173,17 @@ void KeSetupMmu() {
     #ifdef __x86_64__
     _x86_64_load_pml4((uint64_t)kpml4);
     #endif
-
+    
     // change offset (where physical memory is located in virtual address space)
     gMmuVOffset = MMU_PHYS_OFFSET;
 }
 
+void KeRmvIdentityMap() {
+    for (uint64_t i = 0; i < PmmTotalPhysicalMem; i+=PAGE_SIZE) {
+        // tmp identity map
+        MmuUnmapPage((pagetable*)((uint64_t)kpml4 + MMU_PHYS_OFFSET), i);
+    } 
+}
 KSTATUS KeMmInitalize() {
     return VmmInitalize() && MmHeapInitalize();
 }
@@ -195,6 +201,7 @@ static KernelInformation* KeCreateKinfo() {
     return kInfo;
 }
 
+extern uint64_t PmmLargestFreeMemorySize;
 
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
@@ -233,6 +240,11 @@ void KernelBootstrapProc() {
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
     printf("putchar@0x%lx\r\n", _putchar);
+    
+    // think its a good time to unmap identity mappings
+    PmmAdjustBitmapPtr();
+    KeRmvIdentityMap();
+    printf("kernel: removed identity mapping from before.\r\n");
     
     int h = OsOpen("initrd:/hello.elf", 0);
     int sz = OsGetFileSize(h);

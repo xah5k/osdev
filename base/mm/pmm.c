@@ -6,7 +6,8 @@
 #ifdef __x86_64__
 #include <arch/x86_64/cpu/paging.h>
 #endif
-
+#include <kernel.h>
+#include <memory.h>
 static uint64_t PmmLargestFreeMemorySize = 0;
 static void* PmmLargestFreeMemoryPtr = 0x0;
 
@@ -14,15 +15,16 @@ static Spinlock PmmInternalLock = {ATOMIC_FLAG_INIT};
 // for paging
 uint64_t PmmTotalPhysicalMem = 0;
 
-typedef struct PmmInternalBlock {
-    struct PmmInternalBlock* next;
-} PmmInternalBlock;
-static PmmInternalBlock* PmmInternalHead;
-
+static uint64_t* PmmInternalBitmap;
+static uint64_t PmmInternalBitmapSz = 0;
+static uint64_t PmmTotalPages = 0;
+static uint64_t PmmHighestAddr = 0x0;
 //#define PMM_DEBUG
-void PmmInitalize(BOOTBOOT* b) {
+
+KSTATUS PmmInitalize(BOOTBOOT* b) {
     uint64_t MMapEntries = (b->size - 128) / 16;
     MMapEnt* entry = &b->mmap;
+    uint64_t TopAddress = 0;
     // so basically we find the largest free memory chunk
     for (uint64_t i = 0; i < MMapEntries; i++, entry++) {
         if (MMapEnt_IsFree(entry)) {
@@ -35,39 +37,95 @@ void PmmInitalize(BOOTBOOT* b) {
                 #endif
             }
         }
+        TopAddress = MMapEnt_Ptr(entry) + MMapEnt_Size(entry);
+        if (TopAddress > PmmHighestAddr) {
+            PmmHighestAddr = TopAddress;
+        }
         PmmTotalPhysicalMem += MMapEnt_Size(entry);
     }
-    PmmInternalHead = PmmLargestFreeMemoryPtr;
-    uint64_t PmmLargestFreeMemoryPages = PmmLargestFreeMemorySize / PAGE_SIZE;
+    uint64_t BitmapSize = ((PmmHighestAddr / PAGE_SIZE) + 7) / 8;
 
-    // build the list
-    for (uint64_t i = 0; i < PmmLargestFreeMemoryPages; i++) {
-        PmmFree((void*)((uint64_t)PmmLargestFreeMemoryPtr + (i * PAGE_SIZE)));
+    if (BitmapSize > PmmLargestFreeMemorySize) {
+        return KOOMERR;
     }
+    PmmInternalBitmap = PmmLargestFreeMemoryPtr;
+    memset((void*)PmmInternalBitmap, 0xFF, BitmapSize);
+
+    entry = &b->mmap;
+    for (uint64_t x = 0; x < MMapEntries; x++, entry++) {
+        if (MMapEnt_IsFree(entry)) {
+            uint64_t BasePage = MMapEnt_Ptr(entry) / PAGE_SIZE;
+            for (uint64_t i = BasePage; i < (BasePage + (MMapEnt_Size(entry) / PAGE_SIZE)); i++) {
+                uint64_t ArrayIdx = i >> 6;
+                uint64_t BitPos =  i & 63;
+                PmmInternalBitmap[ArrayIdx] &= ~(1ULL << BitPos);
+            }
+        }
+    }
+    uint64_t BitmapStartPage = (uint64_t)PmmInternalBitmap / PAGE_SIZE;
+    for (uint64_t i = BitmapStartPage; i < (BitmapStartPage + (BitmapSize / PAGE_SIZE)); i++) {
+        uint64_t ArrayIdx = i >> 6;
+        uint64_t BitPos =  i & 63;
+        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos);
+    }
+    PmmInternalBitmapSz = BitmapSize;
+    PmmTotalPages = (PmmLargestFreeMemorySize) / PAGE_SIZE;
+    return KSUCCESS;
+}
+
+void PmmAdjustBitmapPtr() {
+    PmmInternalBitmap += gMmuVOffset;
 }
 
 void* PmmAllocate() {
-    SpnLckAcquire(&PmmInternalLock);
-    PmmInternalBlock* tmp = PmmInternalHead;
-    PmmInternalHead = PmmInternalHead->next;
-    // check for out of memory
-    if ((uint64_t)PmmInternalHead > (uint64_t)(PmmLargestFreeMemoryPtr + PmmLargestFreeMemorySize)) {
-        printf("pmm: ran out of physical memory!\r\n");
-        SpnLckRelease(&PmmInternalLock);
-        return NULL;
-    }
-    SpnLckRelease(&PmmInternalLock);
-    return tmp;
+    return PmmAllocatePages(1);
 }
 
-void* PmmAllocatePages(int pages) {
+void* PmmAllocatePages(uint64_t num) {
     SpnLckAcquire(&PmmInternalLock);
-    
+    uint64_t TotalBitmapEntries = PmmInternalBitmapSz/8;
+    uint64_t AllocatedPages = 0;
+    uint64_t PotentialStartPageIdx = 0;
+    for (uint64_t i = 0; i < TotalBitmapEntries; i++) {
+        if (PmmInternalBitmap[i] == UINT64_MAX) continue;
+        for (int j = 0; j < 64; j++) {
+            uint64_t IsAlreadyAlloc = PmmInternalBitmap[i] & (1ULL << j);
+            uint64_t GlobalPageIdx = (i * 64) + j;
+            if (IsAlreadyAlloc == 0) {
+                if (AllocatedPages == 0) PotentialStartPageIdx = GlobalPageIdx;
+                AllocatedPages += 1;
+                if (AllocatedPages == num) goto out;
+            } else AllocatedPages = 0;
+        }
+    }
+    SpnLckRelease(&PmmInternalLock);
+    return NULL;
+    out:
+    for (uint64_t i = PotentialStartPageIdx; i < (PotentialStartPageIdx + num); i++) {
+        uint64_t ArrayIdx = i >> 6;
+        uint64_t BitPos =  i & 63;
+        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos);
+    }
+    SpnLckRelease(&PmmInternalLock);
+    return (void*)(PotentialStartPageIdx * PAGE_SIZE);
 }
 void PmmFree(void *page) {
+    PmmFreePages(page, 1);
+}
+
+void PmmFreePages(void* pagef, uint64_t num) {
+    if (!pagef) return;
     SpnLckAcquire(&PmmInternalLock);
-    PmmInternalBlock* tmp = page;
-    tmp->next = PmmInternalHead;
-    PmmInternalHead = tmp;
+    void* page = pagef + gMmuVOffset;
+    uint64_t Idx = ((uint64_t)page / 4096);
+    if ((Idx + num) >  (PmmInternalBitmapSz * 8)) {
+        SpnLckRelease(&PmmInternalLock);
+        return;
+    }
+    for (uint64_t i = Idx; i < Idx + num; i++) {
+        uint64_t ArrayIdx = i >> 6;
+        uint64_t BitPos = i & 63;
+        PmmInternalBitmap[ArrayIdx] &= ~(1ULL << BitPos);
+    }
     SpnLckRelease(&PmmInternalLock);
 }
