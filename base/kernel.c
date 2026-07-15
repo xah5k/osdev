@@ -179,10 +179,10 @@ void KeSetupMmu() {
 }
 
 void KeRmvIdentityMap() {
-    for (uint64_t i = 0; i < PmmTotalPhysicalMem; i+=PAGE_SIZE) {
-        // tmp identity map
-        MmuUnmapPage((pagetable*)((uint64_t)kpml4 + MMU_PHYS_OFFSET), i);
-    } 
+    kpml4[0] = 0;
+    #ifdef __x86_64__
+    _x86_64_load_pml4((uint64_t)kpml4);
+    #endif
 }
 KSTATUS KeMmInitalize() {
     return VmmInitalize() && MmHeapInitalize();
