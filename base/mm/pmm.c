@@ -8,6 +8,7 @@
 #endif
 #include <kernel.h>
 #include <memory.h>
+
 static uint64_t PmmLargestFreeMemorySize = 0;
 static void* PmmLargestFreeMemoryPtr = 0x0;
 
@@ -45,6 +46,9 @@ KSTATUS PmmInitalize(BOOTBOOT* b) {
     }
     uint64_t BitmapSize = ((PmmHighestAddr / PAGE_SIZE) + 7) / 8;
 
+    printf("pmm: dbg: HighestAddr=0x%lx BitmapSize=%d LargestFree=%d\r\n",
+       PmmHighestAddr, BitmapSize, PmmLargestFreeMemorySize);
+
     if (BitmapSize > PmmLargestFreeMemorySize) {
         return KOOMERR;
     }
@@ -70,6 +74,7 @@ KSTATUS PmmInitalize(BOOTBOOT* b) {
     }
     PmmInternalBitmapSz = BitmapSize;
     PmmTotalPages = (PmmLargestFreeMemorySize) / PAGE_SIZE;
+    PmmInternalBitmap[0] |= 1ULL;
     return KSUCCESS;
 }
 
@@ -88,7 +93,10 @@ void* PmmAllocatePages(uint64_t num) {
     uint64_t AllocatedPages = 0;
     uint64_t PotentialStartPageIdx = 0;
     for (uint64_t i = 0; i < TotalBitmapEntries; i++) {
-        if (PmmInternalBitmap[i] == UINT64_MAX) continue;
+        if (PmmInternalBitmap[i] == UINT64_MAX) {
+            AllocatedPages = 0;
+            continue;
+        }
         for (int j = 0; j < 64; j++) {
             uint64_t IsAlreadyAlloc = PmmInternalBitmap[i] & (1ULL << j);
             uint64_t GlobalPageIdx = (i * 64) + j;
@@ -113,13 +121,11 @@ void* PmmAllocatePages(uint64_t num) {
 void PmmFree(void *page) {
     PmmFreePages(page, 1);
 }
-
 void PmmFreePages(void* pagef, uint64_t num) {
     if (!pagef) return;
     SpnLckAcquire(&PmmInternalLock);
-    void* page = pagef + gMmuVOffset;
-    uint64_t Idx = ((uint64_t)page / 4096);
-    if ((Idx + num) >  (PmmInternalBitmapSz * 8)) {
+    uint64_t Idx = ((uint64_t)pagef / 4096);
+    if ((Idx + num) > (PmmInternalBitmapSz * 8)) {
         SpnLckRelease(&PmmInternalLock);
         return;
     }

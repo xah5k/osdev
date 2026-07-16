@@ -193,7 +193,8 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->bootinfo = &bootboot;
     kInfo->initrd = (void*)(bootboot.initrd_ptr);
     kInfo->fb = (Framebuffer*)PmmAllocate();
-    kInfo->fb->ptr = 0xfffffffffc000000;
+    KATTEMPT(kInfo->fb);
+    kInfo->fb->ptr = bootboot.fb_ptr;
     kInfo->fb->size = bootboot.fb_size;
     kInfo->fb->width = bootboot.fb_width;
     kInfo->fb->height = bootboot.fb_height;
