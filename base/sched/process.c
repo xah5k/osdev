@@ -19,11 +19,12 @@ static uint64_t ProcGetPid() {
 }
 
 uint64_t* ProcNewPML4() {
-    uint64_t* NewPML4 = PmmAllocate();
+    uint64_t* NewPML4Phys = PmmAllocate();
+    uint64_t* NewPML4 = (uint64_t*)((uint64_t)NewPML4Phys + gMmuVOffset);
     memset(NewPML4, 0, PAGE_SIZE);
-    uint64_t* KernelPML4 = (uint64_t*)_x86_64_get_pml4();
+    uint64_t* KernelPML4 = (uint64_t*)((uint64_t)_x86_64_get_pml4() + gMmuVOffset);
     memcpy(&NewPML4[256], &KernelPML4[256], 256 * sizeof(uint64_t));
-    return NewPML4;
+    return NewPML4Phys;
 }
 
 void ProcListRunning(KernelInformation* kinfo) {
@@ -74,7 +75,7 @@ ProcessCtrlBlk* ProcessNew() {
     new->pid = ProcGetPid()+1;
     new->nextfh = 0;
     new->threads = 0;
-    new->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->Next = NULL;
     return new;
 }

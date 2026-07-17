@@ -46,9 +46,6 @@ KSTATUS PmmInitalize(BOOTBOOT* b) {
     }
     uint64_t BitmapSize = ((PmmHighestAddr / PAGE_SIZE) + 7) / 8;
 
-    printf("pmm: dbg: HighestAddr=0x%lx BitmapSize=%d LargestFree=%d\r\n",
-       PmmHighestAddr, BitmapSize, PmmLargestFreeMemorySize);
-
     if (BitmapSize > PmmLargestFreeMemorySize) {
         return KOOMERR;
     }

@@ -66,15 +66,13 @@ int OsOpen(const char* path, int flags) {
     if (!f) return -1;
     VfsOpen(f);
 
-    VfsOpenFileDescr* desc = MmAllocate(sizeof(VfsOpenFileDescr));
-    desc->Entry = f;
-    desc->CursorPos = 0;
 
     ProcessCtrlBlk* current = KernelGetCurrentProc();
     if (!current) return -1;
+    if (current->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     int handle = current->nextfh;
     current->nextfh++;
-    current->FileHandleTable[handle] = desc;
+   /*crash*/ current->FileHandleTable[handle].Entry = f;
     KernelUnlockRsLck();
     return handle;
 }
@@ -82,7 +80,8 @@ int OsOpen(const char* path, int flags) {
 int OsClose(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (!proc) return -1;
-    proc->FileHandleTable[handle] = NULL;
+    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    memset(&proc->FileHandleTable[handle], 0, sizeof(VfsOpenFileDescr));
     proc->nextfh--;
     KernelUnlockRsLck();
     return 0;
@@ -90,24 +89,27 @@ int OsClose(int handle) {
 
 int OsRead(int handle, void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (!proc->FileHandleTable[handle]) return -1;
-    VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -1;
+    VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsRead(f, buffer, nbytes);
 }
 
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (!proc->FileHandleTable[handle]) return -1;
-    VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -1;
+    VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsWrite(f, buffer, nbytes);
 }
 
 int OsGetFileSize(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (!proc->FileHandleTable[handle]) return -1;
-    VfsFile* f = proc->FileHandleTable[handle]->Entry;
+    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -1;
+    VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsGetFileSize(f);
 }

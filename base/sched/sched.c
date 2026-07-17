@@ -28,7 +28,8 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;
     KernelProc->nextfh = 0;
-    KernelProc->FileHandleTable[0] = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    KernelProc->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    memset(KernelProc->FileHandleTable, 0, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     KernelProc->Next = NULL;
 
     // create kernel thread

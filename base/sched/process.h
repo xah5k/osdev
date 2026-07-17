@@ -10,7 +10,7 @@ typedef struct ProcessCtrlBlk {
     uint64_t pid;
     int nextfh;
     int threads;
-    VfsOpenFileDescr* FileHandleTable[VFS_MAX_ALLOWED_OPEN_HANDLES];
+    VfsOpenFileDescr* FileHandleTable;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Next;
 } ProcessCtrlBlk;
