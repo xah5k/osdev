@@ -40,6 +40,7 @@ void FbTextInitalize(void* sfn, void* fb) {
     g_fb_info = fb;
     if (font->fontMode == 0x01) glyphcount = 512; else glyphcount = 256;
 }
+
 void FbPutc(char c) {
     if (c == '\r') {
         gFbConsoleX = 0;

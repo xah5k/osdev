@@ -54,6 +54,42 @@ struct VfsFile* TarFsFindFile(const char* Path) {
     return NULL;
 }
 
+int TarFsReadDir(VfsFile* file, VfsDirEntry* outdirent, int index) {
+    uint64_t DirLen = strlen(file->Path);
+    int matches = 0;
+    for (int i = 0; i < gTarFsNumEntries; i++) {
+        if (gTarFsEntries[i].Path[0] == '\0') {
+            break; 
+        }
+        const char* EntryPath = gTarFsEntries[i].Path;
+        if (strcmp(EntryPath, file->Path, DirLen) != 0) continue;
+        if (strcmp(EntryPath, file->Path, DirLen) == 0 && DirLen == strlen(EntryPath)) continue;
+        const char* RelativePart = EntryPath + DirLen;
+        if (RelativePart[0] == '/') RelativePart++;
+        int IsNest = 0;
+        int j = 0;
+        while (RelativePart[j] != '\0') {
+            if (RelativePart[j] == '/') {
+                if (RelativePart[j + 1] != '\0') {
+                    IsNest = 1;
+                    break;
+                }
+            }
+            j++;
+        }
+        if (IsNest) continue;
+        if (matches == index) {
+            outdirent->Id = i;
+            outdirent->Type = gTarFsEntries[i].Type; // should be VFS_TYPE_DIRECTORY anyway
+            memcpy(outdirent->Name, RelativePart, strlen(RelativePart));
+            memcpy(outdirent->Path, EntryPath, strlen(EntryPath));
+            outdirent->Name[strlen(RelativePart)] = 0;
+            return 1;
+        }
+        matches++;
+    }
+    return 0;
+}
 // just counts all the tar file entries
 static void internalCountEntries() {
     if (!gTarInitrdPtr) return;
@@ -81,6 +117,7 @@ void TarInitalizeVfs(void* archive) {
     DriverOps->Write = NULL;
     DriverOps->FindFile = (void*)TarFsFindFile;
     DriverOps->GetFileSize = (void*)TarFsGetFileSize;
+    DriverOps->ReadDir = (void*)TarFsReadDir;
     gTarVfsDrive->DriverOps = DriverOps;
     memcpy(gTarVfsDrive->Name, "initrd", 7);
     internalCountEntries();

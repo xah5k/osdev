@@ -54,5 +54,11 @@ SECTIONS
         *(COMMON)
     } :boot
     /DISCARD/ : { *(.eh_frame) *(.comment) }
+    .kexports : ALIGN(8) {
+        __start_kexports = .;
+        KEEP(*(.kexports))
+        __end_kexports = .;
+    }
+    __end_kexports = .;
     _kernel_end = .;
 }

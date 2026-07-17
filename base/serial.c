@@ -2,7 +2,7 @@
 #if __ARCH__ == x86_64
 #include "arch/x86_64/ports.h"
 #endif
-
+#include <kedriver.h>
 void InitSerialConsole(uint16_t port) {
     outb(port + 1, 0x00);
     outb(port + 3, 0x80);
@@ -26,10 +26,11 @@ void WritecSerial(uint16_t port, char c) {
 
     outb(port, c);
 }
-
+KE_EXPORT_SYMBOL(WritecSerial);
 void WriteSerial(uint16_t port, const char* string) {
     while (*string != '\0') {
         WritecSerial(port, *string);
         string++;
     }
 }
+KE_EXPORT_SYMBOL(WriteSerial);

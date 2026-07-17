@@ -6,6 +6,13 @@
 
 #define VFS_MAX_ALLOWED_PATH 64
 #define VFS_MAX_ALLOWED_OPEN_HANDLES 12
+struct VfsFile;
+typedef struct VfsDirEntry {
+    uint64_t Id;
+    uint64_t Type;
+    char Name[256];
+    char Path[VFS_MAX_ALLOWED_PATH];
+} VfsDirEntry;
 
 typedef struct {
     int (*Open)(struct VfsFile*);
@@ -14,6 +21,7 @@ typedef struct {
     int (*Close)(struct VfsFile*);
     int (*GetFileSize)(struct VfsFile*);
     struct VfsFile* (*FindFile)(const char*);
+    int (*ReadDir)(struct VfsFile*, VfsDirEntry*, int); // IN file, OUT dirent, IN index
 } VfsDriverOperation;
 
 typedef struct {
@@ -46,3 +54,4 @@ int OsClose(int handle);
 int OsRead(int handle, void* buffer, size_t nbytes);
 int OsWrite(int handle, const void* buffer, size_t nbytes);
 int OsGetFileSize(int handle);
+int OsReadDir(int handle, VfsDirEntry* outdirent, int idx);

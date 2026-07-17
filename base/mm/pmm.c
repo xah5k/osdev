@@ -8,6 +8,7 @@
 #endif
 #include <kernel.h>
 #include <memory.h>
+#include <kedriver.h>
 
 static uint64_t PmmLargestFreeMemorySize = 0;
 static void* PmmLargestFreeMemoryPtr = 0x0;
@@ -83,7 +84,7 @@ void PmmAdjustBitmapPtr() {
 void* PmmAllocate() {
     return PmmAllocatePages(1);
 }
-
+KE_EXPORT_SYMBOL(PmmAllocate);
 void* PmmAllocatePages(uint64_t num) {
     SpnLckAcquire(&PmmInternalLock);
     uint64_t TotalBitmapEntries = PmmInternalBitmapSz/8;
@@ -115,9 +116,11 @@ void* PmmAllocatePages(uint64_t num) {
     SpnLckRelease(&PmmInternalLock);
     return (void*)(PotentialStartPageIdx * PAGE_SIZE);
 }
+KE_EXPORT_SYMBOL(PmmAllocatePages);
 void PmmFree(void *page) {
     PmmFreePages(page, 1);
 }
+KE_EXPORT_SYMBOL(PmmFree);
 void PmmFreePages(void* pagef, uint64_t num) {
     if (!pagef) return;
     SpnLckAcquire(&PmmInternalLock);
@@ -133,3 +136,4 @@ void PmmFreePages(void* pagef, uint64_t num) {
     }
     SpnLckRelease(&PmmInternalLock);
 }
+KE_EXPORT_SYMBOL(PmmFreePages);

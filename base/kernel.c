@@ -18,7 +18,7 @@
 #endif
 #include <fs/tar.h>
 #include <sched/sched.h>
-
+#include <kedriver.h>
 
 extern BOOTBOOT bootboot;               // see bootboot.h
 extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
@@ -66,6 +66,7 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
         asm ("cli; hlt");
     }
 }
+KE_EXPORT_SYMBOL(KdBugcheck);
 
 void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char* filename) {
     printf("kernel: unrecoverable bugcheck\r\n");
@@ -96,6 +97,7 @@ void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char*
         asm ("cli; hlt");
     }
 }
+KE_EXPORT_SYMBOL(KdBugcheck2);
 
 void KernelBootstrapProc();
 void KernelApplicationProc();
@@ -118,6 +120,7 @@ struct ProcessCtrlBlk* KernelGetCurrentProc() {
 KernelInformation* KernelGetInformation() {
     return gkInfo;
 }
+KE_EXPORT_SYMBOL(KernelGetInformation);
 
 void KeSetupMmu() {
     kpml4 = PmmAllocate();
@@ -204,6 +207,24 @@ static KernelInformation* KeCreateKinfo() {
 
 extern uint64_t PmmLargestFreeMemorySize;
 
+static void VfsTestLs(const char* path) {
+    printf("kernel: ls: Listing for %s\r\n", path);
+    VfsDirEntry dirent;
+    int idx = 0;
+    int handle = OsOpen(path, 0);
+
+    int result = OsReadDir(handle, &dirent, idx);
+    printf("kernel: ls: return code of 1st attempt = %d\r\n", result);
+    while (result == 1) {
+        result = OsReadDir(handle, &dirent, idx);
+        const char* Type = (dirent.Type == VFS_TYPE_DIRECTORY) ? "<DIR>" : "     ";
+        printf("    %s  %s\r\n", Type, dirent.Name);
+        idx++;
+    }
+    OsClose(handle);
+    printf("kernel: ls: total entries %d\r\n", idx);
+}
+
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -246,19 +267,9 @@ void KernelBootstrapProc() {
     PmmAdjustBitmapPtr();
     KeRmvIdentityMap();
     printf("kernel: removed identity mapping from before.\r\n");
-    
-    int h = OsOpen("initrd:/hello.elf", 0);
-    int sz = OsGetFileSize(h);
-    printf("program is located at initrd:/hello.elf with %d size\r\n", sz);
-    const char* buf = MmAllocate(sz);
-    if (!buf) {
-        printf("memory allocation fail.\r\n");
-    } else {
-        int st = OsRead(h, buf, sz);
-        printf("bytes read: %d\r\n", st);
-        OsClose(h);
-        LdrElfExecute(buf);
-    }
+    int count = 0;
+    const char** list = KeDrvBuildDriverList(&count);
+    printf("kernel: %d drivers found in initrd.\r\n", count);
     while(1);
 }
 

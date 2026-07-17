@@ -5,6 +5,7 @@
 #include <memory.h>
 #include <printfwrapper.h>
 #include <util/spinlock.h>
+#include <kedriver.h>
 
 #define MM_HEAP_SIZE 8192000 // 8MB
 #define MM_HEAP_MAGIC 0xDEFDEF
@@ -95,7 +96,7 @@ void* MmAllocate(uint64_t size) {
     SpnLckRelease(&MmInternalHeapLock);
     return Result;
 }
-
+KE_EXPORT_SYMBOL(MmAllocate);
 void MmFree(void* ptr) {
     SpnLckAcquire(&MmInternalHeapLock);
     if (!ptr) { SpnLckRelease(&MmInternalHeapLock); return; }
@@ -131,3 +132,4 @@ void MmFree(void* ptr) {
     }
     SpnLckRelease(&MmInternalHeapLock);
 }
+KE_EXPORT_SYMBOL(MmFree);

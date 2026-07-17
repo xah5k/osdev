@@ -10,6 +10,7 @@
 #include <mm/pmm.h>
 #include <memory.h>
 #include <util/spinlock.h>
+#include <kedriver.h>
 
 typedef struct VmmInternalBlock {
     uint64_t start;
@@ -115,7 +116,7 @@ void* VmmAllocate(uint64_t size) {
     SpnLckRelease(&VmmInternalLock);
     return (void*)block->start;
 }
-
+KE_EXPORT_SYMBOL(VmmAllocate);
 void VmmFree(void* ptr) {
     SpnLckAcquire(&VmmInternalLock);
     // find block with ptr
@@ -154,3 +155,4 @@ void VmmFree(void* ptr) {
     }
     SpnLckRelease(&VmmInternalLock);
 }
+KE_EXPORT_SYMBOL(VmmFree);

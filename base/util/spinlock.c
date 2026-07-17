@@ -1,7 +1,7 @@
 #include "arch/x86_64/cpu/cpu.h"
 #include <stdatomic.h>
 #include <util/spinlock.h>
-
+#include <kedriver.h>
 void SpnLckAcquire(Spinlock* lock) {
 
     // save rfl
@@ -19,6 +19,7 @@ void SpnLckAcquire(Spinlock* lock) {
     lock->rfl = rfl;
     #endif
 }
+KE_EXPORT_SYMBOL(SpnLckAcquire);
 void SpnLckRelease(Spinlock* lock) {
     #ifdef __x86_64__
     uint64_t rfl = lock->rfl;
@@ -28,3 +29,4 @@ void SpnLckRelease(Spinlock* lock) {
     asm volatile("push %0; popfq" : : "r"(rfl));
     #endif
 }
+KE_EXPORT_SYMBOL(SpnLckRelease);

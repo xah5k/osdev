@@ -14,12 +14,15 @@ override OBJ := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
 ifeq ($(ARCH),x86_64)
 override OBJ += $(addprefix obj-$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 endif
-all: preinit $(KNAME).x86_64.elf user
+all: preinit $(KNAME).x86_64.elf user drivers
 
 .PHONY: FORCE
 
+drivers: FORCE
+	$(MAKE) -C drivers all cpsysroot ARCH=$(ARCH)
+
 user: FORCE
-	make -C user
+	$(MAKE) -C user
 
 produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
@@ -44,12 +47,15 @@ obj-x86_64/%.asm.o: %.asm
 	@mkdir -p "$(dir $@)"
 	@nasm -f elf64 $< -o $@
 	@echo " $<"
+
 clean:
 	@rm -rf obj-$(ARCH)
 	@rm -rf $(KNAME).$(ARCH).elf
 	@rm -rf sysroot/boot/*.elf
 	@rm -rf osdev.img
-	@make -C user clean
+	@rm -rf sysroot/drivers/*
+	@$(MAKE) -C user clean
+	@$(MAKE) -C drivers clean ARCH=$(ARCH)
 
 run-x86_64:
 	qemu-system-x86_64 osdev.img -M q35 $(QARG) -serial stdio
