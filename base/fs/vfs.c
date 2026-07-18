@@ -37,7 +37,7 @@ int VfsGetFileSize(VfsFile* file) {
 
 int VfsReadDir(struct VfsFile* file, VfsDirEntry* outdir, int idx) {
     if (file->DrivePtr->DriverOps->ReadDir) return file->DrivePtr->DriverOps->ReadDir((void*)file, outdir, idx);
-    else return -1;
+    else return -3;
 }
 
 VfsFile* VfsFindFile(const char* Path) {
@@ -85,7 +85,7 @@ KE_EXPORT_SYMBOL(OsOpen);
 int OsClose(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (!proc) return -1;
-    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     memset(&proc->FileHandleTable[handle], 0, sizeof(VfsOpenFileDescr));
     proc->nextfh--;
     KernelUnlockRsLck();
@@ -94,8 +94,8 @@ int OsClose(int handle) {
 KE_EXPORT_SYMBOL(OsClose);
 int OsRead(int handle, void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -1;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsRead(f, buffer, nbytes);
@@ -103,8 +103,8 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
 KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -1;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsWrite(f, buffer, nbytes);
@@ -112,8 +112,8 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
 KE_EXPORT_SYMBOL(OsWrite);
 int OsGetFileSize(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -1;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsGetFileSize(f);
@@ -122,8 +122,8 @@ KE_EXPORT_SYMBOL(OsGetFileSize);
 
 int OsReadDir(int handle, VfsDirEntry* outdirent, int idx) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle < 0 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -1;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
     KernelUnlockRsLck();
     return VfsReadDir(f, outdirent, idx);

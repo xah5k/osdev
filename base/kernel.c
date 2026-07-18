@@ -19,6 +19,7 @@
 #include <fs/tar.h>
 #include <sched/sched.h>
 #include <kedriver.h>
+#include <util/util.h>
 
 extern BOOTBOOT bootboot;               // see bootboot.h
 extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
@@ -267,9 +268,32 @@ void KernelBootstrapProc() {
     PmmAdjustBitmapPtr();
     KeRmvIdentityMap();
     printf("kernel: removed identity mapping from before.\r\n");
+
     int count = 0;
     const char** list = KeDrvBuildDriverList(&count);
     printf("kernel: %d drivers found in initrd.\r\n", count);
+    for (int i = 0; i < count; i++) {
+        if (list[i]) {
+            printf("kernel: list[%d] = %s with len of %d\r\n", i, list[i], strlen(list[i]));
+            int handle = OsOpen(list[i], 0);
+            if (handle < 0)  { 
+                printf("kernel: failed to acquire handle for driver file. (returned %d)\r\n", handle);
+                printf("attempted to do OsOpen(\"%s\", 0)", list[i]);
+                continue;
+            } else {
+                printf("kernel: acquired handle with number %d for driver.\r\n", handle);
+                printf("attempted to do OsOpen(\"%s\", 0)\r\n", list[i]);
+                int sz = OsGetFileSize(handle);
+                printf("kernel: size of driver in bytes: %d\r\n", sz);
+                void* buf = MmAllocate(sz);
+                if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
+                int read = OsRead(handle, buf, sz);
+                printf("kernel: read %d into buffer.\r\n", read);
+                OsClose(handle);
+                MmFree(buf);
+            }
+        }
+    }
     while(1);
 }
 

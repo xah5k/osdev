@@ -38,11 +38,11 @@ int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes) {
 }
 
 int TarFsGetFileSize(struct VfsFile* file) {
-    if (!gTarInitrdPtr || !gTarVfsDrive) return -1;
-    if (file->Type != VFS_TYPE_FILE) return -1;
+    if (!gTarInitrdPtr || !gTarVfsDrive) return -4;
+    if (file->Type != VFS_TYPE_FILE) return -5;
     char* DriverPath = VfsRemoveFormatPath(file->Path);
     TarFileEntry* FsEntry = TarFsLookup(gTarInitrdPtr, DriverPath);
-    if (!FsEntry) return -1;
+    if (!FsEntry) return -6;
     return oct2bin((unsigned char*)FsEntry->Size, 11);
 }
 
@@ -62,8 +62,8 @@ int TarFsReadDir(VfsFile* file, VfsDirEntry* outdirent, int index) {
             break; 
         }
         const char* EntryPath = gTarFsEntries[i].Path;
-        if (strcmp(EntryPath, file->Path, DirLen) != 0) continue;
-        if (strcmp(EntryPath, file->Path, DirLen) == 0 && DirLen == strlen(EntryPath)) continue;
+        if (strcmpl(EntryPath, file->Path, DirLen) != 0) continue;
+        if (strcmpl(EntryPath, file->Path, DirLen) == 0 && DirLen == strlen(EntryPath)) continue;
         const char* RelativePart = EntryPath + DirLen;
         if (RelativePart[0] == '/') RelativePart++;
         int IsNest = 0;
@@ -84,6 +84,7 @@ int TarFsReadDir(VfsFile* file, VfsDirEntry* outdirent, int index) {
             memcpy(outdirent->Name, RelativePart, strlen(RelativePart));
             memcpy(outdirent->Path, EntryPath, strlen(EntryPath));
             outdirent->Name[strlen(RelativePart)] = 0;
+            outdirent->Path[strlen(EntryPath)] = 0;
             return 1;
         }
         matches++;
