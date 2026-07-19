@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <printfwrapper.h>
 #include <memory.h>
+#include <kedriver.h>
 
 typedef struct {
     uint32_t magic;
@@ -40,6 +41,7 @@ void FbTextInitalize(void* sfn, void* fb) {
     g_fb_info = fb;
     if (font->fontMode == 0x01) glyphcount = 512; else glyphcount = 256;
 }
+KE_EXPORT_SYMBOL(FbTextInitalize);
 
 void FbPutc(char c) {
     if (c == '\r') {
@@ -64,6 +66,7 @@ void FbPutc(char c) {
         gFbConsoleX += 8;
     }
 }
+KE_EXPORT_SYMBOL(FbPutc);
 
 void FbPutcAt(char c, int x, int y, uint32_t color) {
     if (x + 8 > g_fb_info->width || y + 16 > g_fb_info->height) return;
@@ -81,3 +84,4 @@ void FbPutcAt(char c, int x, int y, uint32_t color) {
         }
     }
 }
+KE_EXPORT_SYMBOL(FbPutcAt);

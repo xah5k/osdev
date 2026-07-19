@@ -113,6 +113,7 @@ Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
 void KernelUnlockRsLck() {
     SpnLckRelease(&KernelResourceLock);
 }
+
 struct ProcessCtrlBlk* KernelGetCurrentProc() {
     SpnLckAcquire(&KernelResourceLock);
     return gkInfo->CurrentProcess;

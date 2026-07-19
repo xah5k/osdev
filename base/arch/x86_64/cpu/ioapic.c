@@ -6,6 +6,7 @@
 #include <arch/x86_64/acpi.h>
 #include <arch/x86_64/cpu/ioapic.h>
 #include <kernel.h>
+#include <kedriver.h>
 
 #define IOAPIC_SELECTOR 0x00
 #define IOAPIC_WINDOW 0x10
@@ -20,6 +21,7 @@ void CpuIoApicWrite(uint32_t reg, uint32_t value) {
     *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_WINDOW) = value;
     SpnLckRelease(&IoApicLock);
 }
+KE_EXPORT_SYMBOL(CpuIoApicWrite);
 
 uint32_t CpuIoApicRead(uint32_t reg) {
     SpnLckAcquire(&IoApicLock);
@@ -27,11 +29,12 @@ uint32_t CpuIoApicRead(uint32_t reg) {
     SpnLckRelease(&IoApicLock);
     return *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_WINDOW);
 }
+KE_EXPORT_SYMBOL(CpuIoApicRead);
 
 virtaddr CpuGetIoApicVirtBase() {
     return ioapicvirtbase;
 }
-
+KE_EXPORT_SYMBOL(CpuGetIoApicVirtBase);
 physaddr CpuGetIoApicPhysBase(AcpiMadtTable* madt) {
     AcpiMadtIntDeviceHdr* Hdr = madt->IntDevices;
     uint64_t end = ((uint64_t)Hdr + madt->header.Length);
@@ -53,6 +56,7 @@ void CpuIoApicSetRedirEntry(uint8_t gsi, uint64_t data) {
     CpuIoApicWrite(low, (uint32_t)data);
     CpuIoApicWrite(high, (uint32_t)(data >> 32));
 }
+KE_EXPORT_SYMBOL(CpuIoApicSetRedirEntry);
 
 void CpuInitalizeIoApic(AcpiRsdtTable* rsdt) {
     AcpiMadtTable* madt = AcpiFindTable(rsdt, "APIC");

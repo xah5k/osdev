@@ -2,7 +2,7 @@
 #include <arch/x86_64/cpu/paging.h>
 #include <memory.h>
 #include <printfwrapper.h>
-
+#include <kedriver.h>
 
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature) {
     int entries = ((rsdt->header.Length - sizeof(rsdt->header)) / 4);
@@ -17,3 +17,4 @@ void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature) {
     }
     return NULL;
 }
+KE_EXPORT_SYMBOL(AcpiFindTable);

@@ -6,7 +6,7 @@
 #include "lapic.h"
 #include <sched/sched.h>
 #include <arch/x86_64/ports.h>
-
+#include <kedriver.h>
 
 
 physaddr CpuGetLapicPhysicalBase() {
@@ -78,6 +78,7 @@ void CpuInitalizeLapicTimer(uint64_t ivector) {
 void CpuLapicEoi() {
     *(volatile uint32_t*)(lapicvirtbase + LAPIC_EOI_REG) = 0;
 }
+KE_EXPORT_SYMBOL(CpuLapicEoi);
 
 uint32_t CpuLapicGetId() {
     uint32_t id = *(volatile uint32_t*)(lapicvirtbase + 0x0020);

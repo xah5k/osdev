@@ -1,6 +1,6 @@
 #include <arch/x86_64/ports.h>
 #include "cpu.h"
-
+#include <kedriver.h>
 void CpuDisablePic() {
     outb(0xA1, 0xFF);
     outb(0x21, 0xFF);
@@ -15,6 +15,7 @@ uint64_t CpuReadMsr(uint64_t msr) {
     );
 	return ((uint64_t)high << 32) | low;
 }
+KE_EXPORT_SYMBOL(CpuReadMsr);
 
 void CpuWriteMsr(uint64_t msr, uint64_t value) {
     uint32_t low = value & 0xFFFFFFFF;
@@ -25,3 +26,4 @@ void CpuWriteMsr(uint64_t msr, uint64_t value) {
         : "c"(msr), "a"(low), "d"(high)
     );
 }
+KE_EXPORT_SYMBOL(CpuWriteMsr);

@@ -2,7 +2,7 @@
 #include <mm/pmm.h>
 #include <memory.h>
 #include <stdint.h>
-
+#include <kedriver.h>
 // offset used for memory
 uint64_t gMmuVOffset = 0;
 
@@ -37,6 +37,7 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
     pt[ptidx] = phys | flags;
     asm volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
+KE_EXPORT_SYMBOL(MmuMapPage);
 
 physaddr MmuGetPhys(virtaddr virt) {
     uint64_t cr3 = _x86_64_get_pml4();
@@ -61,6 +62,7 @@ physaddr MmuGetPhys(virtaddr virt) {
 
     return (pte & ~0xFFF) + (virt & 0xFFF);
 }
+KE_EXPORT_SYMBOL(MmuGetPhys);
 
 void MmuUnmapPage(pagetable* pml4, virtaddr virt) {
     uint64_t pml4idx = (virt >> 39) & 0x1FF;
@@ -91,6 +93,7 @@ void MmuUnmapPage(pagetable* pml4, virtaddr virt) {
         PmmFree((void*)phys);
     }
 }
+KE_EXPORT_SYMBOL(MmuUnmapPage);
 
 void MmuMapRegion(pagetable* pml4, virtaddr vstart, physaddr pstart, physaddr pend, unsigned int flags) {
     vstart &= ~0xFFFULL;
@@ -100,3 +103,4 @@ void MmuMapRegion(pagetable* pml4, virtaddr vstart, physaddr pstart, physaddr pe
         MmuMapPage(pml4, vstart + i, pstart + i, flags);
     }
 }
+KE_EXPORT_SYMBOL(MmuMapRegion);

@@ -3,7 +3,7 @@
 #include "kernel.h"
 #include <printfwrapper.h>
 #include <stdint.h>
-
+#include <kedriver.h>
 #define IDT_FLAG_PRESENT 0x80
 #define IDT_FLAG_GATE 0x0E
 // (?) #define IDT_FLAG_USER 0xE0
@@ -46,6 +46,7 @@ void CpuIdtAsmHandler(CpuInterruptArgs* registers) {
 void CpuRegisterHandler(uint64_t index, irqhandler handler) {
     handlers[index] = handler;
 }
+KE_EXPORT_SYMBOL(CpuRegisterHandler);
 
 
 void CpuIdtSetEntry(CpuIdtEntry* table, uint8_t index, void* base, uint8_t flags) {

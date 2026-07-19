@@ -8,7 +8,7 @@
 extern const KeExport __start_kexports[];
 extern const KeExport __end_kexports[];
 static KeDriverObj* gDriverListHead = NULL;
-
+static KeDeviceObj* gDeviceListHead = NULL;
 void KeDrvRegisterDriver(KeDriverObj* drv) {
     drv->Next = gDriverListHead;
     gDriverListHead = drv;
@@ -30,12 +30,23 @@ void* KeGetExport(const char* name) {
     }
 }
 
+void KeRegisterDevice(KeDeviceObj* dev) {
+    dev->Next = gDeviceListHead;
+    gDeviceListHead = dev;
+}
+KE_EXPORT_SYMBOL(KeRegisterDevice);
+
+KeDeviceObj* KeFindDeviceByName(const char* name) {
+    for (KeDeviceObj* d = gDeviceListHead; d; d = d->Next)
+        if (strcmp(d->Name, name) == 0) return d;
+    return NULL;
+}
+
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq) {
     if (!device || !ioreq) return KINVALID;
-    void (*handler)(KeDeviceObj*, KeIoRequest*) = device->Owner->DispatchTable[ioreq->Major];
+    KSTATUS (*handler)(struct KeDeviceObj*, struct KeIoRequest*) = device->Dispatch[ioreq->Major];
     if (!handler) return KUNSUPPORTED;
-    handler(device, ioreq);
-    return ioreq->Status;
+    return handler(device, ioreq);
 }
 
 // writes a non formatted message
