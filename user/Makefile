@@ -1,9 +1,17 @@
-all: compile
+SUBDIRS := $(dir $(wildcard */Makefile))
+.PHONY: all clean cpsysroot $(SUBDIRS)
 
-compile:
-	x86_64-elf-gcc -Wall -fno-pie -ffreestanding -fpic -mno-red-zone -fno-stack-protector -c hello.c -o hello.obj
-	x86_64-elf-ld -g -nostdlib -n -T hello.ld -no-pie hello.obj -o hello.elf
+all: $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -C $@ ARCH=$(ARCH)
 
 clean:
-	rm -rf user.prog
-	rm -rf hello.elf
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done
+
+cpsysroot:
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir cpsysroot; \
+	done

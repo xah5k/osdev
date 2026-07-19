@@ -22,11 +22,10 @@ drivers: FORCE
 	$(MAKE) -C drivers all cpsysroot ARCH=$(ARCH)
 
 user: FORCE
-	$(MAKE) -C user
+	$(MAKE) -C user all cpsysroot ARCH=$(ARCH)
 
 produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
-	cp user/hello.elf sysroot/
 	tools/mkbootimg bootimg.json osdev.img
 
 # Fetch external sources (like `bootboot.h`)
@@ -54,6 +53,7 @@ clean:
 	@rm -rf sysroot/boot/*.elf
 	@rm -rf osdev.img
 	@rm -rf sysroot/drivers/*
+	@rm -rf sysroot/programs/*.elf
 	@$(MAKE) -C user clean
 	@$(MAKE) -C drivers clean ARCH=$(ARCH)
 
