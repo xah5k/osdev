@@ -289,8 +289,27 @@ void KernelBootstrapProc() {
                 if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
                 int read = OsRead(handle, buf, sz);
                 printf("kernel: read %d into buffer.\r\n", read);
-                OsClose(handle);
+                KeDriverObj* driver = NULL;
+                KSTATUS result = LdrElfDriverExec(buf, &driver);
                 MmFree(buf);
+                OsClose(handle);
+                if (result != KSUCCESS) {
+                    printf("kernel: failed to load driver.\r\n");
+                    continue;
+                }
+                if (driver == NULL) {
+                    printf("kernel: failed to get driver object.\r\n");
+                    continue;
+                }
+                printf("kernel: driver object @ 0x%lx\r\n", driver);
+                KSTATUS init = driver->Initalize(driver);
+                if (init != KSUCCESS) {
+                    printf("kernel: warn: driver load fail. discarding.\r\n");
+                    MmFree(driver);
+                    continue;
+                }
+                KeDrvRegisterDriver(driver);
+                printf("kernel: registered driver.\r\n");
             }
         }
     }

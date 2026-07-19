@@ -3,7 +3,10 @@
 #include <memory.h>
 #include <external/printf.h>
 #include <mm/pmm.h>
+#include <mm/heap.h>
 #include <sched/process.h>
+#include <kedriver.h>
+#include <util/util.h>
 KSTATUS LdrElfExecute(void* addr) {
     Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
     if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
@@ -48,5 +51,148 @@ KSTATUS LdrElfExecute(void* addr) {
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;
     kinfo->CurrentProcess = proc;
+    return KSUCCESS;
+}
+
+typedef struct {
+    void* Base;
+} LdrSectionLoadInf;
+KSTATUS LdrElfDriverExec(void* addr, KeDriverObj** driver) {
+    Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
+    if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
+        printf("ldr: elf64: invalid magic\r\n");
+        return KINVALID;
+    }
+    if ((Elf->e_ident[EI_CLASS] != ELFCLASS64) && (Elf->e_machine != EM_X86_64)) {
+        printf("ldr: elf64: invalid cpu architecture\r\n");
+        return KINVALID;
+    }
+    if (Elf->e_type != ET_REL) {
+        printf("ldr: elf64: driver not compiled as ET_REL!\r\n");
+        return KINVALID;
+    }
+    Elf64_Shdr* SHdrs = (Elf64_Shdr*)((uint8_t*)addr + Elf->e_shoff);
+    uint16_t SHnum = Elf->e_shnum;  
+
+    LdrSectionLoadInf* LoadInfo = MmAllocate(sizeof(LdrSectionLoadInf) * SHnum);
+    if (!LoadInfo) return KOOMERR;
+    memset(LoadInfo, 0, sizeof(LdrSectionLoadInf) * SHnum);
+
+    for (int i = 0; i < SHnum; i++) {
+        Elf64_Shdr* current = &SHdrs[i];
+        if (!(current->sh_flags & SHF_ALLOC) || current->sh_size == 0) continue;
+        void* Buf = MmAllocate(current->sh_size);
+        if (!Buf) {
+            printf("ldr: elf64: allocation for section %d failed.\r\n", i);
+            MmFree(LoadInfo);
+            return KOOMERR;
+        }
+        if (current->sh_type == SHT_NOBITS) {
+            memset(Buf, 0, current->sh_size);
+        }  else {
+            memcpy(Buf, (uint8_t*)addr + current->sh_offset, current->sh_size);
+        }
+        LoadInfo[i].Base = Buf;
+    }
+    Elf64_Shdr* SymbolTable = NULL;
+    for (int i = 0; i < SHnum; i++) {
+        if (SHdrs[i].sh_type == SHT_SYMTAB) {
+            SymbolTable = &SHdrs[i];
+            break;
+        }
+    }
+    if (!SymbolTable) {
+        printf("ldr: elf64: no symbol table found!\r\n");
+        MmFree(LoadInfo);
+        return KOOMERR;
+    }
+    Elf64_Sym* Symbols = (Elf64_Sym*)((uint8_t*)addr + SymbolTable->sh_offset);
+    int SymNum = SymbolTable->sh_size / sizeof(Elf64_Sym);
+    char* StrSymTable = (char*)addr + SHdrs[SymbolTable->sh_link].sh_offset;
+
+    uint64_t* Resolved = MmAllocate(sizeof(uint64_t) * SymNum);
+    for (int i = 0; i < SymNum; i++) {
+        Elf64_Sym* Sym = &Symbols[i];
+        if (Sym->st_shndx == SHN_UNDEF) {
+            if (Sym->st_name == 0) {
+                Resolved[i] = 0;
+                continue;
+            }
+            const char* Name = StrSymTable + Sym->st_name;
+            void* Address = KeGetExport(Name);
+            if (!Address) {
+                printf("ldr: elf64: failed to resolve symbol '%s'\r\n", Name);
+                MmFree(LoadInfo);
+                MmFree(Resolved);
+                return KINVALID;
+            }
+            Resolved[i] = (uint64_t)Address;
+        } else {
+            Resolved[i] = (uint64_t)LoadInfo[Sym->st_shndx].Base + Sym->st_value;
+        }
+    }
+
+    for (int i = 0; i < SHnum; i++) {
+        Elf64_Shdr* current = &SHdrs[i];
+        if (current->sh_type != SHT_RELA) continue;
+
+        int TargetSecIdx = current->sh_info;
+        void* TargetBase = LoadInfo[TargetSecIdx].Base;
+        if (!TargetBase) continue;
+
+        Elf64_Rela* Relas = (Elf64_Rela*)((uint8_t*)addr + current->sh_offset);
+        int RelasNum = current->sh_size / sizeof(Elf64_Rela);
+
+        for (int r = 0; r < RelasNum; r++) {
+            Elf64_Rela* rel = &Relas[r];
+            uint32_t SymIdx = ELF64_R_SYM(rel->r_info);
+            uint32_t Type = ELF64_R_TYPE(rel->r_info);
+            uint64_t SymAddr = Resolved[SymIdx];
+            void* PatchAddr = (uint8_t*)TargetBase + rel->r_offset;
+            switch (Type) {
+                case R_X86_64_64: {
+                    uint64_t Value = SymAddr + rel->r_addend;
+                    *(uint64_t*)PatchAddr = Value;
+                    break;
+                }
+                case R_X86_64_PC32:
+                case R_X86_64_PLT32: {
+                    int64_t Value = (int64_t)(SymAddr + rel->r_addend) - (int64_t)PatchAddr;
+                    *(int32_t*)PatchAddr = (int32_t)Value;
+                    break;
+                }
+                case R_X86_64_32:
+                case R_X86_64_32S: {
+                    uint64_t Value = SymAddr + rel->r_addend;
+                    *(uint32_t*)PatchAddr = (uint32_t)Value;
+                    break;
+                }
+                default: {
+                    printf("ldr: elf64: unsupported relocation type %d\r\n", Type);
+                    MmFree(LoadInfo);
+                    MmFree(Resolved);
+                    return KINVALID;
+                }
+            }
+        }
+    }
+    void* EntryAddress = NULL;
+    for (int i = 0; i < SymNum; i++) {
+        const char* Name = StrSymTable + Symbols[i].st_name;
+        if (strcmp(Name, "DriverEntry") == 0) {
+            EntryAddress = (void*)Resolved[i];
+            break;
+        }
+    }
+    if (!EntryAddress) {
+        printf("ldr: elf64: no driver entry symbol found!\r\n");
+        MmFree(LoadInfo);
+        MmFree(Resolved);
+        return KINVALID;
+    }
+    KeDriverObj* Driver = MmAllocate(sizeof(KeDriverObj));
+    memset(Driver, 0, sizeof(KeDriverObj));
+    Driver->Initalize = (KSTATUS(*)(KeDriverObj*))EntryAddress;
+    *driver = Driver;
     return KSUCCESS;
 }

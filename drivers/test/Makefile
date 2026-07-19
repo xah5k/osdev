@@ -1,6 +1,6 @@
 DRVNAME=test
-CFLAGS = -g -Wall -ffreestanding -fpic -mno-red-zone -fno-stack-protector -nostdlib -I../../base -D__$(ARCH)__
-LDFLAGS = -g -nostdlib -n -T link.ld -r
+CFLAGS = -g -Wall -ffreestanding -mno-red-zone -fno-stack-protector -nostdlib -I../../base -D__$(ARCH)__ -mcmodel=large -fno-pic
+LDFLAGS = -g -nostdlib -n -T link.ld -r 
 override SRCFILES := $(shell find -L drvbase -type f -not -path 'drvbase/arch/*' 2>/dev/null | LC_ALL=C sort)
 override SRCFILES += $(shell find -L drvbase/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 override CFILES := $(filter %.c,$(SRCFILES))

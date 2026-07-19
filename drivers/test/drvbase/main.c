@@ -1,4 +1,6 @@
 #include <kernel.h>
-KSTATUS DriverEntry() {
-    return KUNSUPPORTED;
+#include <kedriver.h>
+KSTATUS DriverEntry(KeDriverObj* Self) {
+    KeDrvWrite("hello world from driver!\r\n");
+    return KSUCCESS;
 }

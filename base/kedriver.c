@@ -7,6 +7,19 @@
 #include <memory.h>
 extern const KeExport __start_kexports[];
 extern const KeExport __end_kexports[];
+static KeDriverObj* gDriverListHead = NULL;
+
+void KeDrvRegisterDriver(KeDriverObj* drv) {
+    drv->Next = gDriverListHead;
+    gDriverListHead = drv;
+}
+
+KeDriverObj* KeDrvFindDriverByName(const char* name) {
+    for (KeDriverObj* d = gDriverListHead;; d = d->Next) {
+        if (strcmp(d->Name, name) == 0) return d;
+    }
+    return NULL;
+}
 
 void* KeGetExport(const char* name) {
     uint64_t TotalExports = (uint64_t)__end_kexports - (uint64_t)__start_kexports;
@@ -15,6 +28,14 @@ void* KeGetExport(const char* name) {
             return __start_kexports[i].addr;
         }
     }
+}
+
+KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq) {
+    if (!device || !ioreq) return KINVALID;
+    void (*handler)(KeDeviceObj*, KeIoRequest*) = device->Owner->DispatchTable[ioreq->Major];
+    if (!handler) return KUNSUPPORTED;
+    handler(device, ioreq);
+    return ioreq->Status;
 }
 
 // writes a non formatted message
