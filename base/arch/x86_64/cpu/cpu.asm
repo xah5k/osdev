@@ -11,7 +11,8 @@ _x86_64_set_stack:
 global _x86_64_load_gdt 
 _x86_64_load_gdt:
     lgdt [rdi]
-
+    mov ax, 0x28
+    ltr ax
     ; reload data segments
     mov ax, 0x10
     mov ds, ax
