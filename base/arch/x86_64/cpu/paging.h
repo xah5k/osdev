@@ -23,6 +23,7 @@
 // virtual address of a phys address = (MMU_PHYS_OFFSET + physaddr)
 #define MMU_PHYS_OFFSET 0xffff888000000000
 
+#define P2V(x) (((uint64_t)x) + gMmuVOffset)
 typedef uint64_t physaddr;
 typedef uint64_t virtaddr;
 

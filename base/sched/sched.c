@@ -126,7 +126,7 @@ void Schedule() {
             _s:
             KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
-            PmmFree(DeathThread->ParentProc->pml4);
+            ProcFreePML4(DeathThread->ParentProc->pml4);
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

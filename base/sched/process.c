@@ -27,6 +27,29 @@ uint64_t* ProcNewPML4() {
     return NewPML4Phys;
 }
 
+void ProcFreePML4(pagetable* pml4p) {
+    pagetable* pml4 = (pagetable*)P2V(pml4p);
+    for (int i = 0; i < 256; i++) {
+        if (pml4[i] & MMU_PAGE_BIT_P_PRESENT) {
+            pagetable* pdpt = (pagetable*)(P2V(pml4[i] & ~0xFFF));
+            for (int j = 0; j < 512; j++) {
+                if (pdpt[j] & MMU_PAGE_BIT_P_PRESENT) {
+                    pagetable* pd = (pagetable*)(P2V(pdpt[j] & ~0xFFF));
+                    for (int k = 0; k < 512; k++) {
+                        if (pd[k] & MMU_PAGE_BIT_P_PRESENT) {
+                            physaddr pt_phys = pd[k] & ~0xFFF;
+                            PmmFree((void*)pt_phys);
+                        }
+                    }
+                    PmmFree((void*)(pdpt[j] & ~0xFFF));
+                }
+            }
+            PmmFree((void*)(pml4[i] & ~0xFFF));
+        }
+    }
+    PmmFree((void*)pml4p);
+}
+
 void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* list = kinfo->ProcessListHead;
     if (!list) return;
@@ -121,7 +144,7 @@ void ThreadEntry() {
             _s:
             KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
-            PmmFree(DeathThread->ParentProc->pml4);
+            ProcFreePML4(DeathThread->ParentProc->pml4);
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

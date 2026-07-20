@@ -227,6 +227,49 @@ static void VfsTestLs(const char* path) {
     printf("kernel: ls: total entries %d\r\n", idx);
 }
 
+static void KeInitalizeDrivers() {
+    int count = 0;
+    const char** list = KeDrvBuildDriverList(&count);
+    printf("kernel: %d drivers found in initrd.\r\n", count);
+    for (int i = 0; i < count; i++) {
+        if (list[i]) {
+            int handle = OsOpen(list[i], 0);
+            if (handle < 0)  { 
+                printf("kernel: failed to acquire handle for driver file. (returned %d)\r\n", handle);
+                printf("attempted to do OsOpen(\"%s\", 0)", list[i]);
+                continue;
+            } else {
+                printf("kernel: acquired handle with number %d for driver.\r\n", handle);
+                int sz = OsGetFileSize(handle);
+                void* buf = MmAllocate(sz);
+                if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
+                int read = OsRead(handle, buf, sz);
+                printf("kernel: read %d into buffer.\r\n", read);
+                KeDriverObj* driver = NULL;
+                KSTATUS result = LdrElfDriverExec(buf, &driver);
+                MmFree(buf);
+                OsClose(handle);
+                if (result != KSUCCESS) {
+                    printf("kernel: failed to load driver.\r\n");
+                    continue;
+                }
+                if (driver == NULL) {
+                    printf("kernel: failed to get driver object.\r\n");
+                    continue;
+                }
+                printf("kernel: driver object @ 0x%lx\r\n", driver);
+                KSTATUS init = driver->Initalize(driver);
+                if (init != KSUCCESS) {
+                    printf("kernel: warn: driver load fail. discarding.\r\n");
+                    MmFree(driver);
+                    continue;
+                }
+                KeDrvRegisterDriver(driver);
+                printf("kernel: registered driver.\r\n");
+            }
+        }
+    }
+}
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -270,49 +313,20 @@ void KernelBootstrapProc() {
     KeRmvIdentityMap();
     printf("kernel: removed identity mapping from before.\r\n");
 
-    int count = 0;
-    const char** list = KeDrvBuildDriverList(&count);
-    printf("kernel: %d drivers found in initrd.\r\n", count);
-    for (int i = 0; i < count; i++) {
-        if (list[i]) {
-            printf("kernel: list[%d] = %s with len of %d\r\n", i, list[i], strlen(list[i]));
-            int handle = OsOpen(list[i], 0);
-            if (handle < 0)  { 
-                printf("kernel: failed to acquire handle for driver file. (returned %d)\r\n", handle);
-                printf("attempted to do OsOpen(\"%s\", 0)", list[i]);
-                continue;
-            } else {
-                printf("kernel: acquired handle with number %d for driver.\r\n", handle);
-                printf("attempted to do OsOpen(\"%s\", 0)\r\n", list[i]);
-                int sz = OsGetFileSize(handle);
-                printf("kernel: size of driver in bytes: %d\r\n", sz);
-                void* buf = MmAllocate(sz);
-                if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
-                int read = OsRead(handle, buf, sz);
-                printf("kernel: read %d into buffer.\r\n", read);
-                KeDriverObj* driver = NULL;
-                KSTATUS result = LdrElfDriverExec(buf, &driver);
-                MmFree(buf);
-                OsClose(handle);
-                if (result != KSUCCESS) {
-                    printf("kernel: failed to load driver.\r\n");
-                    continue;
-                }
-                if (driver == NULL) {
-                    printf("kernel: failed to get driver object.\r\n");
-                    continue;
-                }
-                printf("kernel: driver object @ 0x%lx\r\n", driver);
-                KSTATUS init = driver->Initalize(driver);
-                if (init != KSUCCESS) {
-                    printf("kernel: warn: driver load fail. discarding.\r\n");
-                    MmFree(driver);
-                    continue;
-                }
-                KeDrvRegisterDriver(driver);
-                printf("kernel: registered driver.\r\n");
-            }
-        }
+    KeInitalizeDrivers();
+    printf("kernel: initalized drivers that have initalized.\r\n");
+    
+    int h = OsOpen("initrd:/programs/hello.elf", 0);
+    int sz = OsGetFileSize(h);
+    printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
+    const char* buf = MmAllocate(sz);
+    if (!buf) {
+        printf("memory allocation fail.\r\n");
+    } else {
+        int st = OsRead(h, buf, sz);
+        printf("bytes read: %d\r\n", st);
+        OsClose(h);
+        LdrElfExecute(buf);
     }
     while(1);
 }
