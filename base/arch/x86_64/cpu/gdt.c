@@ -1,6 +1,8 @@
 #include <arch/x86_64/cpu/gdt.h>
 #include <mm/heap.h>
 #include <memory.h>
+#include <kernel.h>
+#include <printfwrapper.h>
 typedef struct {
     uint16_t limit_low;
     uint16_t base_low;
@@ -15,24 +17,6 @@ typedef struct {
     uint64_t base;
 } __attribute__((packed)) CpuGdtr;
 
-typedef struct {
-    uint32_t reserved0; 
-    uint64_t rsp0;      
-    uint64_t rsp1;
-    uint64_t rsp2;      
-    uint64_t reserved1; 
-    uint64_t ist1;
-    uint64_t ist2;      
-    uint64_t ist3;      
-    uint64_t ist4;
-    uint64_t ist5;      
-    uint64_t ist6;      
-    uint64_t ist7;
-    uint64_t reserved2; 
-    uint16_t reserved3; 
-    uint16_t iopb_offset;
-} __attribute__((packed)) CpuTss;
-
 CpuGdtEntry Entries[7] = {
     {0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0x9A, 0xAF, 0},
@@ -43,7 +27,7 @@ CpuGdtEntry Entries[7] = {
     {0, 0, 0, 0x00, 0x00, 0}
 };
 
-void CpuInitalizeGdt() {
+void CpuInitalizeGdt(struct KernelInformation* kinfo) {
     CpuTss* Tss = MmAllocate(sizeof(CpuTss));
     memset((void*)Tss, 0, sizeof(CpuTss));
     uint64_t TssBase = (uint64_t)Tss;
@@ -57,5 +41,7 @@ void CpuInitalizeGdt() {
     CpuGdtr Gdtr;
     Gdtr.limit = (uint16_t)sizeof(Entries)-1;
     Gdtr.base = (uint64_t)&Entries;
+    kinfo->tss = Tss;
+    printf("gdt: tss base 0x%lx\r\n", Tss);
     _x86_64_load_gdt((uint64_t)&Gdtr);
 }

@@ -4,6 +4,7 @@
 #ifdef __x86_64__
 #include <arch/x86_64/cpu/paging.h>
 #include <arch/x86_64/cpu/cpu.h>
+#include <arch/x86_64/cpu/gdt.h>
 #include <arch/x86_64/acpi.h>
 #endif
 
@@ -17,11 +18,12 @@ typedef struct {
     uint32_t height;
     uint32_t scanline;
 } Framebuffer;
-typedef struct {
+typedef struct KernelInformation {
     BOOTBOOT* bootinfo;
     AcpiRsdtTable* rsdt;
     void* initrd; // pointer to initrd
     Framebuffer* fb; // pointer to fb
+    CpuTss* tss; // pointer to tss
     struct ProcessCtrlBlk* ProcessListHead; // list of processes
     struct ProcessCtrlBlk* CurrentProcess;
 } KernelInformation;

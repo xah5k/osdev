@@ -301,6 +301,7 @@ void KernelBootstrapProc() {
     #ifdef __x86_64__
 	HalInitalize(gkInfo);    
     printf("kernel: initalized hal for arch x86-64!\r\n");
+    printf("kernel: tss base from info. gkInfo->tss=0x%lx\r\n", gkInfo->tss);
     #endif
 
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);

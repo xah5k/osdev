@@ -13,7 +13,7 @@
 #include "arch/x86_64/cpu/ioapic.h"
 
 void HalInitalize(KernelInformation* kinfo) {
-    CpuInitalizeGdt();
+    CpuInitalizeGdt((struct KernelInformation*)kinfo);
     CpuInitalizeIdt();
     asm ("sti");
     CpuInitalizeLapic();
