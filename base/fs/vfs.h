@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#pragma GCC diagnostic ignored "-Wvisibility"
 
 #define VFS_MAX_ALLOWED_PATH 64
 #define VFS_MAX_ALLOWED_OPEN_HANDLES 12

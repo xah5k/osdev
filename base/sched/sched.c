@@ -37,10 +37,11 @@ void SchedInitalize(KernelInformation* kinfo) {
     memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
     KernelThread->tid = 0;
     KernelThread->state = SCHED_THREAD_RUNNING;
-    KernelThread->rsp = _x86_64_get_stack();
+    KernelThread->KernelRsp = _x86_64_get_stack();
+    KernelThread->privilege = SCHED_PRIV_KERNEL;
 
     // create idle thread
-    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread);
+    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL);
 
     ProcAttachThread(KernelProc, KernelThread);
     ProcAttachThread(KernelProc, IdleThread);
@@ -100,11 +101,15 @@ void Schedule() {
     }
     asm ("cli");
     #ifdef __x86_64__
-    _x86_64_ctxswitch(&OldThr->rsp, NextThr->rsp);
+    gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
+    _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
     #endif
     if (DeathThread != NULL) {
-        if (DeathThread->StackBase) {
-            MmFree((void*)DeathThread->StackBase);
+        if (DeathThread->KernelStackBase) {
+            MmFree((void*)DeathThread->KernelStackBase);
+        }
+        if (DeathThread->UserStackBase) {
+            PmmFreePages((void*)V2P(DeathThread->UserStackBase), PS_USER_STACK_PAGES);
         }
         if(DeathThread->ParentProc->threads <= 0) {
             // remove from kernel list

@@ -14,7 +14,7 @@ extern void _x86_64_pause();
 void CpuDisablePic();
 
 extern void _x86_64_ctxswitch(uint64_t*, uint64_t);
-
+extern void _x86_64_usjmp(uint64_t, uint64_t); // userspace using iretq
 #define IA32_APIC_BASE 0x1B
 #define IA32_EFER 0xC0000080
 

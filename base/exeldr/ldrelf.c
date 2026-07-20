@@ -7,7 +7,7 @@
 #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
-KSTATUS LdrElfExecute(void* addr) {
+KSTATUS LdrElfExecute(void* addr, uint8_t priv) {
     Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
     if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
         printf("ldr: elf64: invalid magic\r\n");
@@ -34,7 +34,7 @@ KSTATUS LdrElfExecute(void* addr) {
             void* block = PmmAllocatePages(pages);
             for (int p = 0; p < pages; p++) {
                 // lwk i should seperate the _x86_64_get_pml4 into like a ArchGetPageTable() that returns a virtual address
-                MmuMapPage((pagetable*)((uint64_t)proc->cr3 + gMmuVOffset), (virtaddr)vaddr + (p*PAGE_SIZE), (physaddr)block + (p*PAGE_SIZE),  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+                MmuMapPage((pagetable*)((uint64_t)proc->cr3 + gMmuVOffset), (virtaddr)vaddr + (p*PAGE_SIZE), (physaddr)block + (p*PAGE_SIZE),  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
             }
             void* kdest = (void*)((uint64_t)block + gMmuVOffset + offset);
             printf("ldr: kernel dest to copy to 0x%lx (in new cr3 this is @ 0x%lx) (kdest calculated by adding 0x%lx + 0x%lx + 0x%lx)\r\n", kdest, current->p_vaddr, block, gMmuVOffset, offset);
@@ -43,10 +43,13 @@ KSTATUS LdrElfExecute(void* addr) {
         }
     }
     KernelInformation* kinfo = KernelGetInformation();
-    void (*entry)() = (void(*)())Elf->e_entry;
+    uint64_t entry = (uint64_t)Elf->e_entry;
     printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry);
-    ThreadCtrlBlk* thr = ThreadNew(entry);
+    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv);
     ProcAttachThread(proc, thr);
+    if (priv > SCHED_PRIV_KERNEL) {
+        ThreadMapUserStack(thr);
+    }
     ThreadAdd(thr);
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;

@@ -65,7 +65,7 @@ void ProcListRunning(KernelInformation* kinfo) {
         current = current->Next;
     }
 }
-void ThreadCreateStack(ThreadCtrlBlk* Tcb, void* entry) {
+void ThreadCreateKrnlStack(ThreadCtrlBlk* Tcb, void* entry) {
     uint64_t* StackBase = (uint64_t*)MmAllocate(16384);
     uint64_t* StackTop = StackBase + (16384 / 8);
     //Tcb->StackBase = (uint64_t)StackTop - (16384 * 8);
@@ -76,17 +76,47 @@ void ThreadCreateStack(ThreadCtrlBlk* Tcb, void* entry) {
         *(--StackTop) = 0;
     }
     *(--StackTop) = 0x202;
-    Tcb->rsp = (uint64_t)StackTop;
-    Tcb->StackBase = (uint64_t)StackBase;
+    Tcb->KernelRsp = (uint64_t)StackTop;
+    Tcb->KernelStackBase = (uint64_t)StackBase;
     Tcb->entry = entry;
 }
 
-ThreadCtrlBlk* ThreadNew(void* entry) {
+void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry) {
+    uint64_t* StackBasePhys = (uint64_t*)PmmAllocatePages(PS_USER_STACK_PAGES);
+    uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
+    Tcb->UserStackBase = (uint64_t)P2V(StackBasePhys); 
+    uint64_t UserStartVirt = PS_USER_STACK_BASE - (StackSize - PAGE_SIZE);
+    uint64_t UserStackTop = UserStartVirt + StackSize;
+    if (UserStackTop % 16 != 0) {
+        UserStackTop -= 8;
+    }
+    Tcb->UserRsp = UserStackTop; 
+}
+
+void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
+    if (!Tcb->ParentProc) return; // no parent proc page tables to map
+    if (!Tcb->UserStackBase) return;
+    uint64_t StackBasePhys = V2P(Tcb->UserStackBase);
+    uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
+    uint64_t PhysLimit = StackBasePhys + StackSize;
+    uint64_t StartVirt =  PS_USER_STACK_BASE - (StackSize - PAGE_SIZE);
+    uint64_t CurrentVirt = StartVirt;
+    for (uint64_t phys = StackBasePhys; phys < PhysLimit; phys += PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(Tcb->ParentProc->cr3), CurrentVirt, phys, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+        CurrentVirt += PAGE_SIZE;
+    }
+}
+
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
     ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(new, 0, sizeof(ThreadCtrlBlk));
     new->state = SCHED_THREAD_READY;
     //new->tid = ThreadGetTid();
-    ThreadCreateStack(new, entry);
+    new->privilege = priv;
+    ThreadCreateKrnlStack(new, entry);
+    if (priv > SCHED_PRIV_KERNEL) {
+        ThreadCreateUserStack(new, entry);
+    }
     return new;
 }
 
@@ -103,10 +133,13 @@ ProcessCtrlBlk* ProcessNew() {
     return new;
 }
 
-void ProcessCreate(void* entry, KernelInformation* kinfo) {
+void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {
     ProcessCtrlBlk* proc = ProcessNew();
-    ThreadCtrlBlk* thr = ThreadNew(entry);
+    ThreadCtrlBlk* thr = ThreadNew(entry, priv);
     ProcAttachThread(proc, thr);
+    if (priv > SCHED_PRIV_KERNEL) {
+        ThreadMapUserStack(thr);
+    }
     ThreadAdd(thr);
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;
@@ -121,14 +154,17 @@ void ThreadAdd(ThreadCtrlBlk* Tcb) {
 void ThreadEntry() {
     SpnLckRelease(&SchedSpinlock);
     if (DeathThread != NULL) {
-        if (DeathThread->StackBase) {
-            MmFree((void*)DeathThread->StackBase);
+        if (DeathThread->KernelStackBase) {
+            MmFree((void*)DeathThread->KernelStackBase);
+        }
+        if (DeathThread->UserStackBase) {
+            PmmFreePages((void*)V2P(DeathThread->UserStackBase), PS_USER_STACK_PAGES);
         }
         if(DeathThread->ParentProc->threads <= 0) {
             // remove from kernel list
-            KernelInformation* kinfo = KernelGetInformation();
-            ProcessCtrlBlk* ProcList = kinfo->ProcessListHead;
-            if (DeathThread->ParentProc == ProcList){ kinfo->ProcessListHead = kinfo->ProcessListHead->Next; } else {
+            ProcessCtrlBlk* ProcList = KernelGetInformation()->ProcessListHead;
+            
+            if (DeathThread->ParentProc == ProcList){ ProcList = ProcList->Next;} else {
                 ProcessCtrlBlk* current = ProcList;
                 ProcessCtrlBlk* previous;
                 while (current != NULL) {
@@ -148,12 +184,26 @@ void ThreadEntry() {
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);
-        DeathThread = NULL;
+        DeathThread = NULL; 
     }
     asm volatile ("sti");
     //printf("sched: wrapper: entering thread(tid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;
-    if (entry) entry();
+    if (entry) {
+        switch (CurrentThread->privilege) {
+            case SCHED_PRIV_KERNEL: {
+                printf("process: execute process entry @ 0x%lx\r\n", entry);
+                entry();
+                break;
+            }
+            case SCHED_PRIV_USER: {
+                printf("process: execute process entry @ 0x%lx\r\n", entry);
+                asm volatile ("cli");
+                _x86_64_usjmp((uint64_t)entry, CurrentThread->UserRsp);
+                break;
+            }
+        }
+    }
     // handle exit
     SpnLckAcquire(&SchedSpinlock);
     //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);

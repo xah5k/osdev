@@ -34,7 +34,7 @@ void CpuInitalizeGdt(struct KernelInformation* kinfo) {
     Entries[5].base_low = TssBase & 0xffff;
     Entries[5].base_middle = (TssBase >> 16) & 0xff;
     Entries[5].base_high = (TssBase >> 24) & 0xff;
-    Entries[5].limit_low = sizeof(Tss);
+    Entries[5].limit_low = sizeof(CpuTss) - 1;
     Entries[6].limit_low = (TssBase >> 32) & 0xffff;
     Entries[6].base_low = (TssBase >> 48) & 0xffff;
     

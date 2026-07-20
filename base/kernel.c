@@ -327,7 +327,7 @@ void KernelBootstrapProc() {
         int st = OsRead(h, buf, sz);
         printf("bytes read: %d\r\n", st);
         OsClose(h);
-        LdrElfExecute(buf);
+        LdrElfExecute(buf, SCHED_PRIV_USER);
     }
     while(1);
 }
