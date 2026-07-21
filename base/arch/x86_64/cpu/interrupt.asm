@@ -15,6 +15,7 @@ isr%1:
 %endmacro
 
 extern CpuIdtAsmHandler
+extern CpuIdtSyscallHandler
 
 ISR_NOERRCODE 0
 ISR_NOERRCODE 1
@@ -271,7 +272,50 @@ ISR_NOERRCODE 251
 ISR_NOERRCODE 252
 ISR_NOERRCODE 253
 ISR_NOERRCODE 254
-ISR_NOERRCODE 255
+global isr_syscall_stub
+isr_syscall_stub:
+    push rbp
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rbp, rsp
+    and rsp, -16
+    sub rsp, 32
+
+    mov rdi, rbp
+    call CpuIdtSyscallHandler
+
+    mov rsp, rbp
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    pop rbp
+
+    add rsp, 16
+    iretq
 
 isr_common_early:
     push rbp
@@ -322,7 +366,7 @@ isr_common_early:
 global isr_stub_table
 isr_stub_table:
 %assign i 0 
-%rep    256 
+%rep    255
     dq isr%+i ; use DQ instead if targeting 64-bit
 %assign i i+1 
 %endrep

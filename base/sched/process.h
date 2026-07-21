@@ -40,6 +40,7 @@ typedef struct ThreadCtrlBlk {
     uint8_t priority;
     void* entry;
     uint8_t privilege; // 0 = kernel, 1 = user
+    uint8_t exitcode;
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process

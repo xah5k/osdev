@@ -6,6 +6,8 @@
 #include <printfwrapper.h>
 #include "sched.h"
 #include <mm/pmm.h>
+#include <ksyscall.h>
+
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
@@ -117,6 +119,7 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadCreateUserStack(new, entry);
     }
+    new->exitcode = 0;
     return new;
 }
 
@@ -204,61 +207,7 @@ void ThreadEntry() {
             }
         }
     }
-    // handle exit
-    SpnLckAcquire(&SchedSpinlock);
-    //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
-    ThreadCtrlBlk* c = CurrentThread;
-
-    // remove it from process list of threads
-
-    if (c == c->ParentProc->ThreadListHead) {
-        c->ParentProc->ThreadListHead = c->ParentProc->ThreadListHead->ProcNext;
-        c->ParentProc->threads--;
-        goto _2;
-    }
-    ThreadCtrlBlk* current1 = c->ParentProc->ThreadListHead;
-    ThreadCtrlBlk* previous1 = NULL;
-    while (current1 != NULL) {
-        if (current1 == c) {
-            break;
-        }
-        previous1 = current1;
-        current1 = current1->ProcNext;
-    }
-
-    KATTEMPT(current1);
-    KATTEMPT(current1 == c);
-    // unlink from list
-    previous1->ProcNext = current1->ProcNext;
-    _2:
-    if (c != CurrentThread) {
-        if (c == ReadyQueueHead) {
-            ReadyQueueHead = c->GlobalNext;
-            c->GlobalNext = NULL;
-            goto _3;
-        }
-        
-        ThreadCtrlBlk* current2 = ReadyQueueHead;
-        ThreadCtrlBlk* previous2 = NULL;
-        while (current2 != NULL && current2 != c) {
-            //printf("current2=0x%lx\r\n", current2);
-            previous2 = current2;
-            current2 = current2->GlobalNext;
-        }
-
-        if (!current2 || current2 != c) {
-           // printf("current2=0x%lx c=0x%lx\r\n", current2, c);
-            KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
-        }
-        previous2->GlobalNext = current2->GlobalNext;
-        current2->GlobalNext = NULL;
-    }
-    _3:
-    c->ProcNext = NULL;
-    c->GlobalNext = NULL;
-    DeathThread = c;
-    SpnLckRelease(&SchedSpinlock);
-    SchedYield();
+    KE_SYSCALL_CALL_ARG1(SysExit, 0);
     while (1) {asm("hlt");}
 }
 

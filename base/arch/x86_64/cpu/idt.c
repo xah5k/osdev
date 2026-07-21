@@ -4,9 +4,12 @@
 #include <printfwrapper.h>
 #include <stdint.h>
 #include <kedriver.h>
+#include <arch/x86_64/archsyscall.h>
 #define IDT_FLAG_PRESENT 0x80
 #define IDT_FLAG_GATE 0x0E
-// (?) #define IDT_FLAG_USER 0xE0
+#define IDT_FLAG_USER 0xE0
+
+#define OS_SYSCALL_VECTOR 0xFF
 
 // entry
 typedef struct {
@@ -30,9 +33,13 @@ irqhandler handlers[256]; // 256 handlers
 static  CpuIdtr idtr;
 
 extern void _x86_64_load_idt(uint64_t idtr);
-
+extern void isr_syscall_stub();
 extern void* isr_stub_table[];
 
+
+void CpuIdtSyscallHandler(CpuInterruptArgs* registers) {
+    KiHandleSyscall(registers);
+}
 
 void CpuIdtAsmHandler(CpuInterruptArgs* registers) {
     if (handlers[registers->intnum]) {
@@ -62,9 +69,10 @@ void CpuIdtSetEntry(CpuIdtEntry* table, uint8_t index, void* base, uint8_t flags
 }
 
 void CpuInitalizeIdt() {
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 255; i++) {
         CpuIdtSetEntry(idt, i, isr_stub_table[i], IDT_FLAG_PRESENT | IDT_FLAG_GATE);
     }
+    CpuIdtSetEntry(idt, OS_SYSCALL_VECTOR, (void*)isr_syscall_stub, IDT_FLAG_PRESENT | IDT_FLAG_GATE | IDT_FLAG_USER);
     idtr.limit = sizeof(idt)-1;
     idtr.base = (uint64_t)&idt;
     //printf("before\r\n");

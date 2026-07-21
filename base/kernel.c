@@ -20,7 +20,7 @@
 #include <sched/sched.h>
 #include <kedriver.h>
 #include <util/util.h>
-
+#include <ksyscall.h>
 extern BOOTBOOT bootboot;               // see bootboot.h
 extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
 extern uint8_t fb;                      // linear framebuffer mapped
@@ -304,6 +304,9 @@ void KernelBootstrapProc() {
     printf("kernel: tss base from info. gkInfo->tss=0x%lx\r\n", gkInfo->tss);
     #endif
 
+    KeRegisterSyscalls();
+    printf("kernel: registered syscalls.\r\n");
+    
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
