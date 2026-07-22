@@ -3,8 +3,6 @@
 extern void exit(uint64_t code);
 extern uint64_t kill(uint64_t pid);
 void AppMain() {
-    volatile int x = 0;
-    while (1) {
-        x++;
-    }
+    kill(1);
+    exit(0);
 }

@@ -314,7 +314,6 @@ isr_syscall_stub:
     pop rax
     pop rbp
 
-    add rsp, 16
     iretq
 
 isr_common_early:

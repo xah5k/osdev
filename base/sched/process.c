@@ -52,6 +52,19 @@ void ProcFreePML4(pagetable* pml4p) {
     PmmFree((void*)pml4p);
 }
 
+ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo) {
+    ProcessCtrlBlk* list = kinfo->ProcessListHead;
+    if (!list) return NULL;
+    ProcessCtrlBlk* current = list;
+    while (current != NULL) {
+        if (current->pid == pid) {
+            return current;
+        }
+        current = current->Next;
+    }
+    return NULL;
+}
+
 void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* list = kinfo->ProcessListHead;
     if (!list) return;
@@ -120,6 +133,7 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
         ThreadCreateUserStack(new, entry);
     }
     new->exitcode = 0;
+    new->pendingkill = 0;
     return new;
 }
 
@@ -134,6 +148,12 @@ ProcessCtrlBlk* ProcessNew() {
     new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->Next = NULL;
     return new;
+}
+
+void ThrCheckPendingKill() {
+    if (CurrentThread->pendingkill) {
+        KE_SYSCALL_CALL_ARG1(SysExit, -1);
+    }
 }
 
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {

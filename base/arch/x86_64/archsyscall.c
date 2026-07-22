@@ -1,7 +1,10 @@
 #include "archsyscall.h"
 #include <printfwrapper.h>
-static syscallfunc gSyscallTable[KE_MAX_SYSCALL];
+#include <sched/process.h>
+#include <ksyscall.h>
 
+static syscallfunc gSyscallTable[KE_MAX_SYSCALL];
+extern ThreadCtrlBlk* CurrentThread;
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr) {
     if (index > KE_MAX_SYSCALL) return;
     gSyscallTable[index] = ptr;
@@ -21,4 +24,7 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
     }
     result = gSyscallTable[syscallnum](arg1, arg2, arg3, arg4, arg5);
     registers->rax = result;
+    if (CurrentThread->pendingkill) {
+        KE_SYSCALL_CALL_ARG1(SysExit, -1);
+    }
 }

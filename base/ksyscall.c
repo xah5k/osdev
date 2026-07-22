@@ -73,6 +73,23 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     SchedYield();
 }
 
+uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
+    if (pid == 0) return -1; // cant kill kernel process
+    ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
+    if (!process) return -1; // no such process
+    ThreadCtrlBlk* thrlist = process->ThreadListHead;
+    if (!thrlist) return -1; // well somethings probably gone wrong (process is probably in the process of being killed)
+    // set pending kill flag on all threads on process
+    printf("ksyscall: SysKill: set kill flag on all threads for pid %d (kill syscall from process with pid %d)\r\n", pid, CurrentThread->ParentProc->pid);
+    ThreadCtrlBlk* current = thrlist;
+    while (current != NULL) {
+        current->pendingkill = 1;
+        current = current->ProcNext;
+    }
+    return 1;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
+    KiRegisterSyscall(OS_KILL, SysKill);
 }

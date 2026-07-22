@@ -41,13 +41,14 @@ typedef struct ThreadCtrlBlk {
     void* entry;
     uint8_t privilege; // 0 = kernel, 1 = user
     uint8_t exitcode;
+    uint8_t pendingkill;
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
 #endif
 } ThreadCtrlBlk;
 
-
+ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
 ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv);
 ProcessCtrlBlk* ProcessNew();
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
@@ -59,3 +60,4 @@ void ProcListRunning(KernelInformation* kinfo);
 void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);
 void ProcFreePML4(pagetable* pml4p);
+void ThrCheckPendingKill();

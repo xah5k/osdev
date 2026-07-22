@@ -7,7 +7,8 @@
 #include <sched/sched.h>
 #include <arch/x86_64/ports.h>
 #include <kedriver.h>
-
+#include <arch/x86_64/archsyscall.h>
+#include <ksyscall.h>
 
 physaddr CpuGetLapicPhysicalBase() {
     return (CpuReadMsr(IA32_APIC_BASE) & 0x000FFFFFFFFFF000);
@@ -31,6 +32,7 @@ void CpuLapicTimerHandler(CpuInterruptArgs* r) {
     lapictimertick++;
     CpuLapicEoi();
     Schedule();
+    ThrCheckPendingKill();
 }
 
 uint64_t gCpuLapicTicksPer10ms = 0;

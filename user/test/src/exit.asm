@@ -7,3 +7,4 @@ global kill
 kill:
     mov rax, 1
     int 0xFF
+    ret
