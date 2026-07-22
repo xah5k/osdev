@@ -7,3 +7,9 @@ global kill
 kill:
     mov rax, 1
     int 0xFF
+
+global spawn
+spawn:
+    mov rax, 2
+    int 0xFF
+    ret

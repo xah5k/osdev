@@ -146,8 +146,16 @@ ProcessCtrlBlk* ProcessNew() {
     new->nextfh = 0;
     new->threads = 0;
     new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    new->Parent = NULL;
     new->Next = NULL;
     return new;
+}
+
+ThreadCtrlBlk* ThrGetCurrent() {
+    SpnLckAcquire(&SchedSpinlock);
+    ThreadCtrlBlk* c = CurrentThread;
+    SpnLckRelease(&SchedSpinlock);
+    return c;
 }
 
 void ThrCheckPendingKill() {

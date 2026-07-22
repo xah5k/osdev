@@ -26,6 +26,7 @@ typedef struct ProcessCtrlBlk {
     int threads;
     VfsOpenFileDescr* FileHandleTable;
     struct ThreadCtrlBlk* ThreadListHead;
+    struct ProcessCtrlBlk* Parent;
     struct ProcessCtrlBlk* Next;
 } ProcessCtrlBlk;
 
@@ -48,6 +49,7 @@ typedef struct ThreadCtrlBlk {
 #endif
 } ThreadCtrlBlk;
 
+ThreadCtrlBlk* ThrGetCurrent();
 ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
 ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv);
 ProcessCtrlBlk* ProcessNew();

@@ -7,7 +7,7 @@
 #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
-KSTATUS LdrElfExecute(void* addr, uint8_t priv) {
+KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout) {
     Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
     if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
         printf("ldr: elf64: invalid magic\r\n");
@@ -51,9 +51,11 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv) {
         ThreadMapUserStack(thr);
     }
     ThreadAdd(thr);
+    proc->Parent = ThrGetCurrent()->ParentProc;
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;
     kinfo->CurrentProcess = proc;
+    if (pidout != NULL) *pidout = proc->pid;
     return KSUCCESS;
 }
 

@@ -19,7 +19,11 @@ typedef uint64_t(*syscallfunc)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t)
 
 typedef enum {
     OS_EXIT,
-    OS_KILL
+    OS_KILL,
+    OS_SPAWN,
+    OS_YIELD,
+    OS_GETPID,
+    OS_WAIT
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);

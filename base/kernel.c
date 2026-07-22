@@ -330,20 +330,7 @@ void KernelBootstrapProc() {
         int st = OsRead(h, buf, sz);
         printf("bytes read: %d\r\n", st);
         OsClose(h);
-        LdrElfExecute(buf, SCHED_PRIV_USER);
-    }
-
-    int h2 = OsOpen("initrd:/programs/test.elf", 0);
-    int sz2 = OsGetFileSize(h2);
-    printf("program is located at initrd:/programs/test.elf with %d size\r\n", sz2);
-    const char* buf2 = MmAllocate(sz2);
-    if (!buf2) {
-        printf("memory allocation fail.\r\n");
-    } else {
-        int st2 = OsRead(h2, buf2, sz2);
-        printf("bytes read: %d\r\n", st2);
-        OsClose(h2);
-        LdrElfExecute(buf2, SCHED_PRIV_USER);
+        LdrElfExecute(buf, SCHED_PRIV_USER, NULL);
     }
     while(1);
 }

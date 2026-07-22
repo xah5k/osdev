@@ -7,6 +7,8 @@
 #include <util/util.h>
 #include "util/spinlock.h"
 #include <printfwrapper.h>
+#include <mm/heap.h>
+#include <exeldr/ldrelf.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -89,7 +91,23 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     return 1;
 }
 
+uint64_t SysSpawn(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
+    const char* path = (const char*)pathaddr;
+    int handle = OsOpen(path, 0);
+    if (handle <= -1) return -1;
+    uint64_t size = OsGetFileSize(handle);
+    void* buf = MmAllocate(size);
+    OsRead(handle, buf, size);
+    OsClose(handle);
+    uint64_t pid = 0;
+    printf("ksyscall: SysSpawn: spawn new process\r\n");
+    KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid);
+    MmFree(buf);
+    return (result == KSUCCESS) ? pid : -1;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
+    KiRegisterSyscall(OS_SPAWN, SysSpawn);
 }
