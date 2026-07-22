@@ -106,8 +106,22 @@ uint64_t SysSpawn(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
     return (result == KSUCCESS) ? pid : -1;
 }
 
+uint64_t SysConWrite(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
+    const char* path = (const char*)pathaddr;
+    printf(path);
+    return 0;
+}
+
+// should probably make a KE_SYSCALL_ARGS_UNUSED0
+uint64_t SysYield(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
+    SchedYield();
+    return 0;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
     KiRegisterSyscall(OS_SPAWN, SysSpawn);
+    KiRegisterSyscall(OS_CONWRITE, SysConWrite);
+    KiRegisterSyscall(OS_YIELD, SysYield);
 }

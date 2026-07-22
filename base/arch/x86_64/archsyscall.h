@@ -21,9 +21,10 @@ typedef enum {
     OS_EXIT,
     OS_KILL,
     OS_SPAWN,
+    OS_CONWRITE,
     OS_YIELD,
     OS_GETPID,
-    OS_WAIT
+    OS_WAIT,
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);

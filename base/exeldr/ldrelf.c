@@ -37,14 +37,14 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout) {
                 MmuMapPage((pagetable*)((uint64_t)proc->cr3 + gMmuVOffset), (virtaddr)vaddr + (p*PAGE_SIZE), (physaddr)block + (p*PAGE_SIZE),  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
             }
             void* kdest = (void*)((uint64_t)block + gMmuVOffset + offset);
-            printf("ldr: kernel dest to copy to 0x%lx (in new cr3 this is @ 0x%lx) (kdest calculated by adding 0x%lx + 0x%lx + 0x%lx)\r\n", kdest, current->p_vaddr, block, gMmuVOffset, offset);
+            // printf("ldr: kernel dest to copy to 0x%lx (in new cr3 this is @ 0x%lx) (kdest calculated by adding 0x%lx + 0x%lx + 0x%lx)\r\n", kdest, current->p_vaddr, block, gMmuVOffset, offset);
             memcpy((void*)kdest, (void*)((uint64_t)Elf + current->p_offset), filesz);
             if (memsz > filesz) memset((void*)((uint64_t)kdest + filesz), 0, memsz - filesz);
         }
     }
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;
-    printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry);
+    // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry);
     ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
