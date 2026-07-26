@@ -7,7 +7,7 @@
 #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
-KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout) {
+KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** argv, int argc, const char* name) {
     Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
     if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
         printf("ldr: elf64: invalid magic\r\n");
@@ -22,7 +22,8 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout) {
         printf("ldr: elf64: program header size mismatch!\r\n");
         return KINVALID;
     }
-    ProcessCtrlBlk* proc = ProcessNew();
+
+    ProcessCtrlBlk* proc = ProcessNew(name);
     for (int i = 0; i < Elf->e_phnum; i++) {
         Elf64_Phdr* current = &PHdr[i];
         if (current->p_type == PT_LOAD) {
@@ -44,8 +45,9 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout) {
     }
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;
-    // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry);
-    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv);
+    // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry)
+    printf("argv=0x%lx argc=(literal) %d\r\n", argv, argc);
+    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv, argv, argc);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadMapUserStack(thr);

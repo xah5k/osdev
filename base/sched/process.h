@@ -19,6 +19,7 @@
 
 
 typedef struct ProcessCtrlBlk {
+    char name[256]; // after like 20 years
     physaddr cr3;
     virtaddr* pml4;
     uint64_t pid;
@@ -43,6 +44,8 @@ typedef struct ThreadCtrlBlk {
     uint8_t privilege; // 0 = kernel, 1 = user
     uint8_t exitcode;
     uint8_t pendingkill;
+    char** UserArgv;
+    int UserArgc;
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
@@ -51,11 +54,12 @@ typedef struct ThreadCtrlBlk {
 
 ThreadCtrlBlk* ThrGetCurrent();
 ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
-ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv);
-ProcessCtrlBlk* ProcessNew();
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc);
+ProcessCtrlBlk* ProcessNew(char* name);
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
 void ProcessCreate2(void* entry, KernelInformation* kinfo, void* arg1);
 void ThreadMapUserStack(ThreadCtrlBlk* Tcb);
+
 uint64_t* ProcNewPML4();
 void ThreadEntry();
 void ProcListRunning(KernelInformation* kinfo);

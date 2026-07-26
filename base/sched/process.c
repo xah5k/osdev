@@ -7,7 +7,7 @@
 #include "sched.h"
 #include <mm/pmm.h>
 #include <ksyscall.h>
-
+#include <util/util.h>
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
@@ -71,7 +71,7 @@ void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* current = list;
     printf("process: List of running processes: \r\n");
     while (current != NULL) {
-        printf("process:     [*] PID %d\r\n", current->pid);
+        printf("process:     [*] %s (pid=%d)\r\n", current->name, current->pid);
         ThreadCtrlBlk* thrc = current->ThreadListHead;
         while (thrc != NULL) {
             printf("process:            [*] TID %d\r\n", thrc->tid);
@@ -95,26 +95,60 @@ void ThreadCreateKrnlStack(ThreadCtrlBlk* Tcb, void* entry) {
     Tcb->KernelStackBase = (uint64_t)StackBase;
     Tcb->entry = entry;
 }
-
-void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry) {
-    uint64_t* StackBasePhys = (uint64_t*)PmmAllocatePages(PS_USER_STACK_PAGES);
+void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc) {
     uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
-    Tcb->UserStackBase = (uint64_t)P2V(StackBasePhys); 
-    uint64_t UserStartVirt = PS_USER_STACK_BASE - (StackSize - PAGE_SIZE);
-    uint64_t UserStackTop = UserStartVirt + StackSize;
-    if (UserStackTop % 16 != 0) {
-        UserStackTop -= 8;
-    }
-    Tcb->UserRsp = UserStackTop; 
-}
+    uint64_t* StackBasePhys = (uint64_t*)PmmAllocatePages(PS_USER_STACK_PAGES);
 
+    Tcb->UserStackBase = (uint64_t)P2V(StackBasePhys); 
+
+    uint64_t UserStackTop = PS_USER_STACK_BASE;
+    uint64_t LocalVirt = UserStackTop;
+    uint64_t KernelVirt = Tcb->UserStackBase + StackSize;
+
+    uint64_t* UserArgvAddresses = MmAllocate(sizeof(uint64_t) * argc);
+
+    for (int i = argc - 1; i >= 0; i--) {
+        uint64_t len = strlen(argv[i]) + 1;
+        LocalVirt -= len;
+        KernelVirt -= len;
+
+        memcpy((void*)KernelVirt, argv[i], len);
+        UserArgvAddresses[i] = LocalVirt;
+    }
+
+    uint64_t align8 = LocalVirt % 8;
+    LocalVirt -= align8;
+    KernelVirt -= align8;
+
+    LocalVirt -= sizeof(uint64_t);
+    KernelVirt -= sizeof(uint64_t);
+    *(uint64_t*)KernelVirt = 0;
+
+    for (int i = argc - 1; i >= 0; i--) {
+        LocalVirt -= sizeof(uint64_t);
+        KernelVirt -= sizeof(uint64_t);
+        *(uint64_t*)KernelVirt = UserArgvAddresses[i];
+    }
+
+    uint64_t UserArgvArrayHead = LocalVirt;
+    MmFree(UserArgvAddresses);
+    if (LocalVirt % 16 != 0) {
+        uint64_t misalignment = LocalVirt % 16;
+        LocalVirt -= misalignment;
+        KernelVirt -= misalignment;
+    }
+
+    Tcb->UserRsp = LocalVirt;
+    Tcb->UserArgc = argc;
+    Tcb->UserArgv = (char**)UserArgvArrayHead;
+}
 void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
     if (!Tcb->ParentProc) return; // no parent proc page tables to map
     if (!Tcb->UserStackBase) return;
     uint64_t StackBasePhys = V2P(Tcb->UserStackBase);
     uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
     uint64_t PhysLimit = StackBasePhys + StackSize;
-    uint64_t StartVirt =  PS_USER_STACK_BASE - (StackSize - PAGE_SIZE);
+    uint64_t StartVirt =  PS_USER_STACK_BASE - (StackSize);
     uint64_t CurrentVirt = StartVirt;
     for (uint64_t phys = StackBasePhys; phys < PhysLimit; phys += PAGE_SIZE) {
         MmuMapPage((pagetable*)P2V(Tcb->ParentProc->cr3), CurrentVirt, phys, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
@@ -122,7 +156,7 @@ void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
     }
 }
 
-ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc) {
     ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(new, 0, sizeof(ThreadCtrlBlk));
     new->state = SCHED_THREAD_READY;
@@ -130,7 +164,7 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
     new->privilege = priv;
     ThreadCreateKrnlStack(new, entry);
     if (priv > SCHED_PRIV_KERNEL) {
-        ThreadCreateUserStack(new, entry);
+        ThreadCreateUserStack(new, entry, argv, argc);
     }
     new->exitcode = 0;
     new->pendingkill = 0;
@@ -138,8 +172,9 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv) {
 }
 
 // creates a new process and it makes one thread with the entry point
-ProcessCtrlBlk* ProcessNew() {
+ProcessCtrlBlk* ProcessNew(char* name) {
     ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
+    memcpy((void*)new->name, (void*)name, strlen(name)+1);
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
     new->pid = ProcGetPid()+1;
@@ -165,8 +200,8 @@ void ThrCheckPendingKill() {
 }
 
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {
-    ProcessCtrlBlk* proc = ProcessNew();
-    ThreadCtrlBlk* thr = ThreadNew(entry, priv);
+    ProcessCtrlBlk* proc = ProcessNew("noname");
+    ThreadCtrlBlk* thr = ThreadNew(entry, priv, 0, 0);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadMapUserStack(thr);
@@ -229,8 +264,9 @@ void ThreadEntry() {
             }
             case SCHED_PRIV_USER: {
                 printf("process: execute process entry @ 0x%lx\r\n", entry);
+                printf("process: argv=0x%lx argc=0x%lx in user mode.\r\n", CurrentThread->UserArgv, CurrentThread->UserArgc);
                 asm volatile ("cli");
-                _x86_64_usjmp((uint64_t)entry, CurrentThread->UserRsp);
+                _x86_64_usjmp((uint64_t)entry, CurrentThread->UserRsp, (uint64_t)CurrentThread->UserArgv, (uint64_t)CurrentThread->UserArgc);
                 break;
             }
         }

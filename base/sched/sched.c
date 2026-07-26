@@ -24,6 +24,7 @@ void SchedIdleThread() {
 
 void SchedInitalize(KernelInformation* kinfo) {
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
+    memcpy((void*)KernelProc->name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
     KernelProc->pml4 = (virtaddr*)_x86_64_get_pml4();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;
@@ -41,7 +42,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelThread->privilege = SCHED_PRIV_KERNEL;
 
     // create idle thread
-    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL);
+    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, 0, 0);
 
     ProcAttachThread(KernelProc, KernelThread);
     ProcAttachThread(KernelProc, IdleThread);

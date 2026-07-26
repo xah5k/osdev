@@ -20,4 +20,5 @@ void HalInitalize(KernelInformation* kinfo) {
     CpuInitalizeIoApic(kinfo->rsdt);
 	CpuInitalizeLapicTimer(32);
 	KbdInitalize(CpuGetIoApicVirtBase(), 33);
+    kinfo->cpufeats = CpuDetectFeatures();
 }

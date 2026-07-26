@@ -41,3 +41,17 @@ int strcmpl(const char* s1, const char* s2, int max_len) {
     return 0;
 }
 KE_EXPORT_SYMBOL(strcmpl);
+
+const char *basename(const char *path) {
+    uint64_t len = strlen(path);
+    if (len == 0) {
+        return path;
+    }
+    for (uint64_t i = len; i > 0; i--) {
+        if (path[i - 1] == '/') {
+            return &path[i];
+        }
+    }
+
+    return path;
+}

@@ -5,6 +5,7 @@
 #include <mm/pmm.h>
 #include <mm/vmm.h>
 #include <mm/heap.h>
+#include <memory.h>
 #include "fs/vfs.h"
 #include "sched/process.h"
 #include "serial.h"
@@ -270,6 +271,7 @@ static void KeInitalizeDrivers() {
         }
     }
 }
+
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -324,14 +326,26 @@ void KernelBootstrapProc() {
     int sz = OsGetFileSize(h);
     printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
     const char* buf = MmAllocate(sz);
+    int argc = 2;
+    char** argv = MmAllocate((argc+1) * sizeof(char*));
+    const char* source = "hello.elf";
+    uint64_t l = strlen(source)+1;
+    argv[0] = MmAllocate(l * sizeof(char));
+    memcpy(argv[0], source, l);
+    argv[argc] = NULL;
+    // dump byte
+    for (int i = 0; i < 16; i++) {
+        printf("argv[0][%d]: %X\r\n", i, argv[0][i]);
+    }
     if (!buf) {
         printf("memory allocation fail.\r\n");
     } else {
         int st = OsRead(h, buf, sz);
         printf("bytes read: %d\r\n", st);
         OsClose(h);
-        LdrElfExecute(buf, SCHED_PRIV_USER, NULL);
+        LdrElfExecute(buf, SCHED_PRIV_USER, NULL, (const char**)argv, argc, basename("initrd:/programs/hello.elf"));
     }
+    ProcListRunning(gkInfo);
     while(1);
 }
 

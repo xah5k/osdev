@@ -6,6 +6,7 @@ _x86_64_get_stack:
 global _x86_64_set_stack
 _x86_64_set_stack:
     mov rsp, rdi
+    xor rbp, rbp
     ret
 
 global _x86_64_load_gdt 
@@ -38,21 +39,33 @@ _x86_64_pause:
 global _x86_64_usjmp 
 _x86_64_usjmp:
     cli
+    mov r12, rdx                ; r12 = argc
+    mov r13, rcx                ; r13 = argv
+
+    mov ax, 0x1B
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
     mov rax, 0x1B
     push rax
-    
     push rsi
+
     mov rax, 0x0202
     push rax
+
     mov rax, 0x23
     push rax
     push rdi
+
+    mov rdi, r12
+    mov rsi, r13
+
     xor rax, rax
     xor rbx, rbx
     xor rcx, rcx
     xor rdx, rdx
-    xor rsi, rsi
-    xor rdi, rdi
     xor rbp, rbp
     xor r8,  r8
     xor r9,  r9
@@ -62,6 +75,7 @@ _x86_64_usjmp:
     xor r13, r13
     xor r14, r14
     xor r15, r15
+
     iretq
 
 global _x86_64_ctxswitch

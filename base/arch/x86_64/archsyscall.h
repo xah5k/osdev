@@ -24,7 +24,7 @@ typedef enum {
     OS_CONWRITE,
     OS_YIELD,
     OS_GETPID,
-    OS_WAIT,
+    OS_WAIT, // ok this one can wait a bit
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);

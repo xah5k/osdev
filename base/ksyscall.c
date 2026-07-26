@@ -14,7 +14,16 @@ extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
 extern ThreadCtrlBlk* DeathThread;
-
+static void UserAcBegin() {
+    if (KernelGetInformation()->cpufeats->smap) {
+        asm volatile ("stac");
+    }
+}
+static void UserAcEnd() {
+    if (KernelGetInformation()->cpufeats->smap) {
+        asm volatile ("clac");
+    }
+}
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     printf("ksyscall: SysExit: exit current thread with code %d\r\n", exitcode);
     // handle exit
@@ -91,7 +100,7 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     return 1;
 }
 
-uint64_t SysSpawn(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
+uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, KE_SYSCALL_ARGS_UNUSED3) {
     const char* path = (const char*)pathaddr;
     int handle = OsOpen(path, 0);
     if (handle <= -1) return -1;
@@ -101,14 +110,16 @@ uint64_t SysSpawn(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
     OsClose(handle);
     uint64_t pid = 0;
     printf("ksyscall: SysSpawn: spawn new process\r\n");
-    KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid);
+    KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid, (const char**)argv, (int)argc, basename(path));
     MmFree(buf);
     return (result == KSUCCESS) ? pid : -1;
 }
 
 uint64_t SysConWrite(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
     const char* path = (const char*)pathaddr;
-    printf(path);
+    UserAcBegin();
+    printf("%s", path);
+    UserAcEnd();
     return 0;
 }
 
@@ -118,10 +129,15 @@ uint64_t SysYield(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
     return 0;
 }
 
+uint64_t SysGetPid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
+    return CurrentThread->ParentProc->pid;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
     KiRegisterSyscall(OS_SPAWN, SysSpawn);
     KiRegisterSyscall(OS_CONWRITE, SysConWrite);
     KiRegisterSyscall(OS_YIELD, SysYield);
+    KiRegisterSyscall(OS_GETPID, SysGetPid);
 }

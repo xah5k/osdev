@@ -25,6 +25,7 @@ typedef struct KernelInformation {
     Framebuffer* fb; // pointer to fb
     CpuTss* tss; // pointer to tss
     struct ProcessCtrlBlk* ProcessListHead; // list of processes
+    CpuFeatures* cpufeats;
     struct ProcessCtrlBlk* CurrentProcess;
 } KernelInformation;
 
