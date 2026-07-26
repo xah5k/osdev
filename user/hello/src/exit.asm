@@ -25,3 +25,9 @@ yield:
     mov rax, 4
     int 0xFF
     ret
+
+global sbrk
+sbrk:
+    mov rax, 7
+    int 0xFF
+    ret

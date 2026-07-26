@@ -8,6 +8,8 @@
 #define PS_USER_STACK_PAGES 4
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
+#define PS_USER_BRK_BASE 0x700000000000
+#define PS_USER_BRK_SIZE 0x40000000
 
 #define SCHED_THREAD_READY 1
 #define SCHED_THREAD_RUNNING 2
@@ -25,6 +27,9 @@ typedef struct ProcessCtrlBlk {
     uint64_t pid;
     int nextfh;
     int threads;
+    uint64_t SbrkBase;
+    uint64_t SbrkCurrent;
+    uint64_t SbrkLimit;
     VfsOpenFileDescr* FileHandleTable;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Parent;

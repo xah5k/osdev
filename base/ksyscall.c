@@ -9,6 +9,7 @@
 #include <printfwrapper.h>
 #include <mm/heap.h>
 #include <exeldr/ldrelf.h>
+#include <mm/pmm.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -133,6 +134,35 @@ uint64_t SysGetPid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
     return CurrentThread->ParentProc->pid;
 }
 
+uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (inc == 0) {
+        return proc->SbrkCurrent;
+    }
+    uint64_t OldBrk = proc->SbrkCurrent;
+    uint64_t NewBrk = OldBrk + inc;
+    if (NewBrk < proc->SbrkBase || NewBrk > proc->SbrkLimit) {
+        return -1;
+    }
+    if (inc > 0) {
+        uint64_t OldEnd = MMU_ROUND_PAGE_UP(OldBrk);
+        uint64_t NewEnd = MMU_ROUND_PAGE_UP(NewBrk);
+        for (uint64_t VirtAddr = OldEnd; VirtAddr < NewEnd; VirtAddr+=MMU_PAGE_SIZE) {
+            uint64_t Phys = (uint64_t)PmmAllocate();
+            MmuMapPage((pagetable*)P2V(proc->cr3), VirtAddr, Phys, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+        }
+    } else {
+        uint64_t OldEnd = MMU_ROUND_PAGE_UP(OldBrk);
+        uint64_t NewEnd = MMU_ROUND_PAGE_UP(NewBrk);
+        for (uint64_t VirtAddr = OldEnd; VirtAddr < NewEnd; VirtAddr+=MMU_PAGE_SIZE) {
+            MmuUnmapPage((pagetable*)P2V(proc->cr3), VirtAddr);
+        }
+    }
+    proc->SbrkCurrent = NewBrk;
+    printf("ksyscall: SysSBrk: proc[pid=%d]->SbrkCurrent = 0x%lx\r\n", proc->pid, proc->SbrkCurrent);
+    return OldBrk;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -140,4 +170,5 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CONWRITE, SysConWrite);
     KiRegisterSyscall(OS_YIELD, SysYield);
     KiRegisterSyscall(OS_GETPID, SysGetPid);
+    KiRegisterSyscall(OS_SBRK, SysSBrk);
 }

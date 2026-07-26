@@ -117,6 +117,7 @@ void* VmmAllocate(uint64_t size) {
     return (void*)block->start;
 }
 KE_EXPORT_SYMBOL(VmmAllocate);
+
 void VmmFree(void* ptr) {
     SpnLckAcquire(&VmmInternalLock);
     // find block with ptr

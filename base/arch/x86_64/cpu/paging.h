@@ -25,7 +25,7 @@
 
 #define P2V(x) (((uint64_t)x) + gMmuVOffset)
 #define V2P(x) (((uint64_t)x) - gMmuVOffset)
-
+#define MMU_ROUND_PAGE_UP(addr) (((addr) + (MMU_PAGE_SIZE - 1)) & ~(MMU_PAGE_SIZE - 1))
 typedef uint64_t physaddr;
 typedef uint64_t virtaddr;
 

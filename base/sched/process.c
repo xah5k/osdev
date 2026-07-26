@@ -181,6 +181,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->nextfh = 0;
     new->threads = 0;
     new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    new->SbrkBase = PS_USER_BRK_BASE;
+    new->SbrkCurrent = PS_USER_BRK_BASE;
+    new->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
     new->Parent = NULL;
     new->Next = NULL;
     return new;

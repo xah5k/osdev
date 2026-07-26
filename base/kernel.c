@@ -326,7 +326,7 @@ void KernelBootstrapProc() {
     int sz = OsGetFileSize(h);
     printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
     const char* buf = MmAllocate(sz);
-    int argc = 2;
+    int argc = 1;
     char** argv = MmAllocate((argc+1) * sizeof(char*));
     const char* source = "hello.elf";
     uint64_t l = strlen(source)+1;
