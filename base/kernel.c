@@ -345,6 +345,19 @@ void KernelBootstrapProc() {
         LdrElfExecute(buf, SCHED_PRIV_USER, NULL, (const char**)argv, argc, basename("initrd:/programs/hello.elf"));
     }
     ProcListRunning(gkInfo);
+    KeIoRequest* irp = MmAllocate(sizeof(KeIoRequest));
+    KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
+    printf("irp=0x%lx dev=0x%lx\r\n", irp, dev);
+    uint8_t* buf2 = MmAllocate(2);
+    irp->Buffer = (void*)buf2;
+    irp->Length = 1;
+    irp->Major = IO_READ;
+    while (1) {
+        KSTATUS s = KeIoDispatch(dev, irp);
+        if (irp->ReadBytes > 0) {
+            printf("current scancode 0x%x\r\n", buf2[0]);
+        }
+    }
     while(1);
 }
 

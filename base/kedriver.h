@@ -54,4 +54,6 @@ void KeDrvWriteFmt(const char* message, ...);
 const char** KeDrvBuildDriverList(int* countOut);
 void KeDrvRegisterDriver(KeDriverObj* drv);
 KeDriverObj* KeDrvFindDriverByName(const char* name);
+KeDeviceObj* KeFindDeviceByName(const char* name);
 void KeRegisterDevice(KeDeviceObj* dev);
+KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq);

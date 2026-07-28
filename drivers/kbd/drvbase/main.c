@@ -16,7 +16,6 @@ typedef struct {
 
 static KbdRingBuffer gKbdBuf = {0};
 static int KbdBufferAdd(uint8_t scancode) {
-    KeDrvWriteFmt("kbd: add scancode %X to buffer.\r\n", scancode);
     uint32_t next = (gKbdBuf.head + 1) % KBD_BUFFER_SIZE;
     if (next == gKbdBuf.tail) {
         return 0;
