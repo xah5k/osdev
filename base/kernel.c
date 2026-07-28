@@ -312,8 +312,7 @@ void KernelBootstrapProc() {
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
-    printf("putchar@0x%lx\r\n", _putchar);
-    
+
     // think its a good time to unmap identity mappings
     PmmAdjustBitmapPtr();
     KeRmvIdentityMap();

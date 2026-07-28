@@ -2,14 +2,12 @@
 #include <mm/heap.h>
 #include <arch/x86_64/cpu/lapic.h>
 #include <arch/x86_64/cpu/ioapic.h>
-#include <arch/x86_64/kbd.h>
 #include <stddef.h>
 #include <external/printf.h>
 #include <memory.h>
 #include <arch/x86_64/cpu/gdt.h>
 #include <arch/x86_64/cpu/idt.h>
 #include <arch/x86_64/cpu/lapic.h>
-#include "arch/x86_64/kbd.h"
 #include "arch/x86_64/cpu/ioapic.h"
 
 void HalInitalize(KernelInformation* kinfo) {
@@ -19,6 +17,5 @@ void HalInitalize(KernelInformation* kinfo) {
     CpuInitalizeLapic();
     CpuInitalizeIoApic(kinfo->rsdt);
 	CpuInitalizeLapicTimer(32);
-	KbdInitalize(CpuGetIoApicVirtBase(), 33);
     kinfo->cpufeats = CpuDetectFeatures();
 }

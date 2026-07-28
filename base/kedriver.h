@@ -38,6 +38,7 @@ typedef struct KeIoRequest {
     KeIoReqType Major;
     void* Buffer;
     uint64_t Length;
+    uint64_t ReadBytes;
 } KeIoRequest;
 
 #define KE_EXPORT_SYMBOL(func) \

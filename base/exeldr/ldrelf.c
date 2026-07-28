@@ -186,7 +186,7 @@ KSTATUS LdrElfDriverExec(void* addr, KeDriverObj** driver) {
     void* EntryAddress = NULL;
     for (int i = 0; i < SymNum; i++) {
         const char* Name = StrSymTable + Symbols[i].st_name;
-        if (strcmp(Name, "DriverEntry") == 0) {
+        if (strcmpl(Name, "DriverEntry", 12) == 0) {
             EntryAddress = (void*)Resolved[i];
             break;
         }

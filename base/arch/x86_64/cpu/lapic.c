@@ -86,7 +86,7 @@ uint32_t CpuLapicGetId() {
     uint32_t id = *(volatile uint32_t*)(lapicvirtbase + 0x0020);
     return id;
 }
-
+KE_EXPORT_SYMBOL(CpuLapicGetId);
 void CpuInitalizeLapic() {
     uint64_t efer = CpuReadMsr(IA32_EFER);
     efer |= (1 << 11);
