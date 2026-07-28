@@ -1,6 +1,6 @@
 PROGNAME=test
 CFLAGS = -g -Wall -ffreestanding -mno-red-zone -fno-stack-protector -nostdlib -D__$(ARCH)__
-LDFLAGS = -g -nostdlib -n -T link.ld
+LDFLAGS = -g -u _start -nostdlib -n -T link.ld -L../../libs -lah5k
 override SRCFILES := $(shell find -L src -type f 2>/dev/null | LC_ALL=C sort)
 override CFILES := $(filter %.c,$(SRCFILES))
 override CFILES := $(filter %.c,$(SRCFILES))
@@ -17,7 +17,7 @@ all: $(PROGNAME).elf
 
 $(PROGNAME).elf: $(OBJ)
 	@mkdir -p "$(dir $@)"
-	@x86_64-elf-ld $(LDFLAGS) $(OBJ) -o $@
+	x86_64-elf-ld $(OBJ) $(LDFLAGS) -o $@
 	@echo [build program $(PROGNAME).elf]" $<"
 
 obj-$(ARCH)/%.c.o: %.c

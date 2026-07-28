@@ -1,11 +1,5 @@
 #include <stdint.h>
-
-extern void exit(uint64_t code);
-extern uint64_t kill(uint64_t pid);
-extern uint64_t spawn(const char* path);
-extern uint64_t conwrite(const char* thing);
-extern uint64_t yield(uint64_t pad);
-extern uint64_t sbrk(uint64_t inc);
+#include "../../../libs/syscall.h"
 static uint64_t heap_ptr = 0;
 static uint64_t heap_end = 0;
 
@@ -23,10 +17,10 @@ void* malloc(uint64_t size) {
 }
 
 
-void AppMain(const char* argv[], int argc) {
+int main(const char* argv[], int argc) {
     conwrite("test.elf: test sbrk using bump malloc.\r\n");
     for (int i = 0; i < 1024; i++) {
         void* x= malloc(1024);
     }
-    exit(0);
+    return 0;
 }

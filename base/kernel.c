@@ -272,21 +272,6 @@ static void KeInitalizeDrivers() {
     }
 }
 
-void test() {
-    uint8_t scancode;
-    uint32_t id = ThrGetCurrent()->ParentProc->pid;
-    KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
-    KeIoRequest* irp = MmAllocate(sizeof(KeIoRequest));
-    irp->Major = IO_READ;
-    irp->Buffer = &scancode;
-    irp->Length = 1;
-    while (1) {
-        printf("pid %d: get key...\r\n", id);
-        KeIoDispatch(dev, irp);
-        printf("pid %d: woke up and got key: 0x%x\r\n", id, scancode);
-    }
-}
-
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -336,33 +321,30 @@ void KernelBootstrapProc() {
     KeInitalizeDrivers();
     printf("kernel: initalized drivers that have initalized.\r\n");
     
-    // int h = OsOpen("initrd:/programs/hello.elf", 0);
-    // int sz = OsGetFileSize(h);
-    // printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
-    // const char* buf = MmAllocate(sz);
-    // int argc = 1;
-    // char** argv = MmAllocate((argc+1) * sizeof(char*));
-    // const char* source = "hello.elf";
-    // uint64_t l = strlen(source)+1;
-    // argv[0] = MmAllocate(l * sizeof(char));
-    // memcpy(argv[0], source, l);
-    // argv[argc] = NULL;
-    // // dump byte
-    // for (int i = 0; i < 16; i++) {
-    //     printf("argv[0][%d]: %X\r\n", i, argv[0][i]);
-    // }
-    // if (!buf) {
-    //     printf("memory allocation fail.\r\n");
-    // } else {
-    //     int st = OsRead(h, buf, sz);
-    //     printf("bytes read: %d\r\n", st);
-    //     OsClose(h);
-    //     LdrElfExecute(buf, SCHED_PRIV_USER, NULL, (const char**)argv, argc, basename("initrd:/programs/hello.elf"));
-    // }
-    // ProcListRunning(gkInfo);
-    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL);
-    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL);
-    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL);        
+    int h = OsOpen("initrd:/programs/hello.elf", 0);
+    int sz = OsGetFileSize(h);
+    printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
+    const char* buf = MmAllocate(sz);
+    int argc = 1;
+    char** argv = MmAllocate((argc+1) * sizeof(char*));
+    const char* source = "hello.elf";
+    uint64_t l = strlen(source)+1;
+    argv[0] = MmAllocate(l * sizeof(char));
+    memcpy(argv[0], source, l);
+    argv[argc] = NULL;
+    // dump byte
+    for (int i = 0; i < 16; i++) {
+        printf("argv[0][%d]: %X\r\n", i, argv[0][i]);
+    }
+    if (!buf) {
+        printf("memory allocation fail.\r\n");
+    } else {
+        int st = OsRead(h, buf, sz);
+        printf("bytes read: %d\r\n", st);
+        OsClose(h);
+        LdrElfExecute(buf, SCHED_PRIV_USER, NULL, (const char**)argv, argc, basename("initrd:/programs/hello.elf"));
+    }
+    ProcListRunning(gkInfo);     
     while(1);
 }
 

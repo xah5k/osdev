@@ -1,8 +1,8 @@
-ENTRY(AppMain)
 SECTIONS
 {
     . = 0x0000000000400000;
     .text : {
+        *(.text._start)
         KEEP(*(.text)) *(.text .text.*)   /* code */
         *(.rodata .rodata.*)                   /* data */
         *(.data .data.*)

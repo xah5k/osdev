@@ -130,3 +130,24 @@ printf("test=0x%lx phys(test)=0x%lx\r\n", test, MmuGetPhys((virtaddr)test));
         printf("\r\ncreated process.\r\n");
     }
 */
+
+/* test kbd blocking
+void test() {
+    uint8_t scancode;
+    uint32_t id = ThrGetCurrent()->ParentProc->pid;
+    KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
+    KeIoRequest* irp = MmAllocate(sizeof(KeIoRequest));
+    irp->Major = IO_READ;
+    irp->Buffer = &scancode;
+    irp->Length = 1;
+    while (1) {
+        printf("pid %d: get key...\r\n", id);
+        KeIoDispatch(dev, irp);
+        printf("pid %d: woke up and got key: 0x%x\r\n", id, scancode);
+    }
+}
+ somewhere in KernelBootstrapProc
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid1
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid2
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid3
+*/
