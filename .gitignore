@@ -1,0 +1,9 @@
+osdev.x86_64.elf
+# sum bs that gets left over
+log.txt
+out
+out.kdlog
+stdout.txt
+COM1.OUT
+*.o
+*.elf
