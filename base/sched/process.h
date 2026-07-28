@@ -14,7 +14,7 @@
 #define SCHED_THREAD_READY 1
 #define SCHED_THREAD_RUNNING 2
 #define SCHED_THREAD_DEAD 3
-
+#define SCHED_THREAD_SUSPENDED 4
 
 #define SCHED_PRIV_KERNEL 0
 #define SCHED_PRIV_USER 1
@@ -64,8 +64,10 @@ ProcessCtrlBlk* ProcessNew(char* name);
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
 void ProcessCreate2(void* entry, KernelInformation* kinfo, void* arg1);
 void ThreadMapUserStack(ThreadCtrlBlk* Tcb);
-
+void ThreadPushTail(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail, ThreadCtrlBlk* Tcb);
+ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail);
 uint64_t* ProcNewPML4();
+void ThreadWake(ThreadCtrlBlk* Tcb) ;
 void ThreadEntry();
 void ProcListRunning(KernelInformation* kinfo);
 void ThreadAdd(ThreadCtrlBlk* Tcb);

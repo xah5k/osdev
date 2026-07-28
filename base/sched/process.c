@@ -8,6 +8,7 @@
 #include <mm/pmm.h>
 #include <ksyscall.h>
 #include <util/util.h>
+#include <kedriver.h>
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
@@ -195,7 +196,7 @@ ThreadCtrlBlk* ThrGetCurrent() {
     SpnLckRelease(&SchedSpinlock);
     return c;
 }
-
+KE_EXPORT_SYMBOL(ThrGetCurrent);
 void ThrCheckPendingKill() {
     if (CurrentThread->pendingkill) {
         KE_SYSCALL_CALL_ARG1(SysExit, -1);
@@ -219,6 +220,58 @@ void ThreadAdd(ThreadCtrlBlk* Tcb) {
     Tcb->GlobalNext = ReadyQueueHead;
     ReadyQueueHead = Tcb;
 }
+
+void ThreadWake(ThreadCtrlBlk* Tcb) {
+    if (!Tcb) return;
+
+    SpnLckAcquire(&SchedSpinlock);
+
+    Tcb->state = SCHED_THREAD_READY;
+    Tcb->GlobalNext = NULL;
+
+    if (ReadyQueueHead == NULL) {
+        ReadyQueueHead = Tcb;
+    } else {
+        ThreadCtrlBlk* current = ReadyQueueHead;
+        while (current->GlobalNext != NULL) {
+            current = current->GlobalNext;
+        }
+        current->GlobalNext = Tcb;
+    }
+
+    SpnLckRelease(&SchedSpinlock);
+}
+KE_EXPORT_SYMBOL(ThreadWake);
+
+void ThreadPushTail(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail, ThreadCtrlBlk* Tcb) {
+    if (!Tcb) return;
+
+    Tcb->GlobalNext = NULL;
+
+    if (*Tail == NULL) {
+        *Head = Tcb;
+        *Tail = Tcb;
+    } else {
+        (*Tail)->GlobalNext = Tcb;
+        *Tail = Tcb;
+    }
+}
+KE_EXPORT_SYMBOL(ThreadPushTail);
+
+ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail) {
+    if (Head == NULL || *Head == NULL) return NULL;
+
+    ThreadCtrlBlk* Tcb = *Head;
+    *Head = Tcb->GlobalNext;
+
+    if (*Head == NULL) {
+        *Tail = NULL;
+    }
+
+    Tcb->GlobalNext = NULL;
+    return Tcb;
+}
+KE_EXPORT_SYMBOL(ThreadPopHead);
 
 void ThreadEntry() {
     SpnLckRelease(&SchedSpinlock);

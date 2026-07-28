@@ -6,6 +6,8 @@
 #include <arch/x86_64/cpu/ioapic.h>
 #include <arch/x86_64/ports.h>
 #include <mm/heap.h>
+#include <sched/process.h>
+#include <sched/sched.h>
 #define KBD_BUFFER_SIZE 256
 
 typedef struct {
@@ -15,6 +17,8 @@ typedef struct {
 } KbdRingBuffer;
 
 static KbdRingBuffer gKbdBuf = {0};
+ThreadCtrlBlk* gKbdWaitQueueHead;
+ThreadCtrlBlk* gKbdWaitQueueTail;
 static int KbdBufferAdd(uint8_t scancode) {
     uint32_t next = (gKbdBuf.head + 1) % KBD_BUFFER_SIZE;
     if (next == gKbdBuf.tail) {
@@ -41,6 +45,13 @@ char KbdReadCode() {
 void KbdInterruptHandler(CpuInterruptArgs* r) {
     uint8_t x = KbdReadCode();
     KbdBufferAdd(x);
+    // KeDrvWriteFmt("kbd: buffer add scancode 0x%x\r\n", x);
+    ThreadCtrlBlk* SuspendedThr = ThreadPopHead(&gKbdWaitQueueHead, &gKbdWaitQueueTail);
+    // KeDrvWriteFmt("kbd: suspendedthr @ 0x%lx\r\n", SuspendedThr);
+    if (SuspendedThr != NULL) {
+        // KeDrvWriteFmt("kbd driver: wake thread@0x%lx{tid=%d, parent pid=%d}\r\n", SuspendedThr, SuspendedThr->tid, SuspendedThr->ParentProc->pid);
+        ThreadWake(SuspendedThr);
+    }
     CpuLapicEoi();
 }
 
@@ -54,8 +65,12 @@ KSTATUS KbdRead(KeDeviceObj* dev, KeIoRequest* irp) {
     uint64_t BytesRead = 0;
     while (BytesRead < irp->Length) {
         uint8_t scancode;
-        if (!KbdBufferRm(&scancode)) {
-            break;
+        while (!KbdBufferRm(&scancode)) {
+            ThreadCtrlBlk* cthr = ThrGetCurrent();
+            // KeDrvWriteFmt("kbd driver: suspend thread{tid=%d, parent pid=%d}\r\n", cthr->tid, cthr->ParentProc->pid);
+            cthr->state = SCHED_THREAD_SUSPENDED;
+            ThreadPushTail(&gKbdWaitQueueHead, &gKbdWaitQueueTail, cthr);
+            SchedYield();
         }
         UserBuf[BytesRead++] = scancode;
     }

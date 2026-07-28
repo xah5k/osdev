@@ -11,15 +11,16 @@
 #include <printfwrapper.h>
 #include <memory.h>
 #include <sched/process.h>
-
+#include <kedriver.h>
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;
 ThreadCtrlBlk* ReadyQueueHead;
 ThreadCtrlBlk* DeathThread;
+ThreadCtrlBlk* IdleThreadPtr;
 static KernelInformation* gkinfoPtr;
 void SchedIdleThread() {
-    while (1) asm("hlt");
+    while (1) asm("sti; hlt");
 }
 
 void SchedInitalize(KernelInformation* kinfo) {
@@ -49,30 +50,29 @@ void SchedInitalize(KernelInformation* kinfo) {
 
     CurrentThread = KernelThread;
     ReadyQueueHead = IdleThread;
-
+    IdleThreadPtr = IdleThread;
     // add kernel process to list of proccesses
     gkinfoPtr = kinfo;
     gkinfoPtr->ProcessListHead = KernelProc;
     gkinfoPtr->CurrentProcess = KernelProc;
 }
-
 void Schedule() {
     SpnLckAcquire(&SchedSpinlock);
-    
-    if (ReadyQueueHead == NULL) {
+
+    if (ReadyQueueHead == NULL && CurrentThread->state == SCHED_THREAD_RUNNING) {
         SpnLckRelease(&SchedSpinlock);
         return;
     }
-
     ThreadCtrlBlk* OldThr = CurrentThread;
-    ThreadCtrlBlk* NextThr = ReadyQueueHead;
 
-    ReadyQueueHead = ReadyQueueHead->GlobalNext;
-    NextThr->GlobalNext = NULL;
-
-    OldThr->state = SCHED_THREAD_READY;
-    if (OldThr != DeathThread) {
+    if (OldThr == DeathThread) {
+        OldThr->state = SCHED_THREAD_DEAD;
+    } else if (OldThr->state == SCHED_THREAD_RUNNING) {
         OldThr->state = SCHED_THREAD_READY;
+    }
+
+    if (OldThr->state == SCHED_THREAD_READY) {
+        OldThr->GlobalNext = NULL;
         if (ReadyQueueHead == NULL) {
             ReadyQueueHead = OldThr;
         } else {
@@ -81,30 +81,48 @@ void Schedule() {
                 LastThr = LastThr->GlobalNext;
             }
             LastThr->GlobalNext = OldThr;
-            OldThr->GlobalNext = NULL;
         }
+    }
+
+    ThreadCtrlBlk* PrevThr = NULL;
+    ThreadCtrlBlk* NextThr = ReadyQueueHead;
+
+    while (NextThr != NULL && NextThr->state != SCHED_THREAD_READY) {
+        PrevThr = NextThr;
+        NextThr = NextThr->GlobalNext;
+    }
+
+    if (NextThr != NULL) {
+        if (PrevThr == NULL) {
+            ReadyQueueHead = NextThr->GlobalNext;
+        } else {
+            PrevThr->GlobalNext = NextThr->GlobalNext;
+        }
+        NextThr->GlobalNext = NULL;
     } else {
-        OldThr->state = SCHED_THREAD_DEAD;
-    }    
-        
+        // deadass why and how would this even happen.
+        NextThr = IdleThreadPtr; 
+    }
 
     CurrentThread = NextThr;
     NextThr->state = SCHED_THREAD_RUNNING;
 
-    if (NextThr->ParentProc != OldThr->ParentProc) {
-        //printf("NextThr->ParentProc = 0x%lx OldThr->ParentProc = 0x%lx\r\n", NextThr->ParentProc, OldThr->ParentProc);
-        gkinfoPtr->CurrentProcess = NextThr->ParentProc;
+    if (OldThr != NextThr) {
+        if (NextThr->ParentProc != OldThr->ParentProc) {
+            gkinfoPtr->CurrentProcess = NextThr->ParentProc;
+        }
+
+        if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
+            _x86_64_load_pml4(NextThr->ParentProc->cr3);
+        }
+
+        asm volatile("cli");
+        #ifdef __x86_64__
+        gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
+        _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
+        #endif
     }
 
-    if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
-        //printf("NextThr->ParentProc->cr3 = 0x%lx OldThr->ParentProc->cr3 = 0x%lx\r\n", NextThr->ParentProc->cr3, OldThr->ParentProc->cr3);
-        _x86_64_load_pml4(NextThr->ParentProc->cr3);
-    }
-    asm ("cli");
-    #ifdef __x86_64__
-    gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
-    _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
-    #endif
     if (DeathThread != NULL) {
         if (DeathThread->KernelStackBase) {
             MmFree((void*)DeathThread->KernelStackBase);
@@ -138,10 +156,12 @@ void Schedule() {
         MmFree(DeathThread);
         DeathThread = NULL; 
     }
-    //printf("sched: thread with tid %d is back\r\n", CurrentThread->tid);
+
     SpnLckRelease(&SchedSpinlock);
+    asm volatile("sti");
 }
 
 void SchedYield() {
     Schedule();
 }
+KE_EXPORT_SYMBOL(SchedYield);
