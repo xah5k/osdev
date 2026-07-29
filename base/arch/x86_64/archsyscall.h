@@ -1,7 +1,7 @@
 #pragma once
 #include <arch/x86_64/cpu/cpu.h>
 
-#define KE_MAX_SYSCALL 10
+#define KE_MAX_SYSCALL 32
 
 #define KE_SYSCALL_ARGS_UNUSED1 uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5
 #define KE_SYSCALL_ARGS_UNUSED2 uint64_t arg3, uint64_t arg4, uint64_t arg5
@@ -25,8 +25,10 @@ typedef enum {
     OS_YIELD,
     OS_GETPID,
     OS_WAIT, // ok this one can wait a bit
-    OS_SBRK
+    OS_SBRK,
+    OS_SETFSBASE // arch specific should remain at end of list
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);
 void KiHandleSyscall(CpuInterruptArgs* registers);
+void KiRegisterSyscalls64();

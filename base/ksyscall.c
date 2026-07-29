@@ -171,4 +171,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_YIELD, SysYield);
     KiRegisterSyscall(OS_GETPID, SysGetPid);
     KiRegisterSyscall(OS_SBRK, SysSBrk);
+    #ifdef __x86_64__
+    KiRegisterSyscalls64();
+    #endif
 }

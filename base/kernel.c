@@ -332,10 +332,6 @@ void KernelBootstrapProc() {
     argv[0] = MmAllocate(l * sizeof(char));
     memcpy(argv[0], source, l);
     argv[argc] = NULL;
-    // dump byte
-    for (int i = 0; i < 16; i++) {
-        printf("argv[0][%d]: %X\r\n", i, argv[0][i]);
-    }
     if (!buf) {
         printf("memory allocation fail.\r\n");
     } else {

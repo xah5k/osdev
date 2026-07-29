@@ -100,49 +100,58 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
     uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
     uint64_t* StackBasePhys = (uint64_t*)PmmAllocatePages(PS_USER_STACK_PAGES);
 
-    Tcb->UserStackBase = (uint64_t)P2V(StackBasePhys); 
+    Tcb->UserStackBase = (uint64_t)P2V(StackBasePhys);
 
     uint64_t UserStackTop = PS_USER_STACK_BASE;
-    uint64_t LocalVirt = UserStackTop;
+    uint64_t LocalVirt  = UserStackTop;
     uint64_t KernelVirt = Tcb->UserStackBase + StackSize;
 
     uint64_t* UserArgvAddresses = MmAllocate(sizeof(uint64_t) * argc);
 
     for (int i = argc - 1; i >= 0; i--) {
         uint64_t len = strlen(argv[i]) + 1;
-        LocalVirt -= len;
+        LocalVirt  -= len;
         KernelVirt -= len;
-
         memcpy((void*)KernelVirt, argv[i], len);
         UserArgvAddresses[i] = LocalVirt;
     }
 
     uint64_t align8 = LocalVirt % 8;
-    LocalVirt -= align8;
+    LocalVirt  -= align8;
     KernelVirt -= align8;
 
-    LocalVirt -= sizeof(uint64_t);
-    KernelVirt -= sizeof(uint64_t);
-    *(uint64_t*)KernelVirt = 0;
+    uint64_t block_words = 1 + (argc + 1) + 1 + (2 * 2);
+    uint64_t block_bytes = block_words * sizeof(uint64_t);
 
-    for (int i = argc - 1; i >= 0; i--) {
-        LocalVirt -= sizeof(uint64_t);
-        KernelVirt -= sizeof(uint64_t);
-        *(uint64_t*)KernelVirt = UserArgvAddresses[i];
-    }
+    uint64_t block_start = LocalVirt - block_bytes;
+    block_start &= ~0xFULL;
 
-    uint64_t UserArgvArrayHead = LocalVirt;
+    uint64_t delta = LocalVirt - block_start;
+    LocalVirt  -= delta;
+    KernelVirt -= delta;
+
+    uint64_t* kw = (uint64_t*)KernelVirt;
+    int idx = 0;
+
+    kw[idx++] = (uint64_t)argc;
+
+    for (int i = 0; i < argc; i++)
+        kw[idx++] = UserArgvAddresses[i];
+
+    kw[idx++] = 0;
+    kw[idx++] = 0;
+
+    kw[idx++] = 6;
+    kw[idx++] = PAGE_SIZE;
+    kw[idx++] = 0;
+    kw[idx++] = 0;
+
     MmFree(UserArgvAddresses);
-    if (LocalVirt % 16 != 0) {
-        uint64_t misalignment = LocalVirt % 16;
-        LocalVirt -= misalignment;
-        KernelVirt -= misalignment;
-    }
 
-    Tcb->UserRsp = LocalVirt;
+    Tcb->UserRsp  = LocalVirt;
     Tcb->UserArgc = argc;
-    Tcb->UserArgv = (char**)UserArgvArrayHead;
 }
+
 void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
     if (!Tcb->ParentProc) return; // no parent proc page tables to map
     if (!Tcb->UserStackBase) return;

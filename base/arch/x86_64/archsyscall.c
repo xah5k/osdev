@@ -28,3 +28,13 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
         KE_SYSCALL_CALL_ARG1(SysExit, -1);
     }
 }
+
+uint64_t SysSetFsBase(uint64_t base, KE_SYSCALL_ARGS_UNUSED1) {
+    CpuWriteMsr(0xC0000100, base);
+    return 0;
+}
+
+
+void KiRegisterSyscalls64() {
+    KiRegisterSyscall(OS_SETFSBASE, SysSetFsBase);
+}

@@ -5,7 +5,7 @@
 #include <kernel.h>
 #include <fs/vfs.h>
 
-#define PS_USER_STACK_PAGES 4
+#define PS_USER_STACK_PAGES 16
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
 #define PS_USER_BRK_BASE 0x700000000000
