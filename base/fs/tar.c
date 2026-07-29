@@ -20,7 +20,7 @@ int TarFsClose(struct VfsFile* file) {
     return 0;
 }
 
-int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes) {
+int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offset) {
     if (!gTarInitrdPtr || !gTarVfsDrive) return -1;
     if (file->Type != VFS_TYPE_FILE) return -1;
     char* DriverPath = VfsRemoveFormatPath(file->Path);
@@ -33,7 +33,7 @@ int TarFsRead(struct VfsFile* file, void* buffer, size_t nbytes) {
     if (nbytes > oct2bin((unsigned char*)FsEntry->Size, 11)) {
         read = oct2bin((unsigned char*)FsEntry->Size, 11);
     }
-    memcpy(buffer, raw, read);
+    memcpy(buffer, (const void*)((uint64_t)raw + offset), read);
     return read;
 }
 

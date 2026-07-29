@@ -10,6 +10,7 @@
 #include <mm/heap.h>
 #include <exeldr/ldrelf.h>
 #include <mm/pmm.h>
+#include <memory.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -149,6 +150,7 @@ uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
         uint64_t NewEnd = MMU_ROUND_PAGE_UP(NewBrk);
         for (uint64_t VirtAddr = OldEnd; VirtAddr < NewEnd; VirtAddr+=MMU_PAGE_SIZE) {
             uint64_t Phys = (uint64_t)PmmAllocate();
+            memset((void*)P2V(Phys), 0, PAGE_SIZE);
             MmuMapPage((pagetable*)P2V(proc->cr3), VirtAddr, Phys, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
         }
     } else {

@@ -21,8 +21,8 @@ int VfsClose(VfsFile* file) {
     else return -1;
 }
 
-int VfsRead(VfsFile* file, void* buffer, size_t nbytes) {
-    if (file->DrivePtr->DriverOps->Read) return file->DrivePtr->DriverOps->Read((void*)file, buffer, nbytes);
+int VfsRead(VfsFile* file, void* buffer, size_t nbytes, uint64_t offset) {
+    if (file->DrivePtr->DriverOps->Read) return file->DrivePtr->DriverOps->Read((void*)file, buffer, nbytes, offset);
     else return -1;
 }
 int VfsWrite(VfsFile* file, const void* buffer, size_t nbytes) {
@@ -94,23 +94,44 @@ int OsClose(int handle) {
 KE_EXPORT_SYMBOL(OsClose);
 int OsRead(int handle, void* buffer, size_t nbytes) {
     if (handle == VFS_HANDLE_STDIN) {
-        uint32_t id = ThrGetCurrent()->ParentProc->pid;
         KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
-        KeIoRequest* irp = MmAllocate(sizeof(KeIoRequest));
-        irp->Major = IO_READ;
-        irp->Buffer = buffer;
-        irp->Length = nbytes;
-        KeIoDispatch(dev, irp);
-        uint64_t BytesRead = irp->ReadBytes;
-        MmFree(irp);
+        KeIoRequest irp; 
+        memset(&irp, 0, sizeof(KeIoRequest));
+        
+        irp.Major = IO_READ;
+        irp.Buffer = buffer;
+        irp.Length = nbytes;
+        
+        KeIoDispatch(dev, &irp);
+        
+        uint64_t BytesRead = irp.ReadBytes;
         return BytesRead;
-    } else if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) return -1;
+    } else if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
+        return -1;
+    }
+
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
+    uint64_t FileSize = f->Size;
+    uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
+
+    if (CurrentOff >= FileSize) {
+        KernelUnlockRsLck();
+        return 0; 
+    }
+    if (CurrentOff + nbytes > FileSize) {
+        nbytes = FileSize - CurrentOff;
+    }
     KernelUnlockRsLck();
-    return VfsRead(f, buffer, nbytes);
+    int bytes_read = VfsRead(f, buffer, nbytes, CurrentOff); 
+
+    if (bytes_read > 0) {
+        proc->FileHandleTable[handle].CursorPos += bytes_read;
+    }
+
+    return bytes_read;
 }
 KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
