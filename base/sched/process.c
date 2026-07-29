@@ -188,7 +188,7 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
     new->pid = ProcGetPid()+1;
-    new->nextfh = 0;
+    new->nextfh = 3; // reserve '0' for stdout '1' for stderr '2' for stdin
     new->threads = 0;
     new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->SbrkBase = PS_USER_BRK_BASE;

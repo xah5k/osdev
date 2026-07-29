@@ -163,14 +163,41 @@ uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
     return OldBrk;
 }
 
+// osopen doesnt care about modes anyway
+uint64_t SysOpen(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
+    const char* p = (const char*)path;
+    int h = OsOpen(p, arg2);
+    return (uint64_t)h;
+}
+
+uint64_t SysClose(uint64_t handle, KE_SYSCALL_ARGS_UNUSED1) {
+    int h = OsClose((int)handle);
+    return (uint64_t)h;
+}
+
+uint64_t SysRead(uint64_t handle, uint64_t buffer, uint64_t nbytes, KE_SYSCALL_ARGS_UNUSED3) {
+    int r = OsRead((int)handle, (void*)buffer, (uint64_t)nbytes);
+    return (uint64_t)r;
+}
+
+uint64_t SysWrite(uint64_t handle, uint64_t buffer, uint64_t nbytes, KE_SYSCALL_ARGS_UNUSED3) {
+    int r = OsWrite((int)handle, (const void*)buffer, (uint64_t)nbytes);
+    return (uint64_t)r;
+}
+
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
     KiRegisterSyscall(OS_SPAWN, SysSpawn);
-    KiRegisterSyscall(OS_CONWRITE, SysConWrite);
+    KiRegisterSyscall(OS_CONWRITE, SysConWrite); // todo: remove
     KiRegisterSyscall(OS_YIELD, SysYield);
     KiRegisterSyscall(OS_GETPID, SysGetPid);
     KiRegisterSyscall(OS_SBRK, SysSBrk);
+    KiRegisterSyscall(OS_OPEN, SysOpen);
+    KiRegisterSyscall(OS_CLOSE, SysClose);
+    KiRegisterSyscall(OS_READ, SysRead);
+    KiRegisterSyscall(OS_WRITE, SysWrite);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

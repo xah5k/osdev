@@ -29,7 +29,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelProc->pml4 = (virtaddr*)_x86_64_get_pml4();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;
-    KernelProc->nextfh = 0;
+    KernelProc->nextfh = 3; // process.c
     KernelProc->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     memset(KernelProc->FileHandleTable, 0, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     KernelProc->Next = NULL;

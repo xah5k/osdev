@@ -26,7 +26,11 @@ typedef enum {
     OS_GETPID,
     OS_WAIT, // ok this one can wait a bit
     OS_SBRK,
-    OS_SETFSBASE // arch specific should remain at end of list
+    OS_SETFSBASE,
+    OS_OPEN,
+    OS_CLOSE,
+    OS_READ,
+    OS_WRITE
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);

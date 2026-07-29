@@ -3,6 +3,10 @@
 #include <stdint.h>
 
 
+#define VFS_HANDLE_STDOUT 1
+#define VFS_HANDLE_STDERR 2
+#define VFS_HANDLE_STDIN 0
+
 #define VFS_MAX_ALLOWED_PATH 64
 #define VFS_MAX_ALLOWED_OPEN_HANDLES 12
 struct VfsFile;
