@@ -22,6 +22,17 @@
 #include <kedriver.h>
 #include <util/util.h>
 #include <ksyscall.h>
+#include <fb.h>
+
+void KernelBootstrapProc();
+void KernelApplicationProc();
+
+extern uint64_t PmmTotalPhysicalMem;
+
+pagetable* kpml4; 
+static KernelInformation* gkInfo;
+Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
+
 extern BOOTBOOT bootboot;               // see bootboot.h
 extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
 extern uint8_t fb;                      // linear framebuffer mapped
@@ -33,6 +44,7 @@ extern uint8_t _kernel_end;
 
 void _putchar(char character) {
     WritecSerial(0x3f8, character);
+    FbPutc(character);
 }
 
 
@@ -101,15 +113,6 @@ void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char*
 }
 KE_EXPORT_SYMBOL(KdBugcheck2);
 
-void KernelBootstrapProc();
-void KernelApplicationProc();
-
-extern uint64_t PmmTotalPhysicalMem;
-
-pagetable* kpml4; 
-
-static KernelInformation* gkInfo;
-Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
 
 void KernelUnlockRsLck() {
     SpnLckRelease(&KernelResourceLock);
@@ -272,6 +275,16 @@ static void KeInitalizeDrivers() {
     }
 }
 
+void KeFbAsConsole() {
+    gkInfo->fb->ptr = P2V(gkInfo->fb->ptr);
+    int h = OsOpen("initrd:/boot/font.psf", 0);
+    int sz = OsGetFileSize(h);
+    const char* buf = MmAllocate(sz);
+    OsRead(h, (void*)buf, sz);
+    FbTextInitalize((void*)buf, gkInfo->fb);
+    OsClose(h);
+}
+
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -312,7 +325,8 @@ void KernelBootstrapProc() {
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
     printf("kernel: initalized tarfs\r\n");
-
+    KeFbAsConsole();
+    printf("kernel: initalized fb console\r\n");
     // think its a good time to unmap identity mappings
     PmmAdjustBitmapPtr();
     KeRmvIdentityMap();

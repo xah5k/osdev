@@ -39,6 +39,10 @@ void FbTextInitalize(void* sfn, void* fb) {
     }
     g_fb_font = font;
     g_fb_info = fb;
+    printf("fb: framebuffer info: \r\n");
+    printf("fb: screen %dx%d\r\n", g_fb_info->width, g_fb_info->height);
+    printf("fb: fb ptr @ 0x%lx\r\n", g_fb_info->ptr);
+    printf("fb: fb scanline %d\r\n", g_fb_info->scanline);
     if (font->fontMode == 0x01) glyphcount = 512; else glyphcount = 256;
 }
 KE_EXPORT_SYMBOL(FbTextInitalize);
@@ -70,10 +74,9 @@ KE_EXPORT_SYMBOL(FbPutc);
 
 void FbPutcAt(char c, int x, int y, uint32_t color) {
     if (x + 8 > g_fb_info->width || y + 16 > g_fb_info->height) return;
-    int char_index = c;
-    uint8_t* font = (uint8_t*)g_fb_font;
-    uint8_t* glyph =  font + 4 + (char_index * g_fb_font->characterSize);
-
+    uint8_t char_index = (uint8_t)c; 
+    if (char_index >= glyphcount) return;
+    uint8_t* glyph = ((uint8_t*)g_fb_font) + 4 + (char_index * g_fb_font->characterSize);
     for (int _y = 0; _y < g_fb_font->characterSize; _y++) {
         uint32_t* fbrow = (uint32_t*)((uint8_t*)g_fb_info->ptr + (_y + y) * g_fb_info->scanline);
 
