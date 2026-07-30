@@ -323,13 +323,11 @@ void ThreadEntry() {
     if (entry) {
         switch (CurrentThread->privilege) {
             case SCHED_PRIV_KERNEL: {
-                printf("process: execute process entry @ 0x%lx\r\n", entry);
+                printf("process: execute kernel mode process entry @ 0x%lx\r\n", entry);
                 entry();
                 break;
             }
             case SCHED_PRIV_USER: {
-                printf("process: execute process entry @ 0x%lx\r\n", entry);
-                printf("process: argv=0x%lx argc=0x%lx in user mode.\r\n", CurrentThread->UserArgv, CurrentThread->UserArgc);
                 asm volatile ("cli");
                 _x86_64_usjmp((uint64_t)entry, CurrentThread->UserRsp, (uint64_t)CurrentThread->UserArgv, (uint64_t)CurrentThread->UserArgc);
                 break;

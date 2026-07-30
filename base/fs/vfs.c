@@ -137,7 +137,9 @@ KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
     if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
         const char* buf = (const char*)buffer;
-        printf("%s", buffer);
+        for (uint64_t i = 0; i < nbytes; i++) {
+            _putchar(buf[i]); // before printf wouldve caused weird glitch characters to print out.
+        }
         return nbytes;
     }
     if (handle == VFS_HANDLE_STDIN) return -1; // ??? some people are morons

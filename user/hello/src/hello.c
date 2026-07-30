@@ -8,6 +8,7 @@ int main(int argc, const char* argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
     printf("Hello world from ah5kos!\r\n");
+    printf("argc = %d argv[0]=%s\r\n", argc, argv[0]);
     char buf[16];
     int fd = open("initrd:/hi.txt", O_RDONLY);
     if (fd <= -1) {
