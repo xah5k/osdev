@@ -7,6 +7,7 @@
 #include <fs/vfs.h>
 #include <ksyscall.h>
 #include <memory.h>
+#include <sched/process.h>
 static void KeShlTestLs(const char* path) {
     printf("kernel: ls: Listing for %s\r\n", path);
     VfsDirEntry dirent;
@@ -29,11 +30,11 @@ static void KeShlTestLs(const char* path) {
 char* KeShlReadStr() {
     char* strbuf = MmAllocate(sizeof(char) * 1024);
     int index = 0;
+    memset((void*)strbuf, 0, 1024);
     while (1) {
         char c = KbdTranslGetc();
         if (c != 0) {
             if (c == '\n') {
-                index++;
                 strbuf[index] = 0;
                 break;
             }
@@ -50,6 +51,7 @@ char* KeShlReadStr() {
             index++;
         }
     }
+    strbuf[index] = 0;
     return strbuf;
 }
 
@@ -68,6 +70,7 @@ void KeShlProcess(char* string) {
         printf("echo - echo something to the screen!\r\n");
         printf("ls - list directory\r\n");
         printf("exec - execute a user mode binary.\r\n");
+        printf("lsproc - list processes and threads.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -92,7 +95,12 @@ void KeShlProcess(char* string) {
         argv[argc] = NULL;
         uint64_t pid = KE_SYSCALL_CALL_ARG3(SysSpawn, (uint64_t)s, (uint64_t)argv, (uint64_t)argc);
         printf("\r\nspawned process with pid %d\r\n", pid);
+        uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
+        printf("\r\nprocess exited with code %d\r\n", r);
         MmFree(s);
+    } else if (strcmp(string, "lsproc") == 0) {
+        ProcListRunning(KernelGetInformation());
+        printf("\r\n");
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

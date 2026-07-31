@@ -30,6 +30,9 @@ typedef struct ProcessCtrlBlk {
     uint64_t SbrkBase;
     uint64_t SbrkCurrent;
     uint64_t SbrkLimit;
+    uint64_t exitcode;
+    struct ThreadCtrlBlk* BlockedQueueHead;
+    struct ThreadCtrlBlk* BlockedQueueTail;
     VfsOpenFileDescr* FileHandleTable;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Parent;
@@ -47,7 +50,7 @@ typedef struct ThreadCtrlBlk {
     uint8_t priority;
     void* entry;
     uint8_t privilege; // 0 = kernel, 1 = user
-    uint8_t exitcode;
+    uint64_t exitcode;
     uint8_t pendingkill;
     char** UserArgv;
     int UserArgc;

@@ -29,8 +29,15 @@ static void UserAcEnd() {
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     printf("ksyscall: SysExit: exit current thread with code %d\r\n", exitcode);
     // handle exit
-    SpnLckAcquire(&SchedSpinlock);
     CurrentThread->exitcode = exitcode;
+    CurrentThread->ParentProc->exitcode = exitcode;
+    // wake up anyone waiting
+    ThreadCtrlBlk* blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail);
+    while (blthr != NULL) {
+        ThreadWake(blthr);
+        blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail); // threadpophead nulls out globalnext
+    }
+    SpnLckAcquire(&SchedSpinlock);
     //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
     ThreadCtrlBlk* c = CurrentThread;
 
@@ -84,6 +91,7 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     DeathThread = c;
     SpnLckRelease(&SchedSpinlock);
     SchedYield();
+    __builtin_unreachable();
 }
 
 uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
@@ -187,6 +195,15 @@ uint64_t SysWrite(uint64_t handle, uint64_t buffer, uint64_t nbytes, KE_SYSCALL_
     return (uint64_t)r;
 }
 
+uint64_t SysWaitPid(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
+    ProcessCtrlBlk* proc = ProcFindByPid(pid, KernelGetInformation());
+    if (!proc) return (uint64_t)-1;
+    ThreadCtrlBlk* thr = ThrGetCurrent();
+    thr->state = SCHED_THREAD_SUSPENDED;
+    ThreadPushTail(&proc->BlockedQueueHead, &proc->BlockedQueueTail, thr);
+    SchedYield();
+    return proc->exitcode;
+}
 
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
@@ -195,6 +212,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CONWRITE, SysConWrite); // todo: remove
     KiRegisterSyscall(OS_YIELD, SysYield);
     KiRegisterSyscall(OS_GETPID, SysGetPid);
+    KiRegisterSyscall(OS_WAIT, SysWaitPid);
     KiRegisterSyscall(OS_SBRK, SysSBrk);
     KiRegisterSyscall(OS_OPEN, SysOpen);
     KiRegisterSyscall(OS_CLOSE, SysClose);

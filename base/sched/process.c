@@ -196,6 +196,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
     new->Parent = NULL;
     new->Next = NULL;
+    new->exitcode = 0;
+    new->BlockedQueueHead = NULL;
+    new->BlockedQueueTail = NULL;
     return new;
 }
 
