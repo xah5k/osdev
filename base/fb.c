@@ -31,6 +31,8 @@ static int glyphcount = 0;
 
 static int gFbConsoleX = 0;
 static int gFbConsoleY = 0;
+static uint64_t gFbConsoleBg = 0x00000000;
+
 void FbTextInitalize(void* sfn, void* fb) {
     psf1_header_t* font = (psf1_header_t*)sfn;
     if (font->magic != 0x0436) {
@@ -52,6 +54,10 @@ void FbPutc(char c) {
         gFbConsoleX = 0;
         return;
     }
+    if (c == '\b') {
+        gFbConsoleX -= 8;
+        return;
+    }
     if (c == '\n') {
         gFbConsoleX = 0;
         gFbConsoleY += 16;
@@ -66,25 +72,33 @@ void FbPutc(char c) {
             memset((void*)g_fb_info->ptr, 0, g_fb_info->size);
         }
 
-        FbPutcAt(c, gFbConsoleX, gFbConsoleY, 0xFFFFFFFF);
+        FbPutcAt(c, gFbConsoleX, gFbConsoleY, 0xFFFFFFFF, gFbConsoleBg);
         gFbConsoleX += 8;
     }
 }
 KE_EXPORT_SYMBOL(FbPutc);
-
-void FbPutcAt(char c, int x, int y, uint32_t color) {
-    if (x + 8 > g_fb_info->width || y + 16 > g_fb_info->height) return;
+void FbPutcAt(char c, int x, int y, uint32_t fg_color, uint32_t bg_color) {
+    if (x + 8 > g_fb_info->width || y + g_fb_font->characterSize > g_fb_info->height) return;
+    
     uint8_t char_index = (uint8_t)c; 
     if (char_index >= glyphcount) return;
+
     uint8_t* glyph = ((uint8_t*)g_fb_font) + 4 + (char_index * g_fb_font->characterSize);
+
     for (int _y = 0; _y < g_fb_font->characterSize; _y++) {
         uint32_t* fbrow = (uint32_t*)((uint8_t*)g_fb_info->ptr + (_y + y) * g_fb_info->scanline);
 
         for (int _x = 0; _x < 8; _x++) {
             if (glyph[_y] & (0x80 >> _x)) {
-                fbrow[x + _x] = color;
+                fbrow[x + _x] = fg_color;
+            } else {
+                fbrow[x + _x] = bg_color;
             }
         }
     }
 }
 KE_EXPORT_SYMBOL(FbPutcAt);
+
+void FbClear() {
+    memset((void*)g_fb_info->ptr, 0, g_fb_info->size);
+}

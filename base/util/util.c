@@ -55,3 +55,15 @@ const char *basename(const char *path) {
 
     return path;
 }
+
+int is_digit(char ch) {
+    return (ch >= '0') && (ch <= '9');
+}
+
+int AsciiAsInt(const char* str) {
+    unsigned int i = 0U;
+    while (is_digit(*str)) {
+        i = i * 10U + (unsigned int)(*((str)++) - '0');
+    }
+    return i;
+}

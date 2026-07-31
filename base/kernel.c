@@ -23,7 +23,7 @@
 #include <util/util.h>
 #include <ksyscall.h>
 #include <fb.h>
-
+#include <util/shell.h>
 void KernelBootstrapProc();
 void KernelApplicationProc();
 
@@ -213,23 +213,7 @@ static KernelInformation* KeCreateKinfo() {
 
 extern uint64_t PmmLargestFreeMemorySize;
 
-static void VfsTestLs(const char* path) {
-    printf("kernel: ls: Listing for %s\r\n", path);
-    VfsDirEntry dirent;
-    int idx = 0;
-    int handle = OsOpen(path, 0);
 
-    int result = OsReadDir(handle, &dirent, idx);
-    printf("kernel: ls: return code of 1st attempt = %d\r\n", result);
-    while (result == 1) {
-        result = OsReadDir(handle, &dirent, idx);
-        const char* Type = (dirent.Type == VFS_TYPE_DIRECTORY) ? "<DIR>" : "     ";
-        printf("    %s  %s\r\n", Type, dirent.Name);
-        idx++;
-    }
-    OsClose(handle);
-    printf("kernel: ls: total entries %d\r\n", idx);
-}
 
 static void KeInitalizeDrivers() {
     int count = 0;
@@ -334,28 +318,12 @@ void KernelBootstrapProc() {
 
     KeInitalizeDrivers();
     printf("kernel: initalized drivers that have initalized.\r\n");
+    printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     
-    int h = OsOpen("initrd:/programs/hello.elf", 0);
-    int sz = OsGetFileSize(h);
-    printf("program is located at initrd:/programs/hello.elf with %d size\r\n", sz);
-    const char* buf = MmAllocate(sz);
-    int argc = 1;
-    char** argv = MmAllocate((argc+1) * sizeof(char*));
-    const char* source = "hello.elf";
-    uint64_t l = strlen(source)+1;
-    argv[0] = MmAllocate(l * sizeof(char));
-    memcpy(argv[0], source, l);
-    argv[argc] = NULL;
-    if (!buf) {
-        printf("memory allocation fail.\r\n");
-    } else {
-        int st = OsRead(h, buf, sz);
-        printf("bytes read: %d\r\n", st);
-        OsClose(h);
-        LdrElfExecute(buf, SCHED_PRIV_USER, NULL, (const char**)argv, argc, basename("initrd:/programs/hello.elf"));
-    }
-    ProcListRunning(gkInfo);     
-    while(1);
+    ThreadCtrlBlk* thr = ThreadNew(KeUtilShell, SCHED_PRIV_KERNEL, (const char**)0, 0);
+    ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
+    ThreadAdd(thr);
+    while(1) { __asm__("hlt"); }
 }
 
 void KernelApplicationProc() {

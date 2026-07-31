@@ -29,17 +29,5 @@ int main(int argc, const char* argv[]) {
     write(1, buf, bytes);
     printf("\r\nok bye.\r\n");
     close(fd);
-
-    unsigned char scancode;
-    char hex_log[] = "key press: 0x00 scancode.\r\n";
-    const char* hex_table = "0123456789abcdef";
-
-    while (1) {
-        if (read(STDIN_FILENO, &scancode, 1) == 1) {
-            hex_log[13] = hex_table[(scancode >> 4) & 0x0F];
-            hex_log[14] = hex_table[scancode & 0x0F];
-            write(STDOUT_FILENO, hex_log, 27);
-        }
-    }
     return 0;
 }

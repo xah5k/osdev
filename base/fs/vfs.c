@@ -7,7 +7,7 @@
 #include <memory.h>
 #include <external/printf.h>
 #include <kedriver.h>
-
+#include <util/kbdtransl.h>
 // 16 max drives
 VfsDrive* gVfsDrives[16];
 int gVfsDrivesMounted = 0;
@@ -94,18 +94,9 @@ int OsClose(int handle) {
 KE_EXPORT_SYMBOL(OsClose);
 int OsRead(int handle, void* buffer, size_t nbytes) {
     if (handle == VFS_HANDLE_STDIN) {
-        KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
-        KeIoRequest irp; 
-        memset(&irp, 0, sizeof(KeIoRequest));
-        
-        irp.Major = IO_READ;
-        irp.Buffer = buffer;
-        irp.Length = nbytes;
-        
-        KeIoDispatch(dev, &irp);
-        
-        uint64_t BytesRead = irp.ReadBytes;
-        return BytesRead;
+        char c = KbdTranslGetc();
+        memcpy(buffer, &c, 1);
+        return 1;
     } else if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
         return -1;
     }
