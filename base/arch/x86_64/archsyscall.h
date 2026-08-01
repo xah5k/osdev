@@ -38,7 +38,8 @@ typedef enum {
     OS_STAT,
     OS_FSTAT,
     OS_GETDIRENT,
-    OS_UNAME
+    OS_UNAME,
+    OS_UMASK
 } KiSyscallIdx;
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);

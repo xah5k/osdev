@@ -348,6 +348,19 @@ uint64_t SysUname(uint64_t buf, KE_SYSCALL_ARGS_UNUSED1) {
     return 0;
 }
 
+uint64_t SysUmask(uint64_t mode, uint64_t modeout, KE_SYSCALL_ARGS_UNUSED2) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (!proc) return (uint64_t)-1;
+    if (modeout == 0) {
+        proc->Mode = mode;
+        return 0;
+    }
+    uint64_t OldMode = proc->Mode;
+    proc->Mode = mode;
+    *(uint64_t*)modeout = OldMode;
+    return OldMode;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -369,6 +382,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_FSTAT, SysFstat);
     KiRegisterSyscall(OS_GETDIRENT, SysGetDirent);
     KiRegisterSyscall(OS_UNAME, SysUname);
+    KiRegisterSyscall(OS_UMASK, SysUmask);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

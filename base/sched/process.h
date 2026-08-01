@@ -32,6 +32,7 @@ typedef struct ProcessCtrlBlk {
     uint64_t SbrkCurrent;
     uint64_t SbrkLimit;
     uint64_t exitcode;
+    uint64_t Mode; // stub for umask
     struct ThreadCtrlBlk* BlockedQueueHead;
     struct ThreadCtrlBlk* BlockedQueueTail;
     VfsOpenFileDescr* FileHandleTable;
