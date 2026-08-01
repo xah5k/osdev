@@ -51,6 +51,7 @@ typedef struct {
 
 void VfsAddDriveToList(VfsDrive* drive);
 char* VfsRemoveFormatPath(const char* in) ;
+int VfsIsAbsolute(const char* in);
 
 int OsOpen(const char* path, int flags);
 int OsClose(int handle);
@@ -58,3 +59,4 @@ int OsRead(int handle, void* buffer, size_t nbytes);
 int OsWrite(int handle, const void* buffer, size_t nbytes);
 int OsGetFileSize(int handle);
 int OsReadDir(int handle, VfsDirEntry* outdirent, int idx);
+int OsStat(int handle, uint64_t* outsize, uint64_t* outtype);

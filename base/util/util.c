@@ -1,6 +1,6 @@
 #include <util/util.h>
 #include <kedriver.h>
-
+#include <memory.h>
 int oct2bin(unsigned char *str, int size) {
     int n = 0;
     unsigned char *c = str;
@@ -66,4 +66,12 @@ int AsciiAsInt(const char* str) {
         i = i * 10U + (unsigned int)(*((str)++) - '0');
     }
     return i;
+}
+
+// cuz later im prob gna use this for more file related shi
+void strlcpy(char* dst, const char* src, uint64_t dstsize) {
+    uint64_t len = strlen(src);
+    if (len > dstsize - 1) len = dstsize - 1;
+    memcpy(dst, src, len);
+    dst[len] = '\0';
 }

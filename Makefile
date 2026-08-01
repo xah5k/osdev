@@ -1,6 +1,6 @@
 ARCH=x86_64
-CFLAGS = -Wall -fno-pie -ffreestanding -fpic -mno-red-zone -fno-stack-protector -nostdlib -I./base -D__$(ARCH)__
-LDFLAGS = -nostdlib -n -T link.ld -no-pie
+CFLAGS = -g -Wall -fno-pie -ffreestanding -fpic -mno-red-zone -fno-stack-protector -nostdlib -I./base -D__$(ARCH)__
+LDFLAGS = -g -nostdlib -n -T link.ld -no-pie
 KNAME=osdev
 override SRCFILES := $(shell find -L base -type f -not -path 'base/arch/*' 2>/dev/null | LC_ALL=C sort)
 override SRCFILES += $(shell find -L base/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)

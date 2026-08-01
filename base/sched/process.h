@@ -22,6 +22,7 @@
 
 typedef struct ProcessCtrlBlk {
     char name[256]; // after like 20 years
+    char cwd[VFS_MAX_ALLOWED_PATH];
     physaddr cr3;
     virtaddr* pml4;
     uint64_t pid;

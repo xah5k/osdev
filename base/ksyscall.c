@@ -1,6 +1,7 @@
 #include <ksyscall.h>
 #ifdef __x86_64__
 #include <arch/x86_64/archsyscall.h>
+#include <arch/x86_64/cpu/lapic.h>
 #endif
 #include <sched/process.h>
 #include <sched/sched.h>
@@ -225,6 +226,52 @@ uint64_t SysSeek(uint64_t handle, uint64_t offset, uint64_t whence, KE_SYSCALL_A
     return (uint64_t)NewOff;
 }
 
+extern uint64_t gCpuLapicTicksPer10ms;
+extern uint64_t gCpuLapicTicksPerMs;
+uint64_t SysGetClock(uint64_t clockid, uint64_t secondsOutPtr, uint64_t nanosecsOutPtr, KE_SYSCALL_ARGS_UNUSED3) {
+    uint64_t TicksPerSec = gCpuLapicTicksPer10ms*100;
+    uint64_t CurrentTick = CpuLapticTimerGetTick();
+    uint64_t Seconds = CurrentTick / TicksPerSec;
+    uint64_t Nanosecs = ((CurrentTick % TicksPerSec) * 1000000000ULL) / TicksPerSec;
+    if (secondsOutPtr == 0 || nanosecsOutPtr == 0) return (uint64_t)-1;
+    *(uint64_t*)secondsOutPtr = Seconds;
+    *(uint64_t*)nanosecsOutPtr = Nanosecs;
+    return 0;
+}
+uint64_t SysGetCwd(uint64_t buf, uint64_t size, KE_SYSCALL_ARGS_UNUSED2) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    uint64_t length = strlen(proc->cwd)+1;
+    if (length > size) return (uint64_t)-1;
+    if (buf == 0) return (uint64_t)-1;
+    memcpy((void*)buf, (const void*)proc->cwd, size);
+    return buf;
+}
+
+uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (path == 0) return (uint64_t)-1;
+    char acpath[VFS_MAX_ALLOWED_PATH]; // actual path cuz path itself might be relative
+    if (VfsIsAbsolute((const char*)path)) {
+        uint64_t len = strlen((const char*)path);
+        if (len > VFS_MAX_ALLOWED_PATH - 1) len = VFS_MAX_ALLOWED_PATH - 1;
+        memcpy(acpath, (const void*)path, len);
+        acpath[len] = '\0';
+    } else {
+        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, (const char*)path);
+    }
+    // check if it is actually a directory
+    int handle = OsOpen(acpath, 0);
+    if (handle <= -1) return (uint64_t)-1;
+    uint64_t type;
+    OsStat(handle, NULL, &type); // extremely barebones stat. not even posix compliant
+    if (type != VFS_TYPE_DIRECTORY) {
+        OsClose(handle);
+        return (uint64_t)-1;
+    }
+    OsClose(handle);
+    strlcpy(proc->cwd, acpath, sizeof(proc->cwd));
+    return 0;
+}
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -239,6 +286,9 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_READ, SysRead);
     KiRegisterSyscall(OS_WRITE, SysWrite);
     KiRegisterSyscall(OS_SEEK, SysSeek);
+    KiRegisterSyscall(OS_GETCLOCK, SysGetClock);
+    KiRegisterSyscall(OS_GETCWD, SysGetCwd);
+    KiRegisterSyscall(OS_CHDIR, SysChdir);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

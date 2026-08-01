@@ -26,6 +26,7 @@ void SchedIdleThread() {
 void SchedInitalize(KernelInformation* kinfo) {
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
     memcpy((void*)KernelProc->name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
+    memcpy((void*)KernelProc->cwd, (void*)"initrd:/boot", 13);
     KernelProc->pml4 = (virtaddr*)_x86_64_get_pml4();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;

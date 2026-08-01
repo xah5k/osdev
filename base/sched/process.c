@@ -185,6 +185,7 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc)
 ProcessCtrlBlk* ProcessNew(char* name) {
     ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
     memcpy((void*)new->name, (void*)name, strlen(name)+1);
+    memcpy((void*)new->cwd, (const void*)"initrd:/programs", 17);
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
     new->pid = ProcGetPid()+1;

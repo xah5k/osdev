@@ -71,11 +71,20 @@ void KeShlProcess(char* string) {
         printf("ls - list directory\r\n");
         printf("exec - execute a user mode binary.\r\n");
         printf("lsproc - list processes and threads.\r\n");
+        printf("fsisabsol - checks if a path is absolute.\r\n");
+        printf("chdir - changes proc cwd.\r\n");
+        printf("getcwd - gets current working directory.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
         printf("\r\n");
-        KeShlTestLs((const char*)s);
+        if (strcmp(s, "") != 0) KeShlTestLs((const char*)s);
+        else {
+            char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
+            KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
+            KeShlTestLs((const char*)cwdbuf);
+            MmFree(cwdbuf);
+        }
         MmFree(s);
     } else if (strcmp(string, "exec") == 0) {
         printf("enter path: ");
@@ -101,14 +110,39 @@ void KeShlProcess(char* string) {
     } else if (strcmp(string, "lsproc") == 0) {
         ProcListRunning(KernelGetInformation());
         printf("\r\n");
+    } else if (strcmp(string, "fsisabsol") == 0) {
+        printf("enter path: ");
+        char* s = KeShlReadStr();
+        printf("\r\n");
+        printf("path is %s\r\n", VfsIsAbsolute(s) ? "absolute" : "relative");
+        MmFree(s);
+    } else if (strcmp(string, "getcwd") == 0) {
+        char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
+        KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
+        printf("cwd is %s\r\n", cwdbuf);
+        MmFree(cwdbuf);
+    } else if (strcmp(string, "chdir") == 0) {
+        printf("enter path: ");
+        char* dir = KeShlReadStr();
+        printf("\r\n");
+        uint64_t r = KE_SYSCALL_CALL_ARG1(SysChdir, (uint64_t)dir);
+        if (r == 0) printf("cwd is now %s\r\n", dir); else printf("SysChdir failed.\r\n");
+        MmFree(dir);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
     }
 }
+extern uint64_t PmmTotalPhysicalMem;
+
 void KeUtilShell() {
     FbClear();
     printf("kshell: Welcome to ah5kos 1.0.0\r\n");
+    printf("kshell: Total Physical RAM: %d MB\r\n", PmmTotalPhysicalMem /  1048576);
+    char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
+    KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
+    printf("kshell: cwd is %s\r\n", cwdbuf);
+    MmFree(cwdbuf);
     printf("kshell> ");
     while (1) {
         char* str = KeShlReadStr();

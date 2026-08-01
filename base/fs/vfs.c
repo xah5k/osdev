@@ -67,6 +67,19 @@ char* VfsRemoveFormatPath(const char* in) {
     return in;
 }
 
+int VfsIsAbsolute(const char* in) {
+    if (in == NULL) return 0;
+    if (in[0] == '/') return 1;
+    char* p = (char*)in;
+    while (*p != 0) {
+        if (*p == ':') {
+            return 1;
+        }
+        p++;
+    }
+    return 0;
+}
+
 int OsOpen(const char* path, int flags) {
     VfsFile* f = VfsFindFile(path);
     if (!f) return -1;
@@ -171,3 +184,15 @@ int OsReadDir(int handle, VfsDirEntry* outdirent, int idx) {
     return VfsReadDir(f, outdirent, idx);
 }
 KE_EXPORT_SYMBOL(OsReadDir);
+
+// extremely basic
+int OsStat(int handle, uint64_t* outsize, uint64_t* outtype) {
+    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (!proc->FileHandleTable[handle].Entry) return -2;
+    VfsFile* f = proc->FileHandleTable[handle].Entry;
+    KernelUnlockRsLck();
+    if (outsize) *outsize = f->Size;
+    if (outtype) *outtype = f->Type;
+    return 0;
+}
