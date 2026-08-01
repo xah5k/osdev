@@ -25,8 +25,8 @@ int VfsRead(VfsFile* file, void* buffer, size_t nbytes, uint64_t offset) {
     if (file->DrivePtr->DriverOps->Read) return file->DrivePtr->DriverOps->Read((void*)file, buffer, nbytes, offset);
     else return -1;
 }
-int VfsWrite(VfsFile* file, const void* buffer, size_t nbytes) {
-    if (file->DrivePtr->DriverOps->Write) return file->DrivePtr->DriverOps->Write((void*)file, buffer, nbytes);
+int VfsWrite(VfsFile* file, const void* buffer, size_t nbytes, uint64_t offset) {
+    if (file->DrivePtr->DriverOps->Write) return file->DrivePtr->DriverOps->Write((void*)file, buffer, nbytes, offset);
     else return -1;
 }
 
@@ -138,9 +138,19 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
+    uint64_t FileSize = f->Size;
+    uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
+
     KernelUnlockRsLck();
-    return VfsWrite(f, buffer, nbytes);
+    int bytes_wrote = VfsWrite(f, buffer, nbytes, CurrentOff); 
+
+    if (bytes_wrote > 0) {
+        proc->FileHandleTable[handle].CursorPos += bytes_wrote;
+    }
+
+    return bytes_wrote;
 }
+
 KE_EXPORT_SYMBOL(OsWrite);
 int OsGetFileSize(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();

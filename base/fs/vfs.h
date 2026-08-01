@@ -20,7 +20,7 @@ typedef struct VfsDirEntry {
 typedef struct {
     int (*Open)(struct VfsFile*);
     int (*Read)(struct VfsFile*, void*, size_t, uint64_t); // IN file, buffer, nbytes to read, offset   OUT status flag (0 = success, anything else is failure)
-    int (*Write)(struct VfsFile*, const void*, size_t); // IN file, buffer, nbytes to write   OUT status flag
+    int (*Write)(struct VfsFile*, const void*, size_t, uint64_t); // IN file, buffer, nbytes to write, offset   OUT status flag
     int (*Close)(struct VfsFile*);
     int (*GetFileSize)(struct VfsFile*);
     struct VfsFile* (*FindFile)(const char*);

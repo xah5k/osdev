@@ -11,6 +11,7 @@
 #include <exeldr/ldrelf.h>
 #include <mm/pmm.h>
 #include <memory.h>
+#include <abi-bits/seek.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -107,7 +108,7 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
         current->pendingkill = 1;
         current = current->ProcNext;
     }
-    return 1;
+    return 0;
 }
 
 uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, KE_SYSCALL_ARGS_UNUSED3) {
@@ -205,6 +206,25 @@ uint64_t SysWaitPid(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     return proc->exitcode;
 }
 
+uint64_t SysSeek(uint64_t handle, uint64_t offset, uint64_t whence, KE_SYSCALL_ARGS_UNUSED3) {
+    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
+    if (handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (!proc->FileHandleTable[handle].Entry) return (uint64_t)-1;
+    int64_t NewOff;
+    switch (whence) {
+        case SEEK_SET: NewOff = (int64_t)offset; break;
+        case SEEK_CUR: NewOff = (int64_t)proc->FileHandleTable[handle].CursorPos + (int64_t)offset; break;
+        case SEEK_END: NewOff = (int64_t)proc->FileHandleTable[handle].Entry->Size + (int64_t)offset; break;
+        default: {
+            printf("ksyscall: SysSeek: invalid whence value!\r\n");
+            return (uint64_t)-1;
+        }
+    }
+    if (NewOff < 0) return (uint64_t)-1;
+    proc->FileHandleTable[handle].CursorPos = NewOff;
+    return (uint64_t)NewOff;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -218,6 +238,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CLOSE, SysClose);
     KiRegisterSyscall(OS_READ, SysRead);
     KiRegisterSyscall(OS_WRITE, SysWrite);
+    KiRegisterSyscall(OS_SEEK, SysSeek);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif
