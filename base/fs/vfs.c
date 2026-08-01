@@ -8,6 +8,7 @@
 #include <external/printf.h>
 #include <kedriver.h>
 #include <util/kbdtransl.h>
+#include <external/posix/stat.h>
 // 16 max drives
 VfsDrive* gVfsDrives[16];
 int gVfsDrivesMounted = 0;
@@ -76,6 +77,32 @@ int VfsIsAbsolute(const char* in) {
             return 1;
         }
         p++;
+    }
+    return 0;
+}
+
+void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size) {
+    memset(stat, 0, sizeof(posixstat));
+    if (type == VFS_TYPE_DIRECTORY) {
+        stat->st_mode = K_S_IFDIR | 755;
+    } else {
+        stat->st_mode = K_S_IFREG | 644;
+    }
+    stat->st_size = size;
+    stat->st_nlink = 1;
+    stat->st_blksize = 512;
+    stat->st_blocks = (size + 511) / 512;
+}
+
+int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
+    if (!proc) return (uint64_t)-1;
+    if (VfsIsAbsolute((const char*)path)) {
+        uint64_t len = strlen((const char*)path);
+        if (len > VFS_MAX_ALLOWED_PATH - 1) len = VFS_MAX_ALLOWED_PATH - 1;
+        memcpy(acpath, (const void*)path, len);
+        acpath[len] = '\0';
+    } else {
+        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, (const char*)path);
     }
     return 0;
 }

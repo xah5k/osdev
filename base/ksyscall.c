@@ -13,6 +13,7 @@
 #include <mm/pmm.h>
 #include <memory.h>
 #include <abi-bits/seek.h>
+#include <external/posix/stat.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -177,8 +178,10 @@ uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
 
 // osopen doesnt care about modes anyway
 uint64_t SysOpen(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
-    const char* p = (const char*)path;
-    int h = OsOpen(p, arg2);
+    char acpath[VFS_MAX_ALLOWED_PATH];
+    int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
+    if (r2 < 0) return (uint64_t)-1;
+    int h = OsOpen(acpath, arg2);
     return (uint64_t)h;
 }
 
@@ -250,16 +253,9 @@ uint64_t SysGetCwd(uint64_t buf, uint64_t size, KE_SYSCALL_ARGS_UNUSED2) {
 uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
     if (path == 0) return (uint64_t)-1;
-    char acpath[VFS_MAX_ALLOWED_PATH]; // actual path cuz path itself might be relative
-    if (VfsIsAbsolute((const char*)path)) {
-        uint64_t len = strlen((const char*)path);
-        if (len > VFS_MAX_ALLOWED_PATH - 1) len = VFS_MAX_ALLOWED_PATH - 1;
-        memcpy(acpath, (const void*)path, len);
-        acpath[len] = '\0';
-    } else {
-        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, (const char*)path);
-    }
-    // check if it is actually a directory
+    char acpath[VFS_MAX_ALLOWED_PATH];
+    int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
+    if (r2 < 0) return (uint64_t)-1;
     int handle = OsOpen(acpath, 0);
     if (handle <= -1) return (uint64_t)-1;
     uint64_t type;
@@ -272,6 +268,39 @@ uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
     strlcpy(proc->cwd, acpath, sizeof(proc->cwd));
     return 0;
 }
+
+uint64_t SysFstat(uint64_t handle, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
+    if (handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (statbuf == 0) return (uint64_t)-1;
+    posixstat stat;
+    if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR || handle == VFS_HANDLE_STDIN) {
+        memset(&stat, 0, sizeof(posixstat));
+        stat.st_mode = K_S_IFCHR;
+        stat.st_blksize = 512;
+        memcpy((void*)statbuf, &stat, sizeof(posixstat));
+        return 0;
+    }
+    uint64_t type;
+    uint64_t fsize;
+    OsStat(handle, &fsize, &type);
+    VfsFillStat(&stat, type, fsize);
+    memcpy((void*)statbuf, (const void*)&stat, sizeof(posixstat));
+    return 0;
+}
+
+uint64_t SysStat(uint64_t path, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
+    if (path == 0) return (uint64_t)-1;
+    char acpath[VFS_MAX_ALLOWED_PATH];
+    int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
+    if (r2 < 0) return (uint64_t)-1;
+    int h = OsOpen(acpath, 0);
+    if (h < 0) return (uint64_t)-1;
+    uint64_t r = KE_SYSCALL_CALL_ARG2(SysFstat, h, statbuf);
+    OsClose(h);
+    if (r == (uint64_t)-1) return (uint64_t)-1;
+    return 0;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -289,6 +318,8 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_GETCLOCK, SysGetClock);
     KiRegisterSyscall(OS_GETCWD, SysGetCwd);
     KiRegisterSyscall(OS_CHDIR, SysChdir);
+    KiRegisterSyscall(OS_STAT, SysStat);
+    KiRegisterSyscall(OS_FSTAT, SysFstat);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

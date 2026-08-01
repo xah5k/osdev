@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
-
+#include <external/posix/stat.h>
 
 #define VFS_HANDLE_STDOUT 1
 #define VFS_HANDLE_STDERR 2
@@ -52,6 +52,8 @@ typedef struct {
 void VfsAddDriveToList(VfsDrive* drive);
 char* VfsRemoveFormatPath(const char* in) ;
 int VfsIsAbsolute(const char* in);
+void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size);
+int VfsTranslatePath(char* path, char* acpath, struct ProcessCtrlBlk* proc);
 
 int OsOpen(const char* path, int flags);
 int OsClose(int handle);

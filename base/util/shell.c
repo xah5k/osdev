@@ -8,6 +8,7 @@
 #include <ksyscall.h>
 #include <memory.h>
 #include <sched/process.h>
+#include <external/posix/stat.h>
 static void KeShlTestLs(const char* path) {
     printf("kernel: ls: Listing for %s\r\n", path);
     VfsDirEntry dirent;
@@ -74,6 +75,7 @@ void KeShlProcess(char* string) {
         printf("fsisabsol - checks if a path is absolute.\r\n");
         printf("chdir - changes proc cwd.\r\n");
         printf("getcwd - gets current working directory.\r\n");
+        printf("stat - posix-compat function that returns a stat struct.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -128,6 +130,30 @@ void KeShlProcess(char* string) {
         uint64_t r = KE_SYSCALL_CALL_ARG1(SysChdir, (uint64_t)dir);
         if (r == 0) printf("cwd is now %s\r\n", dir); else printf("SysChdir failed.\r\n");
         MmFree(dir);
+    } else if (strcmp(string, "stat") == 0) {
+        printf("enter path: ");
+        char* path = KeShlReadStr();
+        printf("\r\n");
+        posixstat* stat = MmAllocate(sizeof(posixstat));
+        uint64_t r = KE_SYSCALL_CALL_ARG2(SysStat, (uint64_t)path, (uint64_t)stat);
+        if (r == 0) {
+            printf("stat->st_dev = %ld\r\n", stat->st_dev);
+            printf("stat->st_ino = %ld\r\n", stat->st_ino);
+            printf("stat->st_mode = %ld\r\n", stat->st_mode);
+            printf("stat->st_nlink = %ld\r\n", stat->st_nlink);
+            printf("stat->st_uid = %ld\r\n", stat->st_uid);
+            printf("stat->st_gid = %ld\r\n", stat->st_gid);
+            printf("stat->st_rdev = %ld\r\n", stat->st_rdev);
+            printf("stat->st_size = %ld\r\n", stat->st_size);
+            printf("stat->st_blksize = %ld\r\n", stat->st_blksize);
+            printf("stat->st_blocks = %ld\r\n", stat->st_blocks);
+            printf("stat->atime = %ld\r\n", stat->st_atime);
+            printf("stat->mtime = %ld\r\n", stat->st_mtime);
+            printf("stat->ctime = %ld\r\n", stat->st_ctime);
+        } else {
+            printf("SysStat failed.\r\n");
+        }
+        MmFree(path);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

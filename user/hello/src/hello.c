@@ -1,51 +1,57 @@
 #include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
-#include <string.h>
 
-void print_cwd(const char* label) {
-    char buf[256];
-    if (getcwd(buf, sizeof(buf))) {
-        printf("%s: cwd = %s\r\n", label, buf);
-    } else {
-        printf("%s: getcwd failed!\r\n", label);
-    }
+void print_stat(const char* label, struct stat* st) {
+    printf("%s: mode=0%o size=%ld isdir=%d isreg=%d\r\n", label, (unsigned int)st->st_mode, (long)st->st_size, S_ISDIR(st->st_mode), S_ISREG(st->st_mode));
 }
 
 int main(int argc, const char* argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
+    struct stat st;
 
-    print_cwd("start");
-
-    // 1. chdir into a real directory
-    if (chdir("initrd:/drivers") == 0) {
-        printf("chdir to initrd:/drivers: success\r\n");
+    if (stat("initrd:/programs", &st) == 0) {
+        print_stat("stat(programs dir)", &st);
     } else {
-        printf("chdir to initrd:/drivers: FAILED (unexpected)\r\n");
+        printf("stat(programs dir) FAILED\r\n");
     }
-    print_cwd("after chdir drivers");
 
-    // 2. chdir into a file — should fail
-    if (chdir("initrd:/programs/hello.elf") == 0) {
-        printf("chdir to hello.elf: succeeded (BUG - should have failed)\r\n");
+    if (stat("initrd:/programs/hello.elf", &st) == 0) {
+        print_stat("stat(hello.elf)", &st);
     } else {
-        printf("chdir to hello.elf: correctly failed\r\n");
+        printf("stat(hello.elf) FAILED\r\n");
     }
-    print_cwd("after failed chdir attempt"); // should be unchanged from step 1
 
-    // 3. chdir into a nonexistent path — should fail
-    if (chdir("initrd:/this/does/not/exist") == 0) {
-        printf("chdir to bogus path: succeeded (BUG)\r\n");
+    if (stat("initrd:/nope/does/not/exist", &st) == 0) {
+        printf("stat(bogus) SUCCEEDED (unexpected!)\r\n");
     } else {
-        printf("chdir to bogus path: correctly failed\r\n");
+        printf("stat(bogus) correctly failed\r\n");
     }
-    print_cwd("after bogus chdir attempt"); // should still be unchanged
 
-    // 4. relative chdir, if your cwd supports it (e.g. ".." if implemented)
-    if (chdir("..") == 0) {
-        print_cwd("after chdir ..");
+    int fd = open("initrd:/programs/hello.elf", O_RDONLY);
+    if (fd >= 0) {
+        if (fstat(fd, &st) == 0) {
+            print_stat("fstat(hello.elf fd)", &st);
+        } else {
+            printf("fstat(hello.elf fd) FAILED\r\n");
+        }
+        close(fd);
     } else {
-        printf("chdir .. failed (may be expected if .. not yet supported)\r\n");
+        printf("open(hello.elf) failed, can't test fstat\r\n");
+    }
+
+    if (lstat("initrd:/programs/hello.elf", &st) == 0) {
+        print_stat("lstat(hello.elf)", &st);
+    } else {
+        printf("lstat(hello.elf) FAILED\r\n");
+    }
+
+    chdir("initrd:/programs");
+    if (stat("hello.elf", &st) == 0) {
+        print_stat("stat(relative hello.elf)", &st);
+    } else {
+        printf("stat(relative hello.elf) FAILED\r\n");
     }
 
     return 0;
