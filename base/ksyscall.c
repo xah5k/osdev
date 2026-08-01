@@ -15,6 +15,7 @@
 #include <abi-bits/seek.h>
 #include <external/posix/stat.h>
 #include <external/posix/dirent.h>
+#include <external/utsname.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -334,6 +335,20 @@ uint64_t SysGetDirent(uint64_t handle, uint64_t buffer, uint64_t maxsize, uint64
     return bytesout;
 }
 
+uint64_t SysUname(uint64_t buf, KE_SYSCALL_ARGS_UNUSED1) {
+    if (buf == 0) return (uint64_t)-1;
+    utsname uname;
+    memset(&uname, 0, sizeof(utsname));
+    strlcpy(uname.sysname, "ah5kos", sizeof(uname.sysname));
+    strlcpy(uname.nodename, "<none>", sizeof(uname.nodename));
+    strlcpy(uname.release, "1.0.0", sizeof(uname.release));
+    strlcpy(uname.version, __DATE__ " " __TIME__, sizeof(uname.version));
+    strlcpy(uname.machine, "x86_64", sizeof(uname.release));
+    strlcpy(uname.domainname, "<none>", sizeof(uname.domainname));
+    memcpy((void*)buf, &uname, sizeof(uname));
+    return 0;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -354,6 +369,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_STAT, SysStat);
     KiRegisterSyscall(OS_FSTAT, SysFstat);
     KiRegisterSyscall(OS_GETDIRENT, SysGetDirent);
+    KiRegisterSyscall(OS_UNAME, SysUname);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif
