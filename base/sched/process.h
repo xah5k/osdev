@@ -63,7 +63,7 @@ typedef struct ThreadCtrlBlk {
 
 ThreadCtrlBlk* ThrGetCurrent();
 ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
-ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc);
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc, const char** envp, int envc);
 ProcessCtrlBlk* ProcessNew(char* name);
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
 void ProcessCreate2(void* entry, KernelInformation* kinfo, void* arg1);

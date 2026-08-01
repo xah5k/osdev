@@ -9,6 +9,10 @@
 #include <memory.h>
 #include <sched/process.h>
 #include <external/posix/stat.h>
+
+char** gKeEnvp;
+int gKeEnvc = 0;
+
 static void KeShlTestLs(const char* path) {
     printf("kernel: ls: Listing for %s\r\n", path);
     VfsDirEntry dirent;
@@ -56,6 +60,12 @@ char* KeShlReadStr() {
     return strbuf;
 }
 
+void KeShlFillEnv(const char* env) {
+    gKeEnvc += 1;
+    gKeEnvp[gKeEnvc-1] = MmAllocate(strlen(env)+1);
+    memcpy((void*)gKeEnvp[gKeEnvc-1], (const void*)env, strlen(env)+1);
+}
+
 void KeShlProcess(char* string) {
     printf("\r\n");
     if (strcmp(string, "ver") == 0) {
@@ -76,6 +86,8 @@ void KeShlProcess(char* string) {
         printf("chdir - changes proc cwd.\r\n");
         printf("getcwd - gets current working directory.\r\n");
         printf("stat - posix-compat function that returns a stat struct.\r\n");
+        printf("getenv - dumps environment variables.\r\n");
+        printf("addenv - adds an env variable.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -104,7 +116,7 @@ void KeShlProcess(char* string) {
             memcpy((void*)argv[i], (const void*)str, strlen(str)+1);
         }
         argv[argc] = NULL;
-        uint64_t pid = KE_SYSCALL_CALL_ARG3(SysSpawn, (uint64_t)s, (uint64_t)argv, (uint64_t)argc);
+        uint64_t pid = SysSpawn((uint64_t)s, (uint64_t)argv, (uint64_t)argc, (uint64_t)gKeEnvp, (uint64_t)gKeEnvc);
         printf("\r\nspawned process with pid %d\r\n", pid);
         uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
         printf("\r\nprocess exited with code %d\r\n", r);
@@ -154,6 +166,16 @@ void KeShlProcess(char* string) {
             printf("SysStat failed.\r\n");
         }
         MmFree(path);
+    } else if (strcmp(string, "getenv") == 0) {
+        for (int i = 0; i < gKeEnvc; i++) {
+            printf("%s\r\n", gKeEnvp[i]);
+        }
+    } else if (strcmp(string, "addenv") == 0) {
+        printf("enter env (KEY=VAL format): ");
+        char* env = KeShlReadStr();
+        printf("\r\n");
+        KeShlFillEnv(env);
+        MmFree(env);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
@@ -168,6 +190,11 @@ void KeUtilShell() {
     char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
     KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
     printf("kshell: cwd is %s\r\n", cwdbuf);
+    gKeEnvp = MmAllocate(sizeof(char*)*64);
+    KeShlFillEnv("HOME=initrd:/home");
+    KeShlFillEnv("TERM=ah5kos");
+    KeShlFillEnv("PATH=initrd:/programs");
+    KeShlFillEnv("PRIV=kernel");
     MmFree(cwdbuf);
     printf("kshell> ");
     while (1) {

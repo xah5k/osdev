@@ -115,7 +115,7 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     return 0;
 }
 
-uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, KE_SYSCALL_ARGS_UNUSED3) {
+uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, uint64_t envp, uint64_t envc) {
     const char* path = (const char*)pathaddr;
     int handle = OsOpen(path, 0);
     if (handle <= -1) return -1;
@@ -125,7 +125,7 @@ uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, KE_SYSCALL_AR
     OsClose(handle);
     uint64_t pid = 0;
     printf("ksyscall: SysSpawn: spawn new process\r\n");
-    KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid, (const char**)argv, (int)argc, basename(path));
+    KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid, (const char**)argv, (int)argc, (const char**)envp, (uint64_t)envc, basename(path));
     MmFree(buf);
     return (result == KSUCCESS) ? pid : -1;
 }
@@ -174,7 +174,6 @@ uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
         }
     }
     proc->SbrkCurrent = NewBrk;
-    printf("ksyscall: SysSBrk: proc[pid=%d]->SbrkCurrent = 0x%lx\r\n", proc->pid, proc->SbrkCurrent);
     return OldBrk;
 }
 

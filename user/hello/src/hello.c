@@ -4,13 +4,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
-int main(int argc, const char* argv[]) {
+int main(int argc, const char* argv[], const char* envp[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
-    int x = access("initrd:/programs", F_OK);
-    printf("result = %d after try access 'initrd:/programs'\r\n", x);
-    x = access("initrd:/nonexisting.txt", F_OK);
-    printf("result = %d after try access 'initrd:/nonexisting.txt'\r\n", x);
-    x = access("initrd:/hi.txt", F_OK);
-    printf("result = %d after try access 'initrd:/hi.txt'\r\n", x);
+    printf("argc=%d argv[0]=%s envp[0]=%s\r\n", argc, argv[0], envp[0]);
     return 0;
 }

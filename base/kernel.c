@@ -320,7 +320,7 @@ void KernelBootstrapProc() {
     printf("kernel: initalized drivers that have initalized.\r\n");
     printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     
-    ThreadCtrlBlk* thr = ThreadNew(KeUtilShell, SCHED_PRIV_KERNEL, (const char**)0, 0);
+    ThreadCtrlBlk* thr = ThreadNew(KeUtilShell, SCHED_PRIV_KERNEL, (const char**)0, 0, 0, 0);
     ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
     ThreadAdd(thr);
     while(1) { __asm__("hlt"); }

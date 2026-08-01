@@ -96,7 +96,7 @@ void ThreadCreateKrnlStack(ThreadCtrlBlk* Tcb, void* entry) {
     Tcb->KernelStackBase = (uint64_t)StackBase;
     Tcb->entry = entry;
 }
-void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc) {
+void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc, const char** envp, int envc) {
     uint64_t StackSize = PS_USER_STACK_PAGES * PAGE_SIZE;
     uint64_t* StackBasePhys = (uint64_t*)PmmAllocatePages(PS_USER_STACK_PAGES);
 
@@ -107,7 +107,9 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
     uint64_t KernelVirt = Tcb->UserStackBase + StackSize;
 
     uint64_t* UserArgvAddresses = MmAllocate(sizeof(uint64_t) * argc);
+    uint64_t* UserEnvpAddresses = MmAllocate(sizeof(uint64_t) * envc);
 
+    // argv
     for (int i = argc - 1; i >= 0; i--) {
         uint64_t len = strlen(argv[i]) + 1;
         LocalVirt  -= len;
@@ -116,11 +118,20 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
         UserArgvAddresses[i] = LocalVirt;
     }
 
+    // envp
+    for (int i = envc - 1; i >= 0; i--) {
+        uint64_t len = strlen(envp[i]) + 1;
+        LocalVirt  -= len;
+        KernelVirt -= len;
+        memcpy((void*)KernelVirt, envp[i], len);
+        UserEnvpAddresses[i] = LocalVirt;
+    }
+
     uint64_t align8 = LocalVirt % 8;
     LocalVirt  -= align8;
     KernelVirt -= align8;
 
-    uint64_t block_words = 1 + (argc + 1) + 1 + (2 * 2);
+    uint64_t block_words = 1 + (argc + 1) + (envc + 1) + (2 * 2);
     uint64_t block_bytes = block_words * sizeof(uint64_t);
 
     uint64_t block_start = LocalVirt - block_bytes;
@@ -137,8 +148,10 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
 
     for (int i = 0; i < argc; i++)
         kw[idx++] = UserArgvAddresses[i];
-
     kw[idx++] = 0;
+
+    for (int i = 0; i < envc; i++)
+        kw[idx++] = UserEnvpAddresses[i];
     kw[idx++] = 0;
 
     kw[idx++] = 6;
@@ -147,6 +160,7 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
     kw[idx++] = 0;
 
     MmFree(UserArgvAddresses);
+    MmFree(UserEnvpAddresses);
 
     Tcb->UserRsp  = LocalVirt;
     Tcb->UserArgc = argc;
@@ -166,7 +180,7 @@ void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
     }
 }
 
-ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc) {
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc, const char** envp, int envc) {
     ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(new, 0, sizeof(ThreadCtrlBlk));
     new->state = SCHED_THREAD_READY;
@@ -174,7 +188,7 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc)
     new->privilege = priv;
     ThreadCreateKrnlStack(new, entry);
     if (priv > SCHED_PRIV_KERNEL) {
-        ThreadCreateUserStack(new, entry, argv, argc);
+        ThreadCreateUserStack(new, entry, argv, argc, envp, envc);
     }
     new->exitcode = 0;
     new->pendingkill = 0;
@@ -218,7 +232,7 @@ void ThrCheckPendingKill() {
 
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {
     ProcessCtrlBlk* proc = ProcessNew("noname");
-    ThreadCtrlBlk* thr = ThreadNew(entry, priv, 0, 0);
+    ThreadCtrlBlk* thr = ThreadNew(entry, priv, 0, 0, 0, 0);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadMapUserStack(thr);

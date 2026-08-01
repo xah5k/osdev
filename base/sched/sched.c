@@ -44,7 +44,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelThread->privilege = SCHED_PRIV_KERNEL;
 
     // create idle thread
-    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, 0, 0);
+    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, 0, 0, 0, 0);
 
     ProcAttachThread(KernelProc, KernelThread);
     ProcAttachThread(KernelProc, IdleThread);
