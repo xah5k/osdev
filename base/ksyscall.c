@@ -14,6 +14,7 @@
 #include <memory.h>
 #include <abi-bits/seek.h>
 #include <external/posix/stat.h>
+#include <external/posix/dirent.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -301,6 +302,38 @@ uint64_t SysStat(uint64_t path, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
     return 0;
 }
 
+uint64_t SysGetDirent(uint64_t handle, uint64_t buffer, uint64_t maxsize, uint64_t bytesout, KE_SYSCALL_ARGS_UNUSED4) {
+    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
+    if (handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (!proc->FileHandleTable[handle].Entry) return (uint64_t)-1;
+    if (buffer == 0) return (uint64_t)-1;
+    if (maxsize == 0) return (uint64_t)-1;
+    if (bytesout == 0) return (uint64_t)-1;
+    VfsDirEntry dirent;
+    uint64_t currentpos = 0;
+    uint64_t idx = proc->FileHandleTable[handle].CursorPos;
+    void* tmpbuffer = MmAllocate(maxsize);
+    while ((OsReadDir((int)handle, &dirent, idx)) == 1) {
+        if ((currentpos + sizeof(VfsDirEntry)) > maxsize) {
+            break;
+        }
+        posixdirent ent;
+        memset(&ent, 0, sizeof(ent));
+        ent.d_ino = 0;
+        ent.d_off = (int64_t)(idx + 1);
+        ent.d_reclen = sizeof(posixdirent);
+        ent.d_type = (dirent.Type == VFS_TYPE_DIRECTORY) ? DT_DIR : DT_REG;
+        strlcpy(ent.d_name, dirent.Name, sizeof(ent.d_name));
+        memcpy((char*)tmpbuffer + currentpos, &ent, sizeof(posixdirent));
+        currentpos += sizeof(posixdirent);
+        idx++;
+    }
+    proc->FileHandleTable[handle].CursorPos = idx;
+    memcpy((void*)buffer, tmpbuffer, currentpos);
+    MmFree(tmpbuffer); // free working buffer
+    return bytesout;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -320,6 +353,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CHDIR, SysChdir);
     KiRegisterSyscall(OS_STAT, SysStat);
     KiRegisterSyscall(OS_FSTAT, SysFstat);
+    KiRegisterSyscall(OS_GETDIRENT, SysGetDirent);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

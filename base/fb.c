@@ -100,5 +100,7 @@ void FbPutcAt(char c, int x, int y, uint32_t fg_color, uint32_t bg_color) {
 KE_EXPORT_SYMBOL(FbPutcAt);
 
 void FbClear() {
+    gFbConsoleX = 0;
+    gFbConsoleY = 0;
     memset((void*)g_fb_info->ptr, 0, g_fb_info->size);
 }
