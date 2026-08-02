@@ -30,7 +30,8 @@ uint64_t* ProcNewPML4() {
     return NewPML4Phys;
 }
 
-void ProcFreePML4(pagetable* pml4p) {
+// frees everything except pml4p itself
+void ProcFreeInnerPML4(pagetable* pml4p) {
     pagetable* pml4 = (pagetable*)P2V(pml4p);
     for (int i = 0; i < 256; i++) {
         if (pml4[i] & MMU_PAGE_BIT_P_PRESENT) {
@@ -50,6 +51,9 @@ void ProcFreePML4(pagetable* pml4p) {
             PmmFree((void*)(pml4[i] & ~0xFFF));
         }
     }
+}
+void ProcFreePML4(pagetable* pml4p) {
+    ProcFreeInnerPML4(pml4p);
     PmmFree((void*)pml4p);
 }
 

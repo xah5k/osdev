@@ -7,23 +7,8 @@
 #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
-KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** argv, int argc, const char** envp, int envc, const char* name) {
-    Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
-    if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
-        printf("ldr: elf64: invalid magic\r\n");
-        return KINVALID;
-    }
-    if ((Elf->e_ident[EI_CLASS] != ELFCLASS64) && (Elf->e_machine != EM_X86_64)) {
-        printf("ldr: elf64: invalid cpu architecture\r\n");
-        return KINVALID;
-    }
-    Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
-    if (Elf->e_phentsize != sizeof(Elf64_Phdr)) {
-        printf("ldr: elf64: program header size mismatch!\r\n");
-        return KINVALID;
-    }
 
-    ProcessCtrlBlk* proc = ProcessNew(name);
+void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc) {
     for (int i = 0; i < Elf->e_phnum; i++) {
         Elf64_Phdr* current = &PHdr[i];
         if (current->p_type == PT_LOAD) {
@@ -43,6 +28,25 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
             if (memsz > filesz) memset((void*)((uint64_t)kdest + filesz), 0, memsz - filesz);
         }
     }
+}
+KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** argv, int argc, const char** envp, int envc, const char* name) {
+    Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
+    if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
+        printf("ldr: elf64: invalid magic\r\n");
+        return KINVALID;
+    }
+    if ((Elf->e_ident[EI_CLASS] != ELFCLASS64) && (Elf->e_machine != EM_X86_64)) {
+        printf("ldr: elf64: invalid cpu architecture\r\n");
+        return KINVALID;
+    }
+    Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
+    if (Elf->e_phentsize != sizeof(Elf64_Phdr)) {
+        printf("ldr: elf64: program header size mismatch!\r\n");
+        return KINVALID;
+    }
+
+    ProcessCtrlBlk* proc = ProcessNew(name);
+    LdrElfMapPhdr(PHdr, Elf, proc);
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;
     // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry)
