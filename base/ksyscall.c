@@ -16,6 +16,7 @@
 #include <external/posix/stat.h>
 #include <external/posix/dirent.h>
 #include <external/utsname.h>
+#include <external/posix/ioctl.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -361,6 +362,28 @@ uint64_t SysUmask(uint64_t mode, uint64_t modeout, KE_SYSCALL_ARGS_UNUSED2) {
     return OldMode;
 }
 
+uint64_t SysIoCtl(uint64_t handle, uint64_t request, uint64_t arg, KE_SYSCALL_ARGS_UNUSED3) {
+    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    if (handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    int IsTty = (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR || handle == VFS_HANDLE_STDIN);
+    switch (request) {
+        case TIOCGWINSZ: {
+            if (!IsTty) return (uint64_t)-1;
+            unixwinsize ws;
+            ws.ws_row = 25;
+            ws.ws_col = 80;
+            ws.ws_xpixel = 0;
+            ws.ws_ypixel = 0;
+            memcpy((void*)arg, &ws, sizeof(unixwinsize));
+            return 0;
+        }
+        default: {
+            return (uint64_t)-1;
+        }
+    }
+    return (uint64_t)-1;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -383,6 +406,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_GETDIRENT, SysGetDirent);
     KiRegisterSyscall(OS_UNAME, SysUname);
     KiRegisterSyscall(OS_UMASK, SysUmask);
+    KiRegisterSyscall(OS_IOCTL, SysIoCtl);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif
