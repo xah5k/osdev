@@ -43,7 +43,7 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
         ThreadWake(blthr);
         blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail); // threadpophead nulls out globalnext
     }
-    SpnLckAcquire(&SchedSpinlock);
+    uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
     //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
     ThreadCtrlBlk* c = CurrentThread;
 
@@ -95,7 +95,7 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     c->ProcNext = NULL;
     c->GlobalNext = NULL;
     DeathThread = c;
-    SpnLckRelease(&SchedSpinlock);
+    SpnLckReleaseRfl(&SchedSpinlock, r);
     SchedYield();
     __builtin_unreachable();
 }
@@ -400,6 +400,13 @@ uint64_t SysCrPipe(uint64_t fhsout, KE_SYSCALL_ARGS_UNUSED1) {
     return 0;
 }
 
+uint64_t SysFork(uint64_t frame, KE_SYSCALL_ARGS_UNUSED1) {
+    CpuInterruptArgs* iframe = (CpuInterruptArgs*)frame;
+    ProcessCtrlBlk* cproc = CurrentThread->ParentProc;
+    uint64_t r = ProcessCopy(cproc, CurrentThread, iframe);
+    return r;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -424,6 +431,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_UMASK, SysUmask);
     KiRegisterSyscall(OS_IOCTL, SysIoCtl);
     KiRegisterSyscall(OS_CRPIPE, SysCrPipe);
+    KiRegisterSyscall(OS_FORK, SysFork);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

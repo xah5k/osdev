@@ -1,33 +1,34 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <dirent.h>
-#include <sys/ioctl.h>
-#include <stdint.h>
-int main(int argc, const char* argv[], const char* envp[]) {
-    setvbuf(stdout, NULL, _IONBF, 0);
-    printf("argc=%d argv[0]=%s envp[0]=%s\r\n", argc, argv[0], envp[0]);
-    struct winsize ws;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
-        printf("term rows=%d cols=%d\r\n", ws.ws_row, ws.ws_col);
-    } else {
-        printf("ioctl fail.\r\n");
-    }
 
-    int fds[2];
-    if (pipe(fds) != 0) {
-        printf("pipe fail.\r\n");
+int main(int argc, const char* argv[]) {
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    printf("before fork: pid-ish test, argc=%d\r\n", argc);
+
+    int local_var = 100;
+
+    int result = fork();
+
+    if (result == 0) {
+        // Child
+        local_var += 1;
+        printf("child: fork() returned %d, local_var=%d\r\n", result, local_var);
+    } else if (result > 0) {
+        // Parent
+        local_var += 1000;
+        printf("parent: fork() returned %d (child pid), local_var=%d\r\n", result, local_var);
+    } else {
+        printf("fork() failed!\r\n");
         return 1;
     }
-    printf("made a pipe. read fd (handle): %lu write fd (handle): %lu\r\n", fds[0], fds[1]);
-    const char* msg = "hello from pipe";
-    write(fds[1], msg, 15);
-    char* buf = malloc(32);
-    uint64_t n = read(fds[0], buf, sizeof(buf)-1);
-    printf("read %ld bytes: '%s'\r\n", n, buf);
-    close(fds[0]);
-    close(fds[1]);
-    free(buf);
+
+    printf("done, my local_var=%d\r\n", local_var);
+
+    while (1) {
+        for (volatile int i = 0; i < 100000000; i++);
+        printf("%s still alive, local_var=%d\r\n", result == 0 ? "child" : "parent", local_var);
+    }
+
     return 0;
 }

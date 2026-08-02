@@ -218,9 +218,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
 }
 
 ThreadCtrlBlk* ThrGetCurrent() {
-    SpnLckAcquire(&SchedSpinlock);
+    uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
     ThreadCtrlBlk* c = CurrentThread;
-    SpnLckRelease(&SchedSpinlock);
+    SpnLckReleaseRfl(&SchedSpinlock, r);
     return c;
 }
 KE_EXPORT_SYMBOL(ThrGetCurrent);
@@ -242,6 +242,72 @@ void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {
     kinfo->ProcessListHead = proc;
     kinfo->CurrentProcess = proc;
 }
+extern void isr_syscall_resume();
+// creates a copy of a process
+// only difference being actual pid and page table addr
+// its same thing as fork
+uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptArgs* frame) {
+    ProcessCtrlBlk* new = ProcessNew(proc->name);
+    if (!new) {
+        return (uint64_t)-1;
+    }
+
+    int copyResult = MmuForkCopyUserSpace((pagetable*)proc->cr3, (pagetable*)new->cr3);
+    if (copyResult != 0) {
+        return (uint64_t)-1;
+    }
+    new->nextfh = proc->nextfh;
+    new->SbrkBase = proc->SbrkBase;
+    new->SbrkCurrent = proc->SbrkCurrent;
+    new->SbrkLimit = proc->SbrkLimit;
+    new->Parent = proc;
+    memcpy((void*)new->cwd, (void*)proc->cwd, strlen(proc->cwd)+1);
+    memcpy((void*)new->FileHandleTable, proc->FileHandleTable, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    ThreadCtrlBlk* thr = MmAllocate(sizeof(ThreadCtrlBlk));
+    memset(thr, 0, sizeof(ThreadCtrlBlk));
+    thr->state = SCHED_THREAD_READY;
+    thr->privilege = caller->privilege;
+    thr->exitcode = 0;
+    thr->pendingkill = 0;
+
+    // fake a stack cuz if we use cpuinterruptargs directly itll pop absolute garbage
+    uint64_t* StackBase = (uint64_t*)MmAllocate(16384);
+    uint64_t* StackTop = StackBase + (16384 / 8);
+
+    StackTop = (uint64_t*)((uint64_t)StackTop - sizeof(CpuInterruptArgs));
+    CpuInterruptArgs* ChildFrame = (CpuInterruptArgs*)StackTop;
+
+    memcpy(ChildFrame, frame, sizeof(CpuInterruptArgs));
+    ChildFrame->rax = 0;
+
+    if ((uint64_t)StackTop % 16 != 0) StackTop--;
+
+    *(--StackTop) = (uint64_t)isr_syscall_resume;
+    *(--StackTop) = (uint64_t)ChildFrame;
+    *(--StackTop) = 0;
+    *(--StackTop) = 0;
+    *(--StackTop) = 0;
+    *(--StackTop) = 0;
+    *(--StackTop) = 0;
+    *(--StackTop) = 0x202;
+
+    thr->KernelRsp = (uint64_t)StackTop;
+    thr->KernelStackBase = (uint64_t)StackBase;
+    uint64_t StackBaseVirt = PS_USER_STACK_BASE - (PS_USER_STACK_PAGES * MMU_PAGE_SIZE);
+    uint64_t ChildStackBasePhys = MmuGetPhys(new->cr3, StackBaseVirt);
+    if (!ChildStackBasePhys) {
+        // shouldnt really happen
+        return (uint64_t)-1;
+    }
+    thr->UserStackBase = (uint64_t)P2V(ChildStackBasePhys);
+    thr->UserRsp = caller->UserRsp;
+    ProcAttachThread(new, thr);
+    new->Next = KernelGetInformation()->ProcessListHead;
+    KernelGetInformation()->ProcessListHead = new;
+    ThreadAdd(thr);
+    return new->pid;
+}
+
 
 void ThreadAdd(ThreadCtrlBlk* Tcb) {
     Tcb->GlobalNext = ReadyQueueHead;
@@ -251,7 +317,7 @@ void ThreadAdd(ThreadCtrlBlk* Tcb) {
 void ThreadWake(ThreadCtrlBlk* Tcb) {
     if (!Tcb) return;
 
-    SpnLckAcquire(&SchedSpinlock);
+    uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
 
     Tcb->state = SCHED_THREAD_READY;
     Tcb->GlobalNext = NULL;
@@ -266,7 +332,7 @@ void ThreadWake(ThreadCtrlBlk* Tcb) {
         current->GlobalNext = Tcb;
     }
 
-    SpnLckRelease(&SchedSpinlock);
+    SpnLckReleaseRfl(&SchedSpinlock, r);
 }
 KE_EXPORT_SYMBOL(ThreadWake);
 
@@ -301,13 +367,10 @@ ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail) {
 KE_EXPORT_SYMBOL(ThreadPopHead);
 
 void ThreadEntry() {
-    SpnLckRelease(&SchedSpinlock);
+    // SpnLckRelease(&SchedSpinlock);
     if (DeathThread != NULL) {
         if (DeathThread->KernelStackBase) {
             MmFree((void*)DeathThread->KernelStackBase);
-        }
-        if (DeathThread->UserStackBase) {
-            PmmFreePages((void*)V2P(DeathThread->UserStackBase), PS_USER_STACK_PAGES);
         }
         if(DeathThread->ParentProc->threads <= 0) {
             // remove from kernel list

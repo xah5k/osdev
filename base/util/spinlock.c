@@ -30,3 +30,29 @@ void SpnLckRelease(Spinlock* lock) {
     #endif
 }
 KE_EXPORT_SYMBOL(SpnLckRelease);
+uint64_t SpnLckAcquireRfl(Spinlock* lock) {
+
+    // save rfl
+    #ifdef __x86_64__
+    uint64_t rfl;
+    asm volatile ("pushfq; pop %0" : "=r"(rfl));
+    asm volatile ("cli");
+    #endif
+    while (atomic_flag_test_and_set_explicit(&lock->x, memory_order_acquire)) {
+        #ifdef __x86_64__
+        _x86_64_pause();
+        #endif
+    }
+    #ifdef __x86_64__
+    return rfl;
+    #endif
+}
+
+KE_EXPORT_SYMBOL(SpnLckAcquireRfl);
+void SpnLckReleaseRfl(Spinlock* lock, uint64_t rfl) {
+    atomic_flag_clear_explicit(&lock->x, memory_order_release);
+    #ifdef __x86_64__
+    asm volatile("push %0; popfq" : : "r"(rfl));
+    #endif
+}
+KE_EXPORT_SYMBOL(SpnLckReleaseRfl);

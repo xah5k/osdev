@@ -58,10 +58,10 @@ void SchedInitalize(KernelInformation* kinfo) {
     gkinfoPtr->CurrentProcess = KernelProc;
 }
 void Schedule() {
-    SpnLckAcquire(&SchedSpinlock);
+    uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
 
     if (ReadyQueueHead == NULL && CurrentThread->state == SCHED_THREAD_RUNNING) {
-        SpnLckRelease(&SchedSpinlock);
+        SpnLckReleaseRfl(&SchedSpinlock, r);
         return;
     }
     ThreadCtrlBlk* OldThr = CurrentThread;
@@ -120,6 +120,7 @@ void Schedule() {
         asm volatile("cli");
         #ifdef __x86_64__
         gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
+        SpnLckReleaseRfl(&SchedSpinlock, r);
         _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
         #endif
     }
@@ -127,9 +128,6 @@ void Schedule() {
     if (DeathThread != NULL) {
         if (DeathThread->KernelStackBase) {
             MmFree((void*)DeathThread->KernelStackBase);
-        }
-        if (DeathThread->UserStackBase) {
-            PmmFreePages((void*)V2P(DeathThread->UserStackBase), PS_USER_STACK_PAGES);
         }
         if(DeathThread->ParentProc->threads <= 0) {
             // remove from kernel list
@@ -149,7 +147,6 @@ void Schedule() {
                 previous->Next = current->Next;
             }
             _s:
-            KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
             ProcFreePML4(DeathThread->ParentProc->pml4);
             MmFree(DeathThread->ParentProc);
@@ -157,8 +154,6 @@ void Schedule() {
         MmFree(DeathThread);
         DeathThread = NULL; 
     }
-
-    SpnLckRelease(&SchedSpinlock);
     asm volatile("sti");
 }
 

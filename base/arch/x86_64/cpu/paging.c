@@ -39,8 +39,8 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
 }
 KE_EXPORT_SYMBOL(MmuMapPage);
 
-physaddr MmuGetPhys(virtaddr virt) {
-    uint64_t cr3 = _x86_64_get_pml4();
+physaddr MmuGetPhys(uint64_t pml4p, virtaddr virt) {
+    uint64_t cr3 = pml4p;
     
     uint64_t* pml4 = (uint64_t*)((cr3 & ~0xFFF) + gMmuVOffset);
     uint64_t pml4e = pml4[(virt >> 39) & 0x1FF];
@@ -104,3 +104,63 @@ void MmuMapRegion(pagetable* pml4, virtaddr vstart, physaddr pstart, physaddr pe
     }
 }
 KE_EXPORT_SYMBOL(MmuMapRegion);
+int MmuForkCopyUserSpace(pagetable* ParentPml4, pagetable* ChildPml4) {
+    pagetable* ParentPml4V = (pagetable*)((uint64_t)ParentPml4 + gMmuVOffset);
+    pagetable* ChildPml4V  = (pagetable*)((uint64_t)ChildPml4 + gMmuVOffset);
+
+    for (int i4 = 0; i4 < 512; i4++) {
+        if (i4 >= 256) continue;
+        uint64_t Pml4Entry = ParentPml4V[i4];
+        if (!(Pml4Entry & MMU_PAGE_BIT_P_PRESENT)) continue;
+        pagetable* ParentPdpt = (pagetable*)((Pml4Entry & ~0xFFFULL) + gMmuVOffset);
+        uint64_t ChildPdptPhys = (uint64_t)PmmAllocate();
+        pagetable* ChildPdpt = (pagetable*)(ChildPdptPhys + gMmuVOffset);
+        memset(ChildPdpt, 0, MMU_PAGE_SIZE);
+        ChildPml4V[i4] = ChildPdptPhys | (Pml4Entry & 0xFFF);
+
+        for (int i3 = 0; i3 < 512; i3++) {
+            uint64_t PdptEntry = ParentPdpt[i3];
+            if (!(PdptEntry & MMU_PAGE_BIT_P_PRESENT)) continue;
+
+            pagetable* ParentPd = (pagetable*)((PdptEntry & ~0xFFFULL) + gMmuVOffset);
+
+            uint64_t ChildPdPhys = (uint64_t)PmmAllocate();
+            pagetable* ChildPd = (pagetable*)(ChildPdPhys + gMmuVOffset);
+            memset(ChildPd, 0, MMU_PAGE_SIZE);
+            ChildPdpt[i3] = ChildPdPhys | (PdptEntry & 0xFFF);
+
+            for (int i2 = 0; i2 < 512; i2++) {
+                uint64_t PdEntry = ParentPd[i2];
+                if (!(PdEntry & MMU_PAGE_BIT_P_PRESENT)) continue;
+
+                pagetable* ParentPt = (pagetable*)((PdEntry & ~0xFFFULL) + gMmuVOffset);
+
+                uint64_t ChildPtPhys = (uint64_t)PmmAllocate();
+                pagetable* ChildPt = (pagetable*)(ChildPtPhys + gMmuVOffset);
+                memset(ChildPt, 0, MMU_PAGE_SIZE);
+                ChildPd[i2] = ChildPtPhys | (PdEntry & 0xFFF);
+
+                for (int i1 = 0; i1 < 512; i1++) {
+                    uint64_t PtEntry = ParentPt[i1];
+                    if (!(PtEntry & MMU_PAGE_BIT_P_PRESENT)) continue;
+
+                    uint64_t ParentFramePhys = PtEntry & ~0xFFFULL;
+                    uint64_t Flags = PtEntry & 0xFFF;
+
+                    uint64_t ChildFramePhys = (uint64_t)PmmAllocate();
+                    if (!ChildFramePhys) {
+                        KATTEMPT(NULL);
+                    }
+
+                    void* ParentFrameV = (void*)(ParentFramePhys + gMmuVOffset);
+                    void* ChildFrameV  = (void*)(ChildFramePhys + gMmuVOffset);
+                    memcpy(ChildFrameV, ParentFrameV, MMU_PAGE_SIZE);
+
+                    ChildPt[i1] = ChildFramePhys | Flags;
+                }
+            }
+        }
+    }
+
+    return 0;
+}

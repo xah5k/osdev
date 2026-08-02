@@ -22,7 +22,10 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
         registers->rax = -1;
         return;
     }
-    result = gSyscallTable[syscallnum](arg1, arg2, arg3, arg4, arg5);
+    // special cuz it needs the whole register frame
+    if (syscallnum == OS_FORK) {
+        result = gSyscallTable[OS_FORK]((uint64_t)registers, 0, 0, 0, 0);
+    } else  { result = gSyscallTable[syscallnum](arg1, arg2, arg3, arg4, arg5); }
     registers->rax = result;
     if (CurrentThread->pendingkill) {
         KE_SYSCALL_CALL_ARG1(SysExit, -1);

@@ -140,7 +140,7 @@ void KeSetupMmu() {
     } 
 
     // physical address of kernel
-    uint64_t kphys = MmuGetPhys(0xffffffffffe02000);
+    uint64_t kphys = MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe02000);
     uint64_t ksize = (uint64_t)&_kernel_end - (uint64_t)&_kernel_start;
     // map kernel
     for (uint64_t i = 0; i < ksize; i+=PAGE_SIZE) {
@@ -153,7 +153,7 @@ void KeSetupMmu() {
     }
 
     // map bootboot struct
-    MmuMapPage(kpml4, 0xffffffffffe00000, MmuGetPhys(0xffffffffffe00000), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    MmuMapPage(kpml4, 0xffffffffffe00000, MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe00000), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
 
     // map initrd
     for (uint64_t i = bootboot.initrd_ptr; i < bootboot.initrd_size; i+=PAGE_SIZE) {
@@ -169,7 +169,7 @@ void KeSetupMmu() {
 
     // map stack
     #ifdef __x86_64__
-    MmuMapPage(kpml4, _x86_64_get_stack(), MmuGetPhys(_x86_64_get_stack()), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    MmuMapPage(kpml4, _x86_64_get_stack(), MmuGetPhys(_x86_64_get_pml4(), _x86_64_get_stack()), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     //_x86_64_set_stack(_x86_64_get_stack() + MMU_PHYS_OFFSET);
     #endif
 

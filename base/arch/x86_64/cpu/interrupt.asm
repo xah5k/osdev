@@ -272,8 +272,11 @@ ISR_NOERRCODE 251
 ISR_NOERRCODE 252
 ISR_NOERRCODE 253
 ISR_NOERRCODE 254
+global isr_syscall_resume
 global isr_syscall_stub
 isr_syscall_stub:
+    push 0
+    push 0
     push rbp
     push rax
     push rbx
@@ -297,6 +300,7 @@ isr_syscall_stub:
     mov rdi, rbp
     call CpuIdtSyscallHandler
 
+isr_syscall_resume:
     mov rsp, rbp
     pop r15
     pop r14
@@ -314,6 +318,7 @@ isr_syscall_stub:
     pop rax
     pop rbp
 
+    add rsp, 16
     iretq
 
 isr_common_early:

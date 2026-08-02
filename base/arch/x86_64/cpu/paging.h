@@ -33,10 +33,11 @@ typedef uint64_t pagetable __attribute__((aligned(MMU_PAGE_SIZE)));
 
 void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flags);
 void MmuMapRegion(pagetable* pml4, virtaddr vstart, physaddr pstart, physaddr pend, unsigned int flags);
-physaddr MmuGetPhys(virtaddr virt);
+physaddr MmuGetPhys(uint64_t pml4p, virtaddr virt);
 void MmuUnmapPage(pagetable* pml4, virtaddr virt);
 //void MapLargePage(physaddr physical, virtaddr virtual, unsigned int flags) ;
 
 extern uint64_t gMmuVOffset;
 extern void _x86_64_load_pml4(uint64_t);
 extern uint64_t _x86_64_get_pml4();
+int MmuForkCopyUserSpace(pagetable* ParentPml4, pagetable* ChildPml4);

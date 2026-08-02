@@ -9,3 +9,5 @@ typedef struct {
 
 void SpnLckAcquire(Spinlock* lock);
 void SpnLckRelease(Spinlock* lock);
+uint64_t SpnLckAcquireRfl(Spinlock* lock);
+void SpnLckReleaseRfl(Spinlock* lock, uint64_t rfl);
