@@ -263,7 +263,7 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
 
 KE_EXPORT_SYMBOL(OsWrite);
 int OsGetFileSize(int handle) {
-    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
+    ProcessCtrlBlk* proc =  KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
@@ -273,7 +273,7 @@ int OsGetFileSize(int handle) {
 KE_EXPORT_SYMBOL(OsGetFileSize);
 
 int OsReadDir(int handle, VfsDirEntry* outdirent, int idx) {
-    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
+    ProcessCtrlBlk* proc =  KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
@@ -284,7 +284,7 @@ KE_EXPORT_SYMBOL(OsReadDir);
 
 // extremely basic
 int OsStat(int handle, uint64_t* outsize, uint64_t* outtype) {
-    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
+    ProcessCtrlBlk* proc =  KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;

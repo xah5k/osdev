@@ -9,6 +9,9 @@
 #include <memory.h>
 #include <sched/process.h>
 #include <external/posix/stat.h>
+#ifdef __x86_64__
+#include <arch/x86_64/pci/pci.h>
+#endif
 
 char** gKeEnvp;
 int gKeEnvc = 0;
@@ -91,6 +94,7 @@ void KeShlProcess(char* string) {
         printf("iopipe - test IoPipeObj and see if vfs is working with it.\r\n");
         printf("heapdump - dumps heap regions.\r\n");
         printf("cpufeats - cpu features.\r\n");
+        printf("lspci - list pci devices.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -218,6 +222,16 @@ void KeShlProcess(char* string) {
         CpuFeatures* f = KernelGetInformation()->cpufeats;
         printf("cpu features: \r\n");
         printf("f->smap = %d\r\n", f->smap);
+    } else if (strcmp(string, "lspci") == 0) {
+        KePciDeviceHdr* hdr = PciGetLinkedList();
+        if (!hdr) {
+            printf("error: no list.\r\n");
+            return;
+        }
+        while (hdr != NULL) {
+            printf("found device %lx:%lx\r\n", hdr->Header->VendorID, hdr->Header->DeviceID);
+            hdr = hdr->Next;
+        }
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

@@ -52,4 +52,18 @@ typedef struct {
     AcpiMadtIntDeviceHdr IntDevices[];
 } __attribute__((packed)) AcpiMadtTable;
 
+typedef struct {
+    uint64_t Base;
+    uint16_t SegGroupNumber;
+    uint8_t StartBus;
+    uint8_t EndBus;
+    uint32_t Reserved;
+} __attribute__((packed)) PciConfigSpBaStruct;
+
+typedef struct {
+    AcpiTableHeader header;
+    uint64_t Reserved;
+    PciConfigSpBaStruct Ecm[];
+} __attribute__((packed)) AcpiMcfgTable;
+
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature); 

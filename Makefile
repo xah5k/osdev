@@ -58,10 +58,10 @@ clean:
 	@$(MAKE) -C drivers clean ARCH=$(ARCH)
 
 run-x86_64:
-	qemu-system-x86_64 osdev.img -M q35 $(QARG) -serial stdio
+	qemu-system-x86_64 -hda osdev.img -M q35 $(QARG) -serial stdio
 
 run-x86_64-uefi:
-	qemu-system-x86_64 osdev.img -M q35 $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
+	qemu-system-x86_64 -hda osdev.img -M q35 $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
 
 run-x86_64-efi-dbg:
-	qemu-system-x86_64 -s -S osdev.img -M q35 $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
+	qemu-system-x86_64 -s -S -hda osdev.img -M q35 $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
