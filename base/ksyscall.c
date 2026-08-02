@@ -375,13 +375,29 @@ uint64_t SysIoCtl(uint64_t handle, uint64_t request, uint64_t arg, KE_SYSCALL_AR
             ws.ws_xpixel = 0;
             ws.ws_ypixel = 0;
             memcpy((void*)arg, &ws, sizeof(unixwinsize));
+            KernelUnlockRsLck();
             return 0;
         }
         default: {
+            KernelUnlockRsLck();
             return (uint64_t)-1;
         }
     }
+    KernelUnlockRsLck();
     return (uint64_t)-1;
+}
+
+uint64_t SysCrPipe(uint64_t fhsout, KE_SYSCALL_ARGS_UNUSED1) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (!proc) return (uint64_t)-1;
+    if (fhsout == 0) return (uint64_t)-1;
+    IoPipeObj* pipe = IoCreatePipe(proc);
+    if (!pipe) return (uint64_t)-1;
+    int fhs[2];
+    fhs[0] = pipe->ReadHandle;
+    fhs[1] = pipe->WriteHandle;
+    memcpy((void*)fhsout, fhs, sizeof(fhs));
+    return 0;
 }
 
 void KeRegisterSyscalls() {
@@ -407,6 +423,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_UNAME, SysUname);
     KiRegisterSyscall(OS_UMASK, SysUmask);
     KiRegisterSyscall(OS_IOCTL, SysIoCtl);
+    KiRegisterSyscall(OS_CRPIPE, SysCrPipe);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

@@ -2,13 +2,14 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <external/posix/stat.h>
+#include <fs/io/pipe.h>
 
 #define VFS_HANDLE_STDOUT 1
 #define VFS_HANDLE_STDERR 2
 #define VFS_HANDLE_STDIN 0
 
 #define VFS_MAX_ALLOWED_PATH 64
-#define VFS_MAX_ALLOWED_OPEN_HANDLES 12
+#define VFS_MAX_ALLOWED_OPEN_HANDLES 64
 struct VfsFile;
 typedef struct VfsDirEntry {
     uint64_t Id;
@@ -42,11 +43,15 @@ typedef struct VfsFile {
     VfsDrive* DrivePtr; // ptr back to the drive it's on
 } VfsFile;
 
+#define VFS_OFD_FLAG_FILE 0x1
+#define VFS_OFD_FLAG_PIPE 0x2
+
 typedef struct {
-    VfsFile* Entry;
+    VfsFile* Entry; // only applies if Flag = VFS_OFD_FLAG_FILE otherwise NULL
     uint64_t CursorPos;
     int Flag;
     int NumProc;
+    IoPipeObj* PipeEntry; // only applies if Flag = VFS_OFD_FLAG_PIPE otherwise NULL
 } VfsOpenFileDescr;
 
 void VfsAddDriveToList(VfsDrive* drive);

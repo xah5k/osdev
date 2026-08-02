@@ -88,6 +88,9 @@ void KeShlProcess(char* string) {
         printf("stat - posix-compat function that returns a stat struct.\r\n");
         printf("getenv - dumps environment variables.\r\n");
         printf("addenv - adds an env variable.\r\n");
+        printf("iopipe - test IoPipeObj and see if vfs is working with it.\r\n");
+        printf("heapdump - dumps heap regions.\r\n");
+        printf("cpufeats - cpu features.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -176,6 +179,45 @@ void KeShlProcess(char* string) {
         printf("\r\n");
         KeShlFillEnv(env);
         MmFree(env);
+    } else if (strcmp(string, "iopipe") == 0) {
+        IoPipeObj* pipe = IoCreatePipe(ThrGetCurrent()->ParentProc);
+        if (!pipe) {
+            printf("failed to create pipe.\r\n");
+            return;
+        }
+        printf("created new pipe obj @ 0x%lx\r\n", pipe);
+        printf("read handle = %lu\r\n", pipe->ReadHandle);
+        printf("write handle = %d\r\n", pipe->WriteHandle);
+        printf("enter message to write to pipe: \r\n");
+        char* msg = KeShlReadStr();
+        printf("\r\n");
+        int written = OsWrite(pipe->WriteHandle, msg, strlen(msg));
+        printf("written %d bytes.\r\n", written);
+        printf("testing read now..\r\n");
+        char* buf = MmAllocate(64);
+        int readn = OsRead((int)pipe->ReadHandle, buf, sizeof(buf) - 1);
+        printf("read %d bytes: '%s'\r\n", readn, buf);
+        int readn2 = OsRead((int)pipe->ReadHandle, buf, sizeof(buf) - 1);
+        printf("read from empty pipe returned %d\r\n", readn2);
+        for (int i = 0; i < 20; i++) {
+            char smallmsg[8];
+            snprintf(smallmsg, sizeof(smallmsg), "m%d", i);
+            int w = OsWrite((int)pipe->WriteHandle, smallmsg, strlen(smallmsg));
+            char rbuf[8] = {0};
+            int r = OsRead((int)pipe->ReadHandle, rbuf, sizeof(rbuf) - 1);
+            printf("iter %d wrote=%d read='%s'(%d)\r\n", i, w, rbuf, r);
+        }
+        OsClose((int)pipe->ReadHandle);
+        OsClose((int)pipe->WriteHandle);
+        MmFree(buf);
+        MmFree(msg);
+        printf("closed both directions.\r\n");
+    } else if (strcmp(string, "heapdump") == 0) {
+        MmHeapDumpMap();
+    } else if (strcmp(string, "cpufeats") == 0) {
+        CpuFeatures* f = KernelGetInformation()->cpufeats;
+        printf("cpu features: \r\n");
+        printf("f->smap = %d\r\n", f->smap);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

@@ -17,31 +17,7 @@
 
 typedef uint64_t(*syscallfunc)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 
-typedef enum {
-    OS_EXIT,
-    OS_KILL,
-    OS_SPAWN,
-    OS_CONWRITE,
-    OS_YIELD,
-    OS_GETPID,
-    OS_WAIT,
-    OS_SBRK,
-    OS_SETFSBASE,
-    OS_OPEN,
-    OS_CLOSE,
-    OS_READ,
-    OS_WRITE,
-    OS_SEEK,
-    OS_GETCLOCK,
-    OS_CHDIR,
-    OS_GETCWD,
-    OS_STAT,
-    OS_FSTAT,
-    OS_GETDIRENT,
-    OS_UNAME,
-    OS_UMASK,
-    OS_IOCTL
-} KiSyscallIdx;
+#include "syscallidx.h"
 
 void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr);
 void KiHandleSyscall(CpuInterruptArgs* registers);

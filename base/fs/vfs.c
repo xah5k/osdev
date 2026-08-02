@@ -118,6 +118,7 @@ int OsOpen(const char* path, int flags) {
     int handle = current->nextfh;
     current->nextfh++;
     current->FileHandleTable[handle].Entry = f;
+    current->FileHandleTable[handle].Flag = VFS_OFD_FLAG_FILE;
     KernelUnlockRsLck();
     return handle;
 }
@@ -126,8 +127,16 @@ int OsClose(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (!proc) return -1;
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
+    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_PIPE) {
+        IoPipeObj* pipe = proc->FileHandleTable[handle].PipeEntry;
+        if (pipe) {
+            pipe->RefCount--;
+            if (pipe->RefCount == 0) {
+                MmFree(pipe);
+            }
+        }
+    }
     memset(&proc->FileHandleTable[handle], 0, sizeof(VfsOpenFileDescr));
-    proc->nextfh--;
     KernelUnlockRsLck();
     return 0;
 }
@@ -142,28 +151,60 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
     }
 
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -2;
-    VfsFile* f = proc->FileHandleTable[handle].Entry;
-    uint64_t FileSize = f->Size;
-    uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
+    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
+        if (!proc->FileHandleTable[handle].Entry)  { KernelUnlockRsLck(); return -1; }
+        VfsFile* f = proc->FileHandleTable[handle].Entry;
+        uint64_t FileSize = f->Size;
+        uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
 
-    if (CurrentOff >= FileSize) {
+        if (CurrentOff >= FileSize) {
+            KernelUnlockRsLck();
+            return 0; 
+        }
+        if (CurrentOff + nbytes > FileSize) {
+            nbytes = FileSize - CurrentOff;
+        }
         KernelUnlockRsLck();
-        return 0; 
-    }
-    if (CurrentOff + nbytes > FileSize) {
-        nbytes = FileSize - CurrentOff;
+        int bytes_read = VfsRead(f, buffer, nbytes, CurrentOff); 
+
+        if (bytes_read > 0) {
+            proc->FileHandleTable[handle].CursorPos += bytes_read;
+        }
+
+        return bytes_read;
+    } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_PIPE) {
+        IoPipeObj* pipe = proc->FileHandleTable[handle].PipeEntry;
+        if (!pipe)  { KernelUnlockRsLck(); return -1; }
+        if (pipe->ReadHandle != handle)  { KernelUnlockRsLck(); return -1; } // invalid direction
+        uint64_t BytesRequested = nbytes;
+        uint64_t BytesTotal = pipe->Count;
+        uint64_t BytesToRead = BytesRequested; // value memcpy will use in the end
+        if (BytesTotal == 0) {
+            KernelUnlockRsLck();
+            return 0;
+        }
+        if (BytesTotal < BytesRequested) {
+            BytesToRead = BytesTotal;
+        }
+        uint64_t FirstChunk = IO_PIPE_BUF_SZ - pipe->ReadPos; // bytes available before wrap
+        if (FirstChunk >= BytesToRead) {
+            // copy
+            memcpy(buffer, (const void*)((uint64_t)pipe->Buffer + pipe->ReadPos), BytesToRead);
+        } else {
+            // split copy
+            memcpy(buffer, (const void*)((uint64_t)pipe->Buffer + pipe->ReadPos), FirstChunk);
+            memcpy((void*)((uint64_t)buffer + FirstChunk), (const void*)pipe->Buffer, BytesToRead - FirstChunk);
+        }
+        pipe->ReadPos = (pipe->ReadPos + BytesToRead) % IO_PIPE_BUF_SZ;
+        pipe->Count -= BytesToRead;
+        KernelUnlockRsLck();
+        return BytesToRead;
     }
     KernelUnlockRsLck();
-    int bytes_read = VfsRead(f, buffer, nbytes, CurrentOff); 
-
-    if (bytes_read > 0) {
-        proc->FileHandleTable[handle].CursorPos += bytes_read;
-    }
-
-    return bytes_read;
+    return (uint64_t)-1;
 }
+
 KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
     if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
@@ -175,25 +216,54 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
     }
     if (handle == VFS_HANDLE_STDIN) return -1; // ??? some people are morons
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
-    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
-    if (!proc->FileHandleTable[handle].Entry) return -2;
-    VfsFile* f = proc->FileHandleTable[handle].Entry;
-    uint64_t FileSize = f->Size;
-    uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
+    if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES)  { KernelUnlockRsLck(); return -1; }
+    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
+        if (!proc->FileHandleTable[handle].Entry)  { KernelUnlockRsLck(); return -1; }
+        
+        VfsFile* f = proc->FileHandleTable[handle].Entry;
+        uint64_t FileSize = f->Size;
+        uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
 
-    KernelUnlockRsLck();
-    int bytes_wrote = VfsWrite(f, buffer, nbytes, CurrentOff); 
+        KernelUnlockRsLck();
+        int bytes_wrote = VfsWrite(f, buffer, nbytes, CurrentOff); 
 
-    if (bytes_wrote > 0) {
-        proc->FileHandleTable[handle].CursorPos += bytes_wrote;
+        if (bytes_wrote > 0) {
+            proc->FileHandleTable[handle].CursorPos += bytes_wrote;
+        }
+
+        return bytes_wrote;
+    } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_PIPE) {
+        IoPipeObj* pipe = proc->FileHandleTable[handle].PipeEntry;
+        if (!pipe)  { KernelUnlockRsLck(); return -1; }
+        if (pipe->WriteHandle != handle)  { KernelUnlockRsLck(); return -1; } // invalid direction
+
+        uint64_t FreeSpace = IO_PIPE_BUF_SZ - pipe->Count;
+        if (FreeSpace == 0) { KernelUnlockRsLck(); return 0; }
+
+        uint64_t BytesToWrite = nbytes;
+        if (BytesToWrite > FreeSpace) {
+            BytesToWrite = FreeSpace;
+        }
+        uint64_t FirstChunk = IO_PIPE_BUF_SZ - pipe->WritePos;
+        if (FirstChunk >= BytesToWrite) {
+            memcpy((void*)((uint64_t)pipe->Buffer + pipe->WritePos), buffer, BytesToWrite);
+        } else {
+            memcpy((void*)((uint64_t)pipe->Buffer + pipe->WritePos), buffer, FirstChunk);
+            memcpy((void*)pipe->Buffer, (const void*)((uint64_t)buffer + FirstChunk), BytesToWrite - FirstChunk);
+        }
+
+        pipe->WritePos = (pipe->WritePos + BytesToWrite) % IO_PIPE_BUF_SZ;
+        pipe->Count += BytesToWrite;
+        KernelUnlockRsLck();
+        return BytesToWrite;
     }
-
-    return bytes_wrote;
+    KernelUnlockRsLck();
+    return (uint64_t)-1;
 }
 
 KE_EXPORT_SYMBOL(OsWrite);
 int OsGetFileSize(int handle) {
-    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
@@ -203,7 +273,7 @@ int OsGetFileSize(int handle) {
 KE_EXPORT_SYMBOL(OsGetFileSize);
 
 int OsReadDir(int handle, VfsDirEntry* outdirent, int idx) {
-    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
@@ -214,7 +284,7 @@ KE_EXPORT_SYMBOL(OsReadDir);
 
 // extremely basic
 int OsStat(int handle, uint64_t* outsize, uint64_t* outtype) {
-    ProcessCtrlBlk* proc = KernelGetCurrentProc();
+    ProcessCtrlBlk* proc = ThrGetCurrent()->ParentProc;
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return -1;
     if (!proc->FileHandleTable[handle].Entry) return -2;
     VfsFile* f = proc->FileHandleTable[handle].Entry;
