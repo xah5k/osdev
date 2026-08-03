@@ -24,5 +24,6 @@ typedef enum {
     OS_UMASK,
     OS_IOCTL,
     OS_CRPIPE,
-    OS_FORK
+    OS_FORK,
+    OS_EXECVE
 } KiSyscallIdx;

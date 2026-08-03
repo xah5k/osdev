@@ -8,6 +8,75 @@
 #include <kedriver.h>
 #include <util/util.h>
 
+KSTATUS LdrElfValidate(Elf64_Ehdr* Elf);
+void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc);
+static void LdrElfRplImgFreeThread(ThreadCtrlBlk* thr) {
+    if (thr->KernelStackBase) {
+            MmFree((void*)thr->KernelStackBase);
+    }
+    if (thr->UserStackBase) {
+        PmmFreePages((void*)V2P(thr->UserStackBase), PS_USER_STACK_PAGES);
+    }
+    MmFree(thr);
+}
+KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** argv, int argc, const char** envp, int envc) {
+    asm ("cli");
+    if (!target || !image) return KINVALID;
+    KernelInformation* kinfo = KernelGetInformation();
+    if (!kinfo) return KINVALID;
+    Elf64_Ehdr* Elf = (Elf64_Ehdr*)image;
+    if (LdrElfValidate(Elf) != KSUCCESS) {
+        return KINVALID;
+    }
+    char** kargv = (char**)MmAllocate(sizeof(char*) * argc);
+    char** kenvp = (char**)MmAllocate(sizeof(char*) * envc);
+    for (int i = 0; i < argc; i++) {
+        size_t len = strlen(argv[i]) + 1;
+        kargv[i] = (char*)MmAllocate(len);
+        memcpy(kargv[i], argv[i], len);
+    }
+    for (int i = 0; i < envc; i++) {
+        size_t len = strlen(envp[i]) + 1;
+        kenvp[i] = (char*)MmAllocate(len);
+        memcpy(kenvp[i], envp[i], len);
+    }
+    ThreadCtrlBlk* curr = target->ThreadListHead;
+    while (curr != NULL) {
+        ThreadCtrlBlk* next = curr->ProcNext;
+        if (curr != ThrGetCurrent()) {
+            LdrElfRplImgFreeThread(curr);
+        }
+        curr = next;
+    }
+    ThreadCtrlBlk* self = ThrGetCurrent();
+    ProcFreeInnerPML4((pagetable*)target->cr3); // frees all except pml4 root
+    asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3" ::: "rax", "memory"); // prevent caching
+    Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
+    LdrElfMapPhdr(PHdr, Elf, target);
+    target->SbrkBase = PS_USER_BRK_BASE;
+    target->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
+    target->SbrkCurrent = PS_USER_BRK_BASE;
+
+    target->ThreadListHead = NULL;
+    target->threads = 1;
+    self->ProcNext = NULL;
+    uint64_t entry = (uint64_t)Elf->e_entry;
+    ThreadCreateUserStack(self, (void*)entry, (const char**)kargv, argc, (const char**)kenvp, envc);
+    ThreadMapUserStack(self);
+    self->entry = (void*)entry;
+    self->exitcode = 0;
+    self->pendingkill = 0;
+    target->ThreadListHead = self;
+    for (int i = 0; i < argc; i++) MmFree(kargv[i]);
+    for (int i = 0; i < envc; i++) MmFree(kenvp[i]);
+    MmFree(kargv);
+    MmFree(kenvp);
+    _x86_64_usjmp(entry, self->UserRsp, (uint64_t)self->UserArgv, (uint64_t)self->UserArgc);
+    __builtin_unreachable();
+    KATTEMPT(NULL); // never meant to get past here
+    return KSUCCESS;
+}
+
 void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc) {
     for (int i = 0; i < Elf->e_phnum; i++) {
         Elf64_Phdr* current = &PHdr[i];
@@ -29,8 +98,8 @@ void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc) {
         }
     }
 }
-KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** argv, int argc, const char** envp, int envc, const char* name) {
-    Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
+
+KSTATUS LdrElfValidate(Elf64_Ehdr* Elf) {
     if (memcmp(Elf->e_ident, ELFMAG, 4) != 0) {
         printf("ldr: elf64: invalid magic\r\n");
         return KINVALID;
@@ -44,6 +113,16 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
         printf("ldr: elf64: program header size mismatch!\r\n");
         return KINVALID;
     }
+    return KSUCCESS;
+}
+KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** argv, int argc, const char** envp, int envc, const char* name) {
+    Elf64_Ehdr* Elf = (Elf64_Ehdr*)addr;
+    if (LdrElfValidate(Elf) != KSUCCESS) {
+        return KINVALID;
+    }
+
+    Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
+
 
     ProcessCtrlBlk* proc = ProcessNew(name);
     LdrElfMapPhdr(PHdr, Elf, proc);

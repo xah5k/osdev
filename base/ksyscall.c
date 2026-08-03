@@ -134,7 +134,9 @@ uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, uint64_t envp
 uint64_t SysConWrite(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
     const char* path = (const char*)pathaddr;
     UserAcBegin();
-    printf("%s", path);
+    for (int i = 0; i < strlen(path); i++) {
+        _putchar(path[i]);
+    }
     UserAcEnd();
     return 0;
 }
@@ -148,6 +150,7 @@ uint64_t SysYield(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
 uint64_t SysGetPid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
     return CurrentThread->ParentProc->pid;
 }
+
 
 uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
@@ -292,6 +295,7 @@ uint64_t SysFstat(uint64_t handle, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
 
 uint64_t SysStat(uint64_t path, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
     if (path == 0) return (uint64_t)-1;
+    if (path < 0x400000 || path + 1 >= 0x800000000000) return (uint64_t)-1; // holy hardcode
     char acpath[VFS_MAX_ALLOWED_PATH];
     int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
     if (r2 < 0) return (uint64_t)-1;
@@ -407,6 +411,32 @@ uint64_t SysFork(uint64_t frame, KE_SYSCALL_ARGS_UNUSED1) {
     return r;
 }
 
+static int KeHlpCountV(const char* p[]) {
+    int i = 0;
+    while (p[i] != NULL) {
+        i++;
+    }
+    return i;
+}
+
+
+
+uint64_t SysExecve(uint64_t patha, uint64_t argv, uint64_t envp, KE_SYSCALL_ARGS_UNUSED3) {
+    const char* path = (const char*)patha;
+    if (patha == 0) return (uint64_t)-1;
+    int handle = OsOpen(path, 0);
+    if (handle <= -1) return (uint64_t)-1;
+    uint64_t size = OsGetFileSize(handle);
+    void* buf = MmAllocate(size);
+    OsRead(handle, buf, size);
+    OsClose(handle);
+    printf("ksyscall: SysExecve: replace current image.\r\n");
+    KSTATUS result = LdrElfReplaceImage(ThrGetCurrent()->ParentProc, buf, (const char**)argv, (int)KeHlpCountV((const char**)argv), (const char**)envp, (int)KeHlpCountV((const char**)envp));
+    if (result != KSUCCESS) return (uint64_t)-1; else return 0;
+    __builtin_unreachable();
+    return 0;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -432,6 +462,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_IOCTL, SysIoCtl);
     KiRegisterSyscall(OS_CRPIPE, SysCrPipe);
     KiRegisterSyscall(OS_FORK, SysFork);
+    KiRegisterSyscall(OS_EXECVE, SysExecve);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

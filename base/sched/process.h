@@ -78,4 +78,6 @@ void ProcListRunning(KernelInformation* kinfo);
 void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);
 void ProcFreePML4(pagetable* pml4p);
+void ProcFreeInnerPML4(pagetable* pml4p);
 void ThrCheckPendingKill();
+void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc, const char** envp, int envc);

@@ -42,12 +42,15 @@ void ProcFreeInnerPML4(pagetable* pml4p) {
                     for (int k = 0; k < 512; k++) {
                         if (pd[k] & MMU_PAGE_BIT_P_PRESENT) {
                             physaddr pt_phys = pd[k] & ~0xFFF;
+                            pd[k] = 0x0;
                             PmmFree((void*)pt_phys);
                         }
                     }
+                    pdpt[j] = 0x0;
                     PmmFree((void*)(pdpt[j] & ~0xFFF));
                 }
             }
+            pml4[i] = 0x0;
             PmmFree((void*)(pml4[i] & ~0xFFF));
         }
     }
