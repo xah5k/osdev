@@ -75,9 +75,14 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     } else {
         printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
     }
-    printf("kernel: halting\r\n");
-    while (1) {
-        asm ("cli; hlt");
+    if (ThrGetCurrent()->privilege == SCHED_PRIV_KERNEL) {
+        printf("kernel: halting\r\n");
+        while (1) {
+            asm ("cli; hlt");
+        }
+    } else {
+        //printf("kernel: killing user task..\r\n");
+        //KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
     }
 }
 KE_EXPORT_SYMBOL(KdBugcheck);

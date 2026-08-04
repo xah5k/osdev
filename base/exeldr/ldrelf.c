@@ -7,6 +7,8 @@
 #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
+#include <util/spinlock.h>
+static Spinlock LdrLock = {ATOMIC_FLAG_INIT};
 
 KSTATUS LdrElfValidate(Elf64_Ehdr* Elf);
 void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc);
@@ -20,12 +22,16 @@ static void LdrElfRplImgFreeThread(ThreadCtrlBlk* thr) {
     MmFree(thr);
 }
 KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** argv, int argc, const char** envp, int envc) {
-    asm ("cli");
-    if (!target || !image) return KINVALID;
+    uint64_t r = SpnLckAcquireRfl(&LdrLock);
+    if (!target || !image)  { 
+        SpnLckReleaseRfl(&LdrLock, r);
+        return KINVALID; 
+    }
     KernelInformation* kinfo = KernelGetInformation();
     if (!kinfo) return KINVALID;
     Elf64_Ehdr* Elf = (Elf64_Ehdr*)image;
     if (LdrElfValidate(Elf) != KSUCCESS) {
+        SpnLckReleaseRfl(&LdrLock, r);
         return KINVALID;
     }
     char** kargv = (char**)MmAllocate(sizeof(char*) * argc);
@@ -71,6 +77,7 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     for (int i = 0; i < envc; i++) MmFree(kenvp[i]);
     MmFree(kargv);
     MmFree(kenvp);
+    SpnLckReleaseRfl(&LdrLock, r);
     _x86_64_usjmp(entry, self->UserRsp, (uint64_t)self->UserArgv, (uint64_t)self->UserArgc);
     __builtin_unreachable();
     KATTEMPT(NULL); // never meant to get past here

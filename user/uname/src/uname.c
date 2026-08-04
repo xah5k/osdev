@@ -11,5 +11,6 @@ int main(int argc, const char* argv[]) {
         return -1;
     }
     printf("%s %s %s %s %s\r\n", buf->sysname, buf->nodename, buf->version, buf->release, buf->domainname);
+    free(buf);
     return 0;
 }

@@ -133,7 +133,7 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
         memcpy((void*)KernelVirt, envp[i], len);
         UserEnvpAddresses[i] = LocalVirt;
     }
-
+    // todo: ?
     uint64_t align8 = LocalVirt % 8;
     LocalVirt  -= align8;
     KernelVirt -= align8;
@@ -152,7 +152,7 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
     int idx = 0;
 
     kw[idx++] = (uint64_t)argc;
-
+    // fix here
     for (int i = 0; i < argc; i++)
         kw[idx++] = UserArgvAddresses[i];
     kw[idx++] = 0;
@@ -162,7 +162,7 @@ void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, i
     kw[idx++] = 0;
 
     kw[idx++] = 6;
-    kw[idx++] = PAGE_SIZE;
+    kw[idx++] = PAGE_SIZE; // depends on 2mb pages but we dont use those yet
     kw[idx++] = 0;
     kw[idx++] = 0;
 
