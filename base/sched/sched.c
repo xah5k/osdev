@@ -120,6 +120,8 @@ void Schedule() {
         asm volatile("cli");
         #ifdef __x86_64__
         gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
+        CpuWriteMsr(0xC0000100, NextThr->FsBase);
+        CpuWriteMsr(0xC0000102, NextThr->GsBase);
         SpnLckReleaseRfl(&SchedSpinlock, r);
         _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
         #endif

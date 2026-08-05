@@ -56,6 +56,8 @@ typedef struct ThreadCtrlBlk {
     uint8_t pendingkill;
     char** UserArgv;
     int UserArgc;
+    uint64_t FsBase;
+    uint64_t GsBase;
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process

@@ -199,6 +199,8 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc,
     }
     new->exitcode = 0;
     new->pendingkill = 0;
+    new->FsBase = 0;
+    new->GsBase = 0;
     return new;
 }
 

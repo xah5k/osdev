@@ -1,28 +1,35 @@
 #include <stdio.h>
 #include <unistd.h>
-
+#include <sys/wait.h>
 int main() {
-    setvbuf(stdout, NULL, _IONBF, 0);
-    printf("before fork\r\n");
+    int fds[2];
+    pipe(fds);
 
     int pid = fork();
-    printf("fork pid = %d\r\n", pid);
     if (pid == 0) {
-        // child: execve directly, no redirection
-        printf("child: about to execve\r\n");
+        // yes yes my child
+        close(fds[0]);
+        dup2(fds[1], STDOUT_FILENO);
+        close(fds[1]);
 
         const char* args[] = { "uname.elf", NULL };
-        const char* envp[] = { "TEST=value", NULL };
+        const char* envp[] = {"dontsetenvptonullotherwisebadthingswillhappen", NULL };
         execve("initrd:/programs/uname.elf", (char**)args, (char**)envp);
 
-        // only reached if execve failed
         printf("execve failed!\r\n");
         return 1;
     } else {
-        // parent: just wait a bit and print
-        printf("parent: forked child with pid %d\r\n", pid);
-        for (volatile int i = 0; i < 50000000; i++);
-        printf("parent: done waiting\r\n");
+        // read whatever child starts crying about
+        close(fds[1]);
+        char buf[256] = {0};
+        int total = 0;
+        int n;
+        waitpid(pid, NULL, 0);
+        while ((n = read(fds[0], buf + total, sizeof(buf) - total - 1)) > 0) {
+            total += n;
+        }
+        printf("child whined %d bytes:\r\n%s\r\n", total, buf);
+        close(fds[0]);
     }
 
     return 0;

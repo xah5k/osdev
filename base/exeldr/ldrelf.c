@@ -78,6 +78,8 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     MmFree(kargv);
     MmFree(kenvp);
     SpnLckReleaseRfl(&LdrLock, r);
+    CpuWriteMsr(0xC0000100, 0);
+    CpuWriteMsr(0xC0000102, 0);
     _x86_64_usjmp(entry, self->UserRsp, (uint64_t)self->UserArgv, (uint64_t)self->UserArgc);
     __builtin_unreachable();
     KATTEMPT(NULL); // never meant to get past here

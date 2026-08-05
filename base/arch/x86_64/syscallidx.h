@@ -25,5 +25,7 @@ typedef enum {
     OS_IOCTL,
     OS_CRPIPE,
     OS_FORK,
-    OS_EXECVE
+    OS_EXECVE,
+    OS_DUP,
+    OS_DUP2
 } KiSyscallIdx;

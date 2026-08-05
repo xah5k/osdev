@@ -35,6 +35,9 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
 
 uint64_t SysSetFsBase(uint64_t base, KE_SYSCALL_ARGS_UNUSED1) {
     CpuWriteMsr(0xC0000100, base);
+    CpuWriteMsr(0xC0000102, base);
+    ThrGetCurrent()->FsBase = base;
+    ThrGetCurrent()->GsBase = base;
     return 0;
 }
 

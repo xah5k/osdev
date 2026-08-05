@@ -418,9 +418,6 @@ static int KeHlpCountV(const char* p[]) {
     }
     return i;
 }
-
-
-
 uint64_t SysExecve(uint64_t patha, uint64_t argv, uint64_t envp, KE_SYSCALL_ARGS_UNUSED3) {
     const char* path = (const char*)patha;
     if (patha == 0) return (uint64_t)-1;
@@ -435,6 +432,39 @@ uint64_t SysExecve(uint64_t patha, uint64_t argv, uint64_t envp, KE_SYSCALL_ARGS
     if (result != KSUCCESS) return (uint64_t)-1; else return 0;
     __builtin_unreachable();
     return 0;
+}
+
+uint64_t SysDup(uint64_t oldhandle, KE_SYSCALL_ARGS_UNUSED1) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
+    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    int newhdl = proc->nextfh++;
+    proc->FileHandleTable[newhdl] = proc->FileHandleTable[oldhandle];
+    // refcount 
+    if (proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_PIPE) {
+        proc->FileHandleTable[newhdl].PipeEntry->RefCount++;
+    }
+    return (uint64_t)newhdl;
+}
+
+uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2) {
+    ProcessCtrlBlk* proc = CurrentThread->ParentProc;
+    if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES || newhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
+    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (oldhandle == newhandle) return newhandle;
+    int newhdl = (int)newhandle;
+    if (proc->FileHandleTable[newhdl].Entry || proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_FILE) {
+        OsClose(newhdl);
+    }
+
+    proc->FileHandleTable[newhdl] = proc->FileHandleTable[oldhandle];
+    // refcount 
+    if (proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_PIPE) {
+        proc->FileHandleTable[newhdl].PipeEntry->RefCount++;
+    }
+    return (uint64_t)newhdl;
 }
 
 void KeRegisterSyscalls() {
@@ -463,6 +493,8 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CRPIPE, SysCrPipe);
     KiRegisterSyscall(OS_FORK, SysFork);
     KiRegisterSyscall(OS_EXECVE, SysExecve);
+    KiRegisterSyscall(OS_DUP, SysDup);
+    KiRegisterSyscall(OS_DUP2, SysDup2);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif
