@@ -2,56 +2,15 @@
 #include <mm/heap.h>
 #include <stddef.h>
 #include <memory.h>
+#include <mm/pmm.h>
 
-typedef enum {
-    AHCI_TYPE_NONE,
-    AHCI_TYPE_SATA,
-    AHCI_TYPE_SEMB,
-    AHCI_TYPE_PM,
-    AHCI_TYPE_SATAPI
-} AhciHbaPortType;
 
-typedef struct {
-    uint32_t CmdListBase;
-    uint32_t CmdListBaseUpper;
-    uint32_t FisBase;
-    uint32_t FisBaseUpper;
-    uint32_t InterruptStatus;
-    uint32_t InterruptEnable;
-    uint32_t CmdStatus;
-    uint32_t Rsv0;
-    uint32_t TaskFileData;
-    uint32_t Signature;
-    uint32_t SataStatus;
-    uint32_t SataCtrl;
-    uint32_t SataError;
-    uint32_t SataActive;
-    uint32_t CmdIssue;
-    uint32_t SataNotification;
-    uint32_t FisSwitchCtrl;
-    uint32_t Rsv1[11];
-    uint32_t Vendor[4];
-} __attribute__((packed)) AhciHbaPort;
 
-typedef struct {
-    uint32_t HostCaps;
-    uint32_t GlobalHostCtrl;
-    uint32_t InterruptStatus;
-    uint32_t PortsImpl;
-    uint32_t Version;
-    uint32_t CccCtrl;
-    uint32_t CccPorts;
-    uint32_t EnclosureMgmtLoc;
-    uint32_t EnclosureMgmtCtrl;
-    uint32_t Cap2;
-    uint32_t FwHandoffCtrlStatus;
-    uint8_t Rsv0[116];
-    uint8_t Vendor[96];
-    AhciHbaPort Ports[32];
-} __attribute__((packed)) AhciHbaMemory;
 
 static PciDeviceHeader* gPciBase;
 static AhciHbaMemory* gAhciAbar;
+static KeAhciPort* gKeAhciPorts[32];
+static uint8_t gTotalPorts = 0;
 
 AhciHbaPortType AhciChkType(AhciHbaPort* Port) {
     uint8_t Ipm = (Port->SataStatus >> 8) & 0b111;
@@ -77,22 +36,74 @@ AhciHbaPortType AhciChkType(AhciHbaPort* Port) {
     }
     return AHCI_TYPE_NONE;
 }
+
+void AhciPortStartCmd(KeAhciPort* Port) {
+    while (Port->HbaPort->CmdStatus & 0x8000);
+    Port->HbaPort->CmdStatus |= 0x0010;
+    Port->HbaPort->CmdStatus |= 0x0001;
+
+}
+void AhciPortStopCmd(KeAhciPort* Port) {
+    Port->HbaPort->CmdStatus &= ~0x0001;
+    Port->HbaPort->CmdStatus &= ~0x0010;
+    while (1) {
+        if (Port->HbaPort->CmdStatus & 0x4000) {
+            continue;
+        }
+        if (Port->HbaPort->CmdStatus & 0x8000) {
+            continue;
+        }
+        break;
+    }
+}
+
+KSTATUS AhciPortInitalize(KeAhciPort* Port) {
+    AhciPortStopCmd(Port);
+    void* NewBase = PmmAllocate();
+    if (!NewBase) return KOOMERR;
+    Port->HbaPort->CmdListBase = (uint32_t)((uint64_t)NewBase);
+    Port->HbaPort->CmdListBaseUpper = (uint32_t)((uint64_t)NewBase >> 32);
+    memset((void*)P2V(Port->HbaPort->CmdListBase), 0, 1024);
+    void* FisBase = PmmAllocate();
+    if (!FisBase) return KOOMERR;
+    Port->HbaPort->FisBase = (uint32_t)((uint64_t)FisBase);
+    Port->HbaPort->FisBaseUpper = (uint32_t)((uint64_t)FisBase >> 32);
+    memset((void*)P2V(Port->HbaPort->FisBase), 0, 256);
+    AhciHbaCmdHdr* CmdHdr = (AhciHbaCmdHdr*)((uint64_t)Port->HbaPort->CmdListBase + (uint64_t)(Port->HbaPort->CmdListBaseUpper << 32));
+    for (int i = 0; i < 32; i++) {
+        CmdHdr[i].PrdtLength = 8;
+        void* CmdTableAddress = PmmAllocate();
+        if (!CmdTableAddress) return KOOMERR;
+        uint64_t Address = (uint64_t)CmdTableAddress + (i << 8);
+        CmdHdr[i].CmdTableBase = (uint32_t)((uint64_t)Address);
+        CmdHdr[i].CmdTableBaseUpper = (uint32_t)((uint64_t)Address >> 32);
+        memset((void*)P2V(CmdTableAddress), 0, 256);
+    }
+    AhciPortStartCmd(Port);
+    return KSUCCESS;
+}
+
 void AhciProbePorts() {
     uint32_t PortsImpl = gAhciAbar->PortsImpl;
     for (int i = 0; i < 32; i++) {
         if (PortsImpl & (1<<i)) {
             AhciHbaPort* Port = &gAhciAbar->Ports[i];
             AhciHbaPortType Type = AhciChkType(Port);
-            if (Type == AHCI_TYPE_SATA) {
-                KeDrvWriteFmt("ahci: detected sata drive.\r\n");
-            } else if (Type == AHCI_TYPE_SATAPI) {
-                KeDrvWriteFmt("ahci: detected satapi drive.\r\n");
-            } else {
-                KeDrvWriteFmt("ahci: detected not supported drive.\r\n");
+            if (Type == AHCI_TYPE_SATA || Type == AHCI_TYPE_SATAPI) {
+                gKeAhciPorts[gTotalPorts] = MmAllocate(sizeof(KeAhciPort));
+                gKeAhciPorts[gTotalPorts]->HbaPort = Port;
+                gKeAhciPorts[gTotalPorts]->HbaType = Type;
+                gKeAhciPorts[gTotalPorts]->PortIndex = gTotalPorts;
+                gTotalPorts++;
             }
         }
     }
 }
+
+KeAhciPort* AhciGetPort(uint8_t Index) {
+    return gKeAhciPorts[Index];
+}
+
 KSTATUS DriverEntry(KeDriverObj* Self) {
     KeDrvWriteFmt("ahci: DriverEntry.\r\n");
     KeDrvWriteFmt("ahci: gPciBase = 0x%lx\r\n", gPciBase);
@@ -101,6 +112,10 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     // todo: dont identity map it for obvious reasons but temporarily for now
     MmuMapPage((pagetable*)_x86_64_get_pml4(), (virtaddr)gAhciAbar, (physaddr)gAhciAbar, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_PCD | MMU_PAGE_BIT_PWT);;
     AhciProbePorts();
+    for (int i = 0; i < gTotalPorts; i++) {
+        KeAhciPort* Port = gKeAhciPorts[i];
+        AhciPortInitalize(Port);
+    }
     return KSUCCESS;
 }
 

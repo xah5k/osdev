@@ -12,7 +12,7 @@
 #ifdef __x86_64__
 #include <arch/x86_64/pci/pci.h>
 #endif
-
+#include <disk/ahci.h>
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -95,6 +95,7 @@ void KeShlProcess(char* string) {
         printf("heapdump - dumps heap regions.\r\n");
         printf("cpufeats - cpu features.\r\n");
         printf("lspci - list pci devices.\r\n");
+        printf("lsahciport - list ahci ports.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -231,6 +232,14 @@ void KeShlProcess(char* string) {
         while (hdr != NULL) {
             printf("found device %lx:%lx\r\n", hdr->Header->VendorID, hdr->Header->DeviceID);
             hdr = hdr->Next;
+        }
+    } else if (strcmp(string, "lsahciport") == 0) {
+        for (int i = 0; i < 32; i++) {
+            KeAhciPort* port = AhciGetPort((uint8_t)i);
+            if (port) {
+                if (port->HbaType == AHCI_TYPE_SATA) printf("port %d: type=SATA HbaPort=0x%lx\r\n", i, port->HbaPort);
+                if (port->HbaType == AHCI_TYPE_SATAPI) printf("port %d: type=SATA HbaPort=0x%lx\r\n", i, port->HbaPort);
+            }
         }
     }
     else {
