@@ -223,6 +223,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->exitcode = 0;
     new->BlockedQueueHead = NULL;
     new->BlockedQueueTail = NULL;
+    new->FileHandleTable[VFS_HANDLE_STDIN].Flag = VFS_OFD_FLAG_CNSL;
+    new->FileHandleTable[VFS_HANDLE_STDOUT].Flag = VFS_OFD_FLAG_CNSL;
+    new->FileHandleTable[VFS_HANDLE_STDERR].Flag = VFS_OFD_FLAG_CNSL;
     return new;
 }
 

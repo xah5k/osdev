@@ -142,14 +142,6 @@ int OsClose(int handle) {
 }
 KE_EXPORT_SYMBOL(OsClose);
 int OsRead(int handle, void* buffer, size_t nbytes) {
-    if (handle == VFS_HANDLE_STDIN) {
-        char c = KbdTranslGetc();
-        memcpy(buffer, &c, 1);
-        return 1;
-    } else if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
-        return -1;
-    }
-
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
     if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
@@ -176,7 +168,6 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
     } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_PIPE) {
         IoPipeObj* pipe = proc->FileHandleTable[handle].PipeEntry;
         if (!pipe)  { KernelUnlockRsLck(); return -1; }
-        if (pipe->ReadHandle != handle)  { KernelUnlockRsLck(); return -1; } // invalid direction
         uint64_t BytesRequested = nbytes;
         uint64_t BytesTotal = pipe->Count;
         uint64_t BytesToRead = BytesRequested; // value memcpy will use in the end
@@ -200,6 +191,11 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
         pipe->Count -= BytesToRead;
         KernelUnlockRsLck();
         return BytesToRead;
+    } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_CNSL) {
+        KernelUnlockRsLck();
+        char c = KbdTranslGetc();
+        memcpy(buffer, &c, 1);
+        return 1;
     }
     KernelUnlockRsLck();
     return -1;
@@ -207,18 +203,9 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
 
 KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
-    if (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR) {
-        const char* buf = (const char*)buffer;
-        for (uint64_t i = 0; i < nbytes; i++) {
-            _putchar(buf[i]); // before printf wouldve caused weird glitch characters to print out.
-        }
-        return nbytes;
-    }
-    if (handle == VFS_HANDLE_STDIN) return -1; // ??? some people are morons
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES)  { KernelUnlockRsLck(); return -1; }
     if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
-        if (!proc->FileHandleTable[handle].Entry)  { KernelUnlockRsLck(); return -1; }
         
         VfsFile* f = proc->FileHandleTable[handle].Entry;
         uint64_t FileSize = f->Size;
@@ -235,7 +222,6 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
     } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_PIPE) {
         IoPipeObj* pipe = proc->FileHandleTable[handle].PipeEntry;
         if (!pipe)  { KernelUnlockRsLck(); return -1; }
-        if (pipe->WriteHandle != handle)  { KernelUnlockRsLck(); return -1; } // invalid direction
 
         uint64_t FreeSpace = IO_PIPE_BUF_SZ - pipe->Count;
         if (FreeSpace == 0) { KernelUnlockRsLck(); return 0; }
@@ -256,6 +242,13 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
         pipe->Count += BytesToWrite;
         KernelUnlockRsLck();
         return BytesToWrite;
+    } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_CNSL) {
+        KernelUnlockRsLck();
+        const char* buf = (const char*)buffer;
+        for (uint64_t i = 0; i < nbytes; i++) {
+            _putchar(buf[i]); // before printf wouldve caused weird glitch characters to print out.
+        }
+        return nbytes;
     }
     KernelUnlockRsLck();
     return -1;

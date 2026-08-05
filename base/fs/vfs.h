@@ -45,6 +45,7 @@ typedef struct VfsFile {
 
 #define VFS_OFD_FLAG_FILE 0x1
 #define VFS_OFD_FLAG_PIPE 0x2
+#define VFS_OFD_FLAG_CNSL 0x3
 
 typedef struct {
     VfsFile* Entry; // only applies if Flag = VFS_OFD_FLAG_FILE otherwise NULL

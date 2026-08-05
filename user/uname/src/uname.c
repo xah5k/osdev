@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 int main(int argc, const char* argv[]) {
-    setvbuf(stdout, NULL, _IONBF, 0);
+    // setvbuf(stdout, NULL, _IONBF, 0);
     printf("uname: hello from userspace!\r\n");
     struct utsname* buf = malloc(sizeof(struct utsname));
     if (uname(buf) != 0) {
