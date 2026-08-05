@@ -2,6 +2,8 @@
 #include <arch/x86_64/cpu/paging.h>
 #include <printfwrapper.h>
 #include <mm/heap.h>
+#include <kedriver.h>
+#include <disk/ahci.h>
 KePciDeviceHdr* gPciDevListHead = NULL;
 
 KePciDeviceHdr* PciGetLinkedList() {
@@ -21,6 +23,16 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function) {
     LinkedListType->Header = PciDevHdr;
     LinkedListType->Next = gPciDevListHead;
     gPciDevListHead = LinkedListType;
+    // directly initalize ahci for now
+    if (PciDevHdr->Class == 0x01 && PciDevHdr->Subclass == 0x06 && PciDevHdr->ProgIf == 0x01) {
+        KeDriverObj* Ahci = AhciInitalize(PciDevHdr);
+        KSTATUS Init = Ahci->Initalize(Ahci);
+        if (Init != KSUCCESS) {
+            printf("pci: warn: failed to initalize ahci driver.\r\n");
+            MmFree(Ahci);
+        }
+        KeDrvRegisterDriver(Ahci);
+    }
 }
 
 void PciEnumDev(uint64_t BusAddress, uint64_t Device) {
