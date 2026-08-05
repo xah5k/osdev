@@ -54,7 +54,36 @@ const char* BugcheckTable[3] = {
     "KERNEL_CORE_COMP_FAIL"
 };
 
+/* printf("kernel: killing user task..\r\n");
+        KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);*/
+
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
+    if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
+        printf("kernel: bugcheck in usermode.\r\n");
+        if (registers->intnum == 14) {
+            printf("kernel: page fault.\r\n");
+            uint64_t faultaddr;
+            asm volatile("mov %%cr2, %0" : "=r"(faultaddr));
+            // try correct the fault
+            if ((registers->errcode & 0x6) == 0x6) {
+                virtaddr VirtPage = faultaddr & ~0xFFF;
+                void* Page = PmmAllocate();
+                if (!Page) {
+                    // well shit
+                    printf("kernel: couldnt even allocate a physical page to try fix.\r\n");
+                    printf("kernel: killing user task..\r\n");
+                    KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
+                }
+                MmuMapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), VirtPage, (physaddr)Page, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+                return; // retry
+            }
+        } else {
+            printf("kernel: fault (intvec=%d)", registers->intnum);
+            printf("kernel: killing user task..\r\n");
+            KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
+            return;
+        }
+    }
     printf("kernel: unrecoverable bugcheck\r\n");
     printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
     if (registers) {
@@ -80,9 +109,6 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
         while (1) {
             asm ("cli; hlt");
         }
-    } else {
-        //printf("kernel: killing user task..\r\n");
-        //KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
     }
 }
 KE_EXPORT_SYMBOL(KdBugcheck);

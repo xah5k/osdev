@@ -46,7 +46,6 @@ void CpuIdtAsmHandler(CpuInterruptArgs* registers) {
         handlers[registers->intnum](registers);
     } else {
         KdBugcheck(UNREGISTERED_INTERRUPT, registers);
-        // dont need that anymore
     }
 }
 

@@ -2,7 +2,7 @@
     "disksize": 2064,
     "config": "./sysroot/boot/bootboot.conf",
     "initrd": { "type": "tar", "gzip": false, "directory": "sysroot" },
-    "iso9660": false,
+    "iso9660": true,
     "partitions": [
         { "type": "boot", "size": 16 },
         { "type": "ext2", "size": 2048, "name": "os partition"}
