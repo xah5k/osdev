@@ -75,7 +75,38 @@ KSTATUS Ext2ReadInode(KeExt2Volume* Vol, uint32_t ino, Ext2InoData* Out) {
     PmmFree(pBuf);
     return KSUCCESS;
 }
-
+KSTATUS Ext2ReadRaw(KeExt2Volume* Vol, uint32_t ino, void* Out) {
+    Ext2InoData* Inode = MmAllocate(sizeof(Ext2InoData));
+    if (!Inode) return KOOMERR;
+    KSTATUS r = Ext2ReadInode(Vol, ino, Inode);
+    if (r != KSUCCESS) {
+        MmFree(Inode);
+        return r;
+    }
+    uint32_t FileSz = Inode->SizeLow;
+    uint32_t BlockCount = (FileSz + Vol->BlockSize - 1) / Vol->BlockSize;
+    uint32_t Dbp[12] = {Inode->Dbp0, Inode->Dbp1, Inode->Dbp2, Inode->Dbp3, Inode->Dbp4, Inode->Dbp5, Inode->Dbp6, Inode->Dbp7, Inode->Dbp8, Inode->Dbp9, Inode->Dbp10, Inode->Dbp11};
+    uint32_t RemainByte = FileSz;
+    uint8_t* OutBuf = Out;
+    for (uint32_t i = 0; i < BlockCount; i++) {
+        uint32_t BlockNum = Dbp[i];
+        if (BlockNum == 0) break;
+        uint64_t Offset = (uint64_t)BlockNum * Vol->BlockSize;
+        uint64_t Lba = Offset / 512;
+        void* pBuf;
+        void* vBuf;
+        KSTATUS r2 = Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf);
+        if (r2 != KSUCCESS) {
+            KATTEMPT(0); // todo: handle correctly
+        }
+        uint32_t CpyLength = (RemainByte < Vol->BlockSize) ? RemainByte : Vol->BlockSize;
+        memcpy(OutBuf, vBuf, CpyLength);
+        OutBuf += CpyLength;
+        RemainByte -= CpyLength;
+        PmmFree(pBuf);
+    }
+    return KSUCCESS;
+}
 KSTATUS Ext2EnumDirent(KeExt2Volume* Vol, uint64_t Block) {
     uint64_t Offset = (uint64_t)Block * Vol->BlockSize;
     uint64_t Lba = Offset / 512;
@@ -91,6 +122,18 @@ KSTATUS Ext2EnumDirent(KeExt2Volume* Vol, uint64_t Block) {
             printf("ext2: inode %d: name=", Ent->Inode);
             for (int i = 0; i < Ent->NameLen; i++) _putchar(Ent->Name[i]);
             printf(" type=%d\r\n", Ent->FileType);
+            if (Ent->FileType == 1) {
+                uint8_t* Buf = MmAllocate(128);
+                KSTATUS r2 = Ext2ReadRaw(Vol, Ent->Inode, (void*)Buf);
+                if (r2 != KSUCCESS) {
+                    MmFree(Buf);
+                    continue;
+                }
+                printf("ext2: dump file contents: \r\n");
+                for (int i = 0; i < 128; i++) _putchar(Buf[i]);
+                printf("\r\next2: end dump.\r\n");
+                MmFree(Buf);
+            }
         }
         if (Ent->Reclen == 0) break;
         Ptr += Ent->Reclen;
