@@ -14,6 +14,8 @@
 #endif
 #include <disk/ahci.h>
 #include <mm/pmm.h>
+#include <disk/ptable.h>
+
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -99,6 +101,7 @@ void KeShlProcess(char* string) {
         printf("lsahciport - list ahci ports.\r\n");
         printf("getahci - read from ahci port.\r\n");
         printf("setahci - write a string to an ahci port.\r\n");
+        printf("gptdump - checks gpt header and partitions.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -321,6 +324,26 @@ void KeShlProcess(char* string) {
             return;
         } else if (r == KHUNG) {
             printf("port is hung or being used.\r\n");
+            PmmFree(buffer);
+            return;
+        }
+    } else if (strcmp(string, "gptdump") == 0) {
+        uint8_t* buffer = PmmAllocate();
+        uint8_t* vbuf = (uint8_t*)P2V(buffer);
+        memset(vbuf, 0, 4096);
+        KSTATUS r = AhciPortRead(AhciGetPort(0), 1, 1, buffer);
+        if (r == KFAIL) {
+            printf("failed to write to port.\r\n");
+            PmmFree(buffer);
+            return;
+        } else if (r == KHUNG) {
+            printf("port is hung or being used.\r\n");
+            PmmFree(buffer);
+            return;
+        }
+        KSTATUS r2 = PtableEnumerate((void*)vbuf);
+        if (r2 != KSUCCESS) {
+            printf("failed to call PtableEnumerate.\r\n");
             PmmFree(buffer);
             return;
         }

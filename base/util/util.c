@@ -1,6 +1,8 @@
 #include <util/util.h>
 #include <kedriver.h>
 #include <memory.h>
+#include <printfwrapper.h>
+
 int oct2bin(unsigned char *str, int size) {
     int n = 0;
     unsigned char *c = str;
@@ -74,4 +76,14 @@ void strlcpy(char* dst, const char* src, uint64_t dstsize) {
     if (len > dstsize - 1) len = dstsize - 1;
     memcpy(dst, src, len);
     dst[len] = '\0';
+}
+
+
+// prints a CHAR16 string
+// note: assumes the chars are within 0-127
+void UtilPrintW(wchar_t* ptr, int len) {
+    char* p = (char*)ptr;
+    for (int i = 0; i < len; i++) {
+        _putchar(p[i]);
+    }
 }

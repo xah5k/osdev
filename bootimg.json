@@ -4,7 +4,7 @@
     "initrd": { "type": "tar", "gzip": false, "directory": "sysroot" },
     "iso9660": false,
     "partitions": [
-        { "type": "boot", "size": 16 },
-        { "type": "ext2", "size": 2048, "name": "os partition"}
+        { "type": "{C12A7328-F81F-11D2-BA4B-00A0C93EC93B}", "size": 16 },
+        { "type": "ext2", "size": 2048, "name": "ah5kos"}
     ]
 }
