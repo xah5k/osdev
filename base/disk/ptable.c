@@ -41,17 +41,7 @@ KSTATUS PtableEnumerate(void* Lba1) {
         UtilPrintW(Entry->PartitionName, 36);
         printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
         if (i == 1) {
-            uint64_t SectorsN = 4;
-            void* buf = PmmAllocate();
-            void* vbuf = (void*)P2V(buf);
-            memset(vbuf, 0, 4096);
-            KSTATUS x = AhciPortRead(AhciGetPort(0), Entry->StartLba, SectorsN, buf);
-            if (x != KSUCCESS) {
-                PmmFree(buf);
-                continue;
-            }
-            Ext2SbDump(vbuf);
-            PmmFree(buf);
+            Ext2SbDump(Entry->StartLba);
         }
         base += PartEntrySz;
     }
