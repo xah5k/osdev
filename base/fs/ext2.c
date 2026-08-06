@@ -76,6 +76,29 @@ KSTATUS Ext2ReadInode(KeExt2Volume* Vol, uint32_t ino, Ext2InoData* Out) {
     return KSUCCESS;
 }
 
+KSTATUS Ext2EnumDirent(KeExt2Volume* Vol, uint64_t Block) {
+    uint64_t Offset = (uint64_t)Block * Vol->BlockSize;
+    uint64_t Lba = Offset / 512;
+    void* pBuf;
+    void* vBuf;
+    KSTATUS r = Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf);
+    if (r != KSUCCESS) return r;
+    uint8_t* Ptr = (uint8_t*)vBuf;
+    uint8_t* End = Ptr + Vol->BlockSize;
+    while (Ptr < End) {
+        Ext2Dirent* Ent = (Ext2Dirent*)Ptr;
+        if (Ent->Inode != 0) {
+            printf("ext2: inode %d: name=", Ent->Inode);
+            for (int i = 0; i < Ent->NameLen; i++) _putchar(Ent->Name[i]);
+            printf(" type=%d\r\n", Ent->FileType);
+        }
+        if (Ent->Reclen == 0) break;
+        Ptr += Ent->Reclen;
+    }
+    PmmFree(pBuf);
+    return KSUCCESS;
+}
+
 void Ext2SbDump(uint64_t lba) {
     KeExt2Volume* Vol = MmAllocate(sizeof(KeExt2Volume));
     KSTATUS r = Ext2Mount(0, lba, Vol);
@@ -97,5 +120,7 @@ void Ext2SbDump(uint64_t lba) {
     printf("ext2: gid=%d\r\n", Root->Gid);
     printf("ext2: sectorsinuse=%d\r\n", Root->SectorsInUse);
     printf("ext2: flags=0x%lx\r\n", Root->Flags);
+    printf("ext2: dbp0=0x%lx\r\n", Root->Dbp0);
+    r = Ext2EnumDirent(Vol, Root->Dbp0);
     MmFree(Root);
 }

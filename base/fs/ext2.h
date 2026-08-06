@@ -118,6 +118,14 @@ typedef struct {
     uint8_t OsRsv[12];
 } Ext2InoData;
 
+typedef struct {
+    uint32_t Inode;
+    uint16_t Reclen;
+    uint8_t NameLen;
+    uint8_t FileType;
+    char Name[];
+} Ext2Dirent;
+
 #define EXT2_TYPE_FIFO 0x1000
 #define EXT2_TYPE_CHARDEV 0x2000
 #define EXT2_TYPE_DIR 0x4000
