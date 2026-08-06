@@ -4,6 +4,8 @@
 #include <kernel.h>
 #include <disk/ahci.h>
 #include <mm/pmm.h>
+#include <fs/ext2.h>
+
 const uint8_t gZeroGuid[16] = {0};
 
 KSTATUS PtableEnumerate(void* Lba1) {
@@ -22,7 +24,7 @@ KSTATUS PtableEnumerate(void* Lba1) {
 
     uint8_t* buffer = PmmAllocatePages(ByteCount / MMU_PAGE_SIZE);
     uint8_t* vbuf = (uint8_t*)P2V(buffer);
-    memset(vbuf, 0, 4096);
+    memset(vbuf, 0, ByteCount);
     uint32_t SectorsCount = (ByteCount + 511) / 512;
 
     KSTATUS r = AhciPortRead(AhciGetPort(0), Hdr->PartitionEntryLba, SectorsCount, buffer);
@@ -38,6 +40,19 @@ KSTATUS PtableEnumerate(void* Lba1) {
         printf("ptable: partition %d: name=", i);
         UtilPrintW(Entry->PartitionName, 36);
         printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
+        if (i == 1) {
+            uint64_t SectorsN = 4;
+            void* buf = PmmAllocate();
+            void* vbuf = (void*)P2V(buf);
+            memset(vbuf, 0, 4096);
+            KSTATUS x = AhciPortRead(AhciGetPort(0), Entry->StartLba, SectorsN, buf);
+            if (x != KSUCCESS) {
+                PmmFree(buf);
+                continue;
+            }
+            Ext2SbDump(vbuf);
+            PmmFree(buf);
+        }
         base += PartEntrySz;
     }
     return KSUCCESS;

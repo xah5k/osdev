@@ -26,7 +26,7 @@ user: FORCE
 
 produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
-	tools/mkbootimg bootimg.json osdev.img
+	@exec ./produceimage.sh
 
 # Fetch external sources (like `bootboot.h`)
 preinit:
