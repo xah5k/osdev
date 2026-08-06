@@ -98,6 +98,7 @@ void KeShlProcess(char* string) {
         printf("lspci - list pci devices.\r\n");
         printf("lsahciport - list ahci ports.\r\n");
         printf("getahci - read from ahci port.\r\n");
+        printf("setahci - write a string to an ahci port.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -244,7 +245,7 @@ void KeShlProcess(char* string) {
             }
         }
     } else if (strcmp(string, "getahci") == 0) {
-            printf("enter port num: ");
+        printf("enter port num: ");
         char* portstr = KeShlReadStr();
         printf("\r\n");
         int port = AsciiAsInt(portstr);
@@ -276,6 +277,46 @@ void KeShlProcess(char* string) {
             printf("\r\nfinished dump\r\n");
         } else if (r == KFAIL) {
             printf("failed to read from port.\r\n");
+            PmmFree(buffer);
+            return;
+        } else if (r == KHUNG) {
+            printf("port is hung or being used.\r\n");
+            PmmFree(buffer);
+            return;
+        }
+    } else if (strcmp(string, "setahci") == 0) {
+        printf("enter port num: ");
+        char* portstr = KeShlReadStr();
+        printf("\r\n");
+        int port = AsciiAsInt(portstr);
+        MmFree(portstr);
+        printf("enter sector num: ");
+        char* secstr = KeShlReadStr();
+        printf("\r\n");
+        int sector = AsciiAsInt(secstr);
+        MmFree(secstr);
+        printf("enter number of sectors: ");
+        char* secnumstr = KeShlReadStr();
+        printf("\r\n");
+        int sectornum = AsciiAsInt(secnumstr);
+        MmFree(secnumstr);        
+        uint8_t* buffer = PmmAllocate();
+        uint8_t* vbuf = (uint8_t*)P2V(buffer);
+        if (!buffer) {
+            printf("failed to allocate page for write.\r\n");
+            return;
+        }
+        memset((void*)vbuf, 0, PAGE_SIZE);
+        printf("type string to write to port: ");
+        char* wrstr = KeShlReadStr();
+        printf("\r\n");
+        memcpy((void*)vbuf, wrstr, strlen(wrstr));
+        MmFree(wrstr);
+        KSTATUS r = AhciPortWrite(AhciGetPort(port), sector, sectornum, (const void*)buffer);
+        if (r == KSUCCESS) {
+            printf("successfully wrote to port.\r\n");
+        } else if (r == KFAIL) {
+            printf("failed to write to port.\r\n");
             PmmFree(buffer);
             return;
         } else if (r == KHUNG) {

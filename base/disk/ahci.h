@@ -121,5 +121,6 @@ typedef struct {
 } KeAhciPort;
 
 KSTATUS AhciPortRead(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, void* Buffer);
+KSTATUS AhciPortWrite(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, const void* Buffer);
 KeAhciPort* AhciGetPort(uint8_t Index); 
 KeDriverObj* AhciInitalize(PciDeviceHeader* PciBase);

@@ -157,6 +157,59 @@ KSTATUS AhciPortRead(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, vo
     return KSUCCESS;
 }
 
+KSTATUS AhciPortWrite(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, const void* Buffer) {
+    uint32_t SectorLow = (uint32_t)Sector;
+    uint32_t SectorHigh = (uint32_t)(Sector >> 32);
+    Port->HbaPort->InterruptStatus = (uint32_t)-1;
+    AhciHbaCmdHdr* CmdHdr = (AhciHbaCmdHdr*)P2V(((uint64_t)Port->HbaPort->CmdListBase + (uint64_t)((uint64_t)Port->HbaPort->CmdListBaseUpper << 32)));
+    CmdHdr->CommandFisLength = sizeof(AhciFisRegH2d) / sizeof(uint32_t);
+    CmdHdr->Write = 1;
+    CmdHdr->PrdtLength = 1;
+    AhciHbaCmdTable* CmdTable = (AhciHbaCmdTable*)P2V(CmdHdr->CmdTableBase);
+    memset((void*)CmdTable, 0, sizeof(AhciHbaCmdTable) + (CmdHdr->PrdtLength - 1) * sizeof(AhciHbaPrdtEntry));
+    CmdTable->PrdtEntry[0].DataBase = (uint32_t)((uint64_t)Buffer);
+    CmdTable->PrdtEntry[0].DataBaseUpper = (uint32_t)((uint64_t)Buffer >> 32);
+    CmdTable->PrdtEntry[0].ByteCount = (SectorCount << 9) - 1;
+    CmdTable->PrdtEntry[0].IntOnCompl = 1;
+    AhciFisRegH2d* CmdFis = (AhciFisRegH2d*)(&CmdTable->CmdFis);
+    CmdFis->FisType = AHCI_FIS_TYPE_RGH2D;
+    CmdFis->PmportAndC = 0x80;
+    CmdFis->Cmd = 0xCA;
+
+    CmdFis->Lba0 = (uint8_t)SectorLow;
+    CmdFis->Lba1 = (uint8_t)(SectorLow >> 8);
+    CmdFis->Lba2 = (uint8_t)(SectorLow >> 16);
+    CmdFis->Lba3 = (uint8_t)SectorHigh;
+    CmdFis->Lba4 = (uint8_t)(SectorHigh >> 8);
+    CmdFis->Lba5 = (uint8_t)(SectorHigh >> 16);
+
+    CmdFis->DevRegister = 1<<6;
+    CmdFis->CountLow = SectorCount & 0xFF;
+    CmdFis->CountHigh = (SectorCount >> 8) & 0xFF;
+    uint64_t SpinTimer = 0;
+    while ((Port->HbaPort->TaskFileData & (0x80 | 0x08)) && SpinTimer < 100000) {
+        SpinTimer++;
+    }
+    if (SpinTimer == 100000) {
+        return KHUNG;
+    }
+    KeDrvWriteFmt("ahci: pre-issue CI=%08x TFD=%08x\r\n", Port->HbaPort->CmdIssue, Port->HbaPort->TaskFileData);
+    Port->HbaPort->CmdIssue = 1;
+    SpinTimer = 0;
+    while (SpinTimer < 100000) {
+        if (Port->HbaPort->CmdIssue == 0) break;
+        if (Port->HbaPort->CmdIssue & (1 << 30)) {
+            return KFAIL;
+        }
+        SpinTimer++;
+    }
+    if (SpinTimer == 100000) {
+        KeDrvWriteFmt("ahci: port hung/timed out. CI=%08x TFD=%08x SERR=%08x IS=%08x\r\n", Port->HbaPort->CmdIssue, Port->HbaPort->TaskFileData, Port->HbaPort->SataError, Port->HbaPort->InterruptStatus);
+        return KHUNG;
+    }
+    return KSUCCESS;
+}
+
 KSTATUS DriverEntry(KeDriverObj* Self) {
     KeDrvWriteFmt("ahci: DriverEntry.\r\n");
     KeDrvWriteFmt("ahci: gPciBase = 0x%lx\r\n", gPciBase);
