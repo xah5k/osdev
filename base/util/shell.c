@@ -13,6 +13,7 @@
 #include <arch/x86_64/pci/pci.h>
 #endif
 #include <disk/ahci.h>
+#include <mm/pmm.h>
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -96,6 +97,7 @@ void KeShlProcess(char* string) {
         printf("cpufeats - cpu features.\r\n");
         printf("lspci - list pci devices.\r\n");
         printf("lsahciport - list ahci ports.\r\n");
+        printf("getahci - read from ahci port.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -240,6 +242,46 @@ void KeShlProcess(char* string) {
                 if (port->HbaType == AHCI_TYPE_SATA) printf("port %d: type=SATA HbaPort=0x%lx\r\n", i, port->HbaPort);
                 if (port->HbaType == AHCI_TYPE_SATAPI) printf("port %d: type=SATA HbaPort=0x%lx\r\n", i, port->HbaPort);
             }
+        }
+    } else if (strcmp(string, "getahci") == 0) {
+            printf("enter port num: ");
+        char* portstr = KeShlReadStr();
+        printf("\r\n");
+        int port = AsciiAsInt(portstr);
+        MmFree(portstr);
+        printf("enter sector num: ");
+        char* secstr = KeShlReadStr();
+        printf("\r\n");
+        int sector = AsciiAsInt(secstr);
+        MmFree(secstr);
+        printf("enter number of sectors: ");
+        char* secnumstr = KeShlReadStr();
+        printf("\r\n");
+        int sectornum = AsciiAsInt(secnumstr);
+        MmFree(secnumstr);        
+        uint8_t* buffer = PmmAllocate();
+        uint8_t* vbuf = (uint8_t*)P2V(buffer);
+        if (!buffer) {
+            printf("failed to allocate page for read.\r\n");
+            return;
+        }
+        memset((void*)vbuf, 0, PAGE_SIZE);
+        KSTATUS r = AhciPortRead(AhciGetPort(port), sector, sectornum, buffer);
+        if (r == KSUCCESS) {
+            printf("successfully read from port.\r\n");
+            printf("dumping first 1024 bytes: \r\n");
+            for (int i = 0; i < 1024; i++) {
+                _putchar(vbuf[i]);
+            }
+            printf("\r\nfinished dump\r\n");
+        } else if (r == KFAIL) {
+            printf("failed to read from port.\r\n");
+            PmmFree(buffer);
+            return;
+        } else if (r == KHUNG) {
+            printf("port is hung or being used.\r\n");
+            PmmFree(buffer);
+            return;
         }
     }
     else {
