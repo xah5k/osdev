@@ -128,6 +128,7 @@ static KSTATUS Ext2CreateVfsTable(KeExt2Volume* Vol, uint32_t DirInode, char* Pa
                 else Vol->Ext2Files[gCurrFileIdx].Type = 0x0;
                 Vol->Ext2Files[gCurrFileIdx].Size = Inode1.SizeLow;
                 Vol->Ext2Files[gCurrFileIdx].DrivePtr = Vol->Ext2Drive;
+                Vol->Ext2Files[gCurrFileIdx].DriverRsv = Ent->Inode;
                 if (Ent->FileType == 2) {
                     r = Ext2CreateVfsTable(Vol, Ent->Inode, PathBf, Number, Depth+1);
                 }
@@ -303,12 +304,25 @@ VfsFile* Ext2VfsFindFile(const char* Path) {
     return NULL;
 }
 
+int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
+    (void)Offset; // todo
+    if (File->Type != VFS_TYPE_FILE) return -1;
+    uint32_t Inode = File->DriverRsv;
+    KSTATUS r = Ext2ReadRaw(gVolume, Inode, OutBuf);
+    if (r != KSUCCESS) return -1;
+    else return 0;
+}
+
 void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     KeExt2Volume* Vol = MmAllocate(sizeof(KeExt2Volume));
     Vol->Ext2Drive = MmAllocate(sizeof(VfsDrive));
     Vol->Ext2Drive->DriverOps = MmAllocate(sizeof(VfsDriverOperation));
     memset(Vol->Ext2Drive->DriverOps, 0, sizeof(VfsDriverOperation));
     Vol->Ext2Drive->DriverOps->FindFile = Ext2VfsFindFile;
+    Vol->Ext2Drive->DriverOps->Open = NULL; // dont really need these currently
+    Vol->Ext2Drive->DriverOps->Close = NULL; // same goes
+    Vol->Ext2Drive->DriverOps->Write = NULL; // read only rn
+    Vol->Ext2Drive->DriverOps->Read = Ext2VfsRead;
     snprintf(Vol->Ext2Drive->Name, 7, "ext2_%d", partnum);
     KSTATUS r = Ext2Mount(0, lba, Vol);
     if (r != KSUCCESS) {

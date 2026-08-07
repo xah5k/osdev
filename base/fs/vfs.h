@@ -41,6 +41,7 @@ typedef struct VfsFile {
     uint64_t Size; // file size in bytes
     uint64_t Type;
     uint64_t Perms; // useless cuz we dont even enforce any of them lmfao
+    uint32_t DriverRsv; // lolll i cba to actually turn a path into an inode
     VfsDrive* DrivePtr; // ptr back to the drive it's on
 } VfsFile;
 

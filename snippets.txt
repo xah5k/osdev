@@ -151,3 +151,17 @@ void test() {
     ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid2
     ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid3
 */
+
+// ext2 cat file
+kshell> cat
+enter path: initrd:/hi.txt
+hi guys!
+
+kshell> cat
+enter path: ext2_1:/hi.txt
+ahci: pre-issue CI=00000000 TFD=00000050
+ahci: pre-issue CI=00000000 TFD=00000050
+hi!
+
+
+kshell> 

@@ -96,6 +96,7 @@ void KeShlProcess(char* string) {
         printf("getcwd - gets current working directory.\r\n");
         printf("stat - posix-compat function that returns a stat struct.\r\n");
         printf("lsdrive - lists mounted drives.\r\n");
+        printf("cat - outputs contents of a file.\r\n");
         printf("----------------------- env -----------------------\r\n");
         printf("getenv - dumps environment variables.\r\n");
         printf("addenv - adds an env variable.\r\n");
@@ -357,6 +358,24 @@ void KeShlProcess(char* string) {
         }
     } else if (strcmp(string, "lsdrive") == 0) {
         VfsListMountedDrives();
+    } else if (strcmp(string, "cat") == 0) {
+        printf("enter path: ");
+        char* path = KeShlReadStr();
+        printf("\r\n");
+        int h = OsOpen(path, 0);
+        if (h < 0) {
+            printf("failed to open file.\r\n");
+            return;
+        } else {
+            int fsz = 128;
+            char* buf = MmAllocate(fsz);
+            memset(buf, 0, fsz);
+            int r = OsRead(h, buf, fsz);
+            for (int i = 0; i < fsz; i++) _putchar(buf[i]);
+            printf("\r\n");
+            OsClose(h);
+            MmFree(buf);
+        }
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
