@@ -24,6 +24,9 @@
 #include <ksyscall.h>
 #include <fb.h>
 #include <util/shell.h>
+#include <disk/ahci.h>
+#include <disk/ptable.h>
+
 void KernelBootstrapProc();
 void KernelApplicationProc();
 
@@ -300,6 +303,28 @@ void KeFbAsConsole() {
     OsClose(h);
 }
 
+void KeInitalizeDiskParts() {
+    uint8_t* buffer = PmmAllocate();
+    uint8_t* vbuf = (uint8_t*)P2V(buffer);
+    memset(vbuf, 0, 4096);
+    KSTATUS r = AhciPortRead(AhciGetPort(0), 1, 1, buffer);
+    if (r == KFAIL) {
+        printf("kernel: failed to write to port.\r\n");
+        PmmFree(buffer);
+        return;
+    } else if (r == KHUNG) {
+        printf("kernel: port is hung or being used.\r\n");
+        PmmFree(buffer);
+        return;
+    }
+    KSTATUS r2 = PtableEnumerate((void*)vbuf);
+    if (r2 != KSUCCESS) {
+        printf("kernel: failed to call PtableEnumerate.\r\n");
+        PmmFree(buffer);
+        return;
+    }
+}
+
 void KernelBootstrapProc() {
     // initalize serial console (bootboot in theory should've already done this for us)
     InitSerialConsole(0x3f8);
@@ -333,7 +358,9 @@ void KernelBootstrapProc() {
     printf("kernel: initalized hal for arch x86-64!\r\n");
     printf("kernel: tss base from info. gkInfo->tss=0x%lx\r\n", gkInfo->tss);
     #endif
-
+    KeInitalizeDiskParts();
+    printf("kernel: scanned disks for partitions and initalized filesystems.\r\n");
+    
     KeRegisterSyscalls();
     printf("kernel: registered syscalls.\r\n");
     

@@ -50,6 +50,7 @@ void FbTextInitalize(void* sfn, void* fb) {
 KE_EXPORT_SYMBOL(FbTextInitalize);
 
 void FbPutc(char c) {
+    if (c == 0) return;
     if (c == '\r') {
         gFbConsoleX = 0;
         return;

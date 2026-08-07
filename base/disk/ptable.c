@@ -7,7 +7,7 @@
 #include <fs/ext2.h>
 
 const uint8_t gZeroGuid[16] = {0};
-
+static int gInitPart1 = 0;
 KSTATUS PtableEnumerate(void* Lba1) {
     GptHdr* Hdr = (GptHdr*)Lba1;
 
@@ -40,8 +40,9 @@ KSTATUS PtableEnumerate(void* Lba1) {
         printf("ptable: partition %d: name=", i);
         UtilPrintW(Entry->PartitionName, 36);
         printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
-        if (i == 1) {
+        if (i == 1 && gInitPart1 == 0) {
             Ext2SbInit(Entry->StartLba);
+            gInitPart1 = 1;
         }
         base += PartEntrySz;
     }
