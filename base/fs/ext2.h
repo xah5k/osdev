@@ -161,5 +161,4 @@ typedef struct {
     void* Bgdtpbuf; // for freeing
     VfsDrive* Ext2Drive; // the actual vfs drive
 } KeExt2Volume;
-
-void Ext2SbDump(uint64_t lba);
+void Ext2SbInit(uint64_t lba);
