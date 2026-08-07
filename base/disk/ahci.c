@@ -140,7 +140,6 @@ KSTATUS AhciPortRead(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, vo
     if (SpinTimer == 100000) {
         return KHUNG;
     }
-    KeDrvWriteFmt("ahci: pre-issue CI=%08x TFD=%08x\r\n", Port->HbaPort->CmdIssue, Port->HbaPort->TaskFileData);
     Port->HbaPort->CmdIssue = 1;
     SpinTimer = 0;
     while (SpinTimer < 100000) {
@@ -193,7 +192,6 @@ KSTATUS AhciPortWrite(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, c
     if (SpinTimer == 100000) {
         return KHUNG;
     }
-    KeDrvWriteFmt("ahci: pre-issue CI=%08x TFD=%08x\r\n", Port->HbaPort->CmdIssue, Port->HbaPort->TaskFileData);
     Port->HbaPort->CmdIssue = 1;
     SpinTimer = 0;
     while (SpinTimer < 100000) {

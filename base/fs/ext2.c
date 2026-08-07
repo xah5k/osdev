@@ -381,6 +381,12 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     uint64_t Count = Ext2CountEntries(Vol, EXT2_ROOT_INODE, 0);
     printf("ext2: counted %d entries in fs.\r\n", Count);
     Vol->Ext2Files = MmAllocate(sizeof(VfsFile) * Count);
+    // manually make root node
+    snprintf(Vol->Ext2Files[gCurrFileIdx].Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, "/");
+    Vol->Ext2Files[gCurrFileIdx].DrivePtr = Vol->Ext2Drive;
+    Vol->Ext2Files[gCurrFileIdx].Size = Vol->BlockSize;
+    Vol->Ext2Files[gCurrFileIdx].Type = VFS_TYPE_DIRECTORY;
+    gCurrFileIdx++;
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;

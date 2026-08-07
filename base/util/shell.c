@@ -25,11 +25,7 @@ static void KeShlTestLs(const char* path) {
     int idx = 0;
     int handle = OsOpen(path, 0);
     if (handle < 0) { printf("kernel: ls: get handle for path fail.\r\n"); return; }
-    int result = OsReadDir(handle, &dirent, idx);
-    if (result < 0) { printf("kernel: ls: readdir fail.\r\n"); return; }
-    printf("kernel: ls: return code of 1st attempt = %d\r\n", result);
-    while (result == 1) {
-        result = OsReadDir(handle, &dirent, idx);
+    while (OsReadDir(handle, &dirent, idx) == 1) {
         const char* Type = (dirent.Type == VFS_TYPE_DIRECTORY) ? "<DIR>" : "     ";
         printf("    %s  %s\r\n", Type, dirent.Name);
         idx++;
