@@ -313,6 +313,45 @@ int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
     else return 0;
 }
 
+// js copy and pasted it from tarfs cuz it was similar enough
+int Ext2VfsReadDir(VfsFile* File, VfsDirEntry* OutDirEnt, int Index) {
+    uint64_t DirLen = strlen(File->Path);
+    int matches = 0;
+    for (int i = 0; i < gCurrFileIdx; i++) {
+        if (gVolume->Ext2Files[i].Path[0] == '\0') {
+            break; 
+        }
+        const char* EntryPath = gVolume->Ext2Files[i].Path;
+        if (strcmpl(EntryPath, File->Path, DirLen) != 0) continue;
+        if (strcmpl(EntryPath, File->Path, DirLen) == 0 && DirLen == strlen(EntryPath)) continue;
+        const char* RelativePart = EntryPath + DirLen;
+        if (RelativePart[0] == '/') RelativePart++;
+        int IsNest = 0;
+        int j = 0;
+        while (RelativePart[j] != '\0') {
+            if (RelativePart[j] == '/') {
+                if (RelativePart[j + 1] != '\0') {
+                    IsNest = 1;
+                    break;
+                }
+            }
+            j++;
+        }
+        if (IsNest) continue;
+        if (matches == Index) {
+            OutDirEnt->Id = i;
+            OutDirEnt->Type = gVolume->Ext2Files[i].Type; // should be VFS_TYPE_DIRECTORY anyway
+            memcpy(OutDirEnt->Name, RelativePart, strlen(RelativePart));
+            memcpy(OutDirEnt->Path, EntryPath, strlen(EntryPath));
+            OutDirEnt->Name[strlen(RelativePart)] = 0;
+            OutDirEnt->Path[strlen(EntryPath)] = 0;
+            return 1;
+        }
+        matches++;
+    }
+    return 0;
+}
+
 void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     KeExt2Volume* Vol = MmAllocate(sizeof(KeExt2Volume));
     Vol->Ext2Drive = MmAllocate(sizeof(VfsDrive));
@@ -323,6 +362,7 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     Vol->Ext2Drive->DriverOps->Close = NULL; // same goes
     Vol->Ext2Drive->DriverOps->Write = NULL; // read only rn
     Vol->Ext2Drive->DriverOps->Read = Ext2VfsRead;
+    Vol->Ext2Drive->DriverOps->ReadDir = Ext2VfsReadDir;
     snprintf(Vol->Ext2Drive->Name, 7, "ext2_%d", partnum);
     KSTATUS r = Ext2Mount(0, lba, Vol);
     if (r != KSUCCESS) {
