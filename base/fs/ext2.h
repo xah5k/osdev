@@ -160,5 +160,6 @@ typedef struct {
     void* Bgdtvbuf; // ts is the one we should use if actually reading/writing to it at all times
     void* Bgdtpbuf; // for freeing
     VfsDrive* Ext2Drive; // the actual vfs drive
+    VfsFile* Ext2Files;
 } KeExt2Volume;
-void Ext2SbInit(uint64_t lba);
+void Ext2SbInit(uint64_t lba, uint64_t partnum);

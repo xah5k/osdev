@@ -120,7 +120,7 @@ void TarInitalizeVfs(void* archive) {
     DriverOps->GetFileSize = (void*)TarFsGetFileSize;
     DriverOps->ReadDir = (void*)TarFsReadDir;
     gTarVfsDrive->DriverOps = DriverOps;
-    memcpy(gTarVfsDrive->Name, "initrd", 7);
+    sprintf(gTarVfsDrive->Name, "initrd");
     internalCountEntries();
     gTarFsEntries = (VfsFile*)MmAllocate(sizeof(VfsFile) * gTarFsNumEntries);
     // for every ustarentry we discover we add it to the list of vfsentries

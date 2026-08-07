@@ -83,19 +83,27 @@ void KeShlProcess(char* string) {
         MmFree(s);
     } else if (strcmp(string, "help") == 0) {
         printf("available commands: \r\n");
+        printf("----------------------- misc -----------------------\r\n");
         printf("ver - display kernel version.\r\n");
         printf("echo - echo something to the screen!\r\n");
         printf("ls - list directory\r\n");
+        printf("----------------------- process -----------------------\r\n");
         printf("exec - execute a user mode binary.\r\n");
         printf("lsproc - list processes and threads.\r\n");
+        printf("----------------------- fs -----------------------\r\n");
         printf("fsisabsol - checks if a path is absolute.\r\n");
         printf("chdir - changes proc cwd.\r\n");
         printf("getcwd - gets current working directory.\r\n");
         printf("stat - posix-compat function that returns a stat struct.\r\n");
+        printf("lsdrive - lists mounted drives.\r\n");
+        printf("----------------------- env -----------------------\r\n");
         printf("getenv - dumps environment variables.\r\n");
         printf("addenv - adds an env variable.\r\n");
+        printf("----------------------- pipe -----------------------\r\n");
         printf("iopipe - test IoPipeObj and see if vfs is working with it.\r\n");
+        printf("----------------------- memory -----------------------\r\n");
         printf("heapdump - dumps heap regions.\r\n");
+        printf("----------------------- cpu/devices -----------------------\r\n");
         printf("cpufeats - cpu features.\r\n");
         printf("lspci - list pci devices.\r\n");
         printf("lsahciport - list ahci ports.\r\n");
@@ -347,6 +355,8 @@ void KeShlProcess(char* string) {
             PmmFree(buffer);
             return;
         }
+    } else if (strcmp(string, "lsdrive") == 0) {
+        VfsListMountedDrives();
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

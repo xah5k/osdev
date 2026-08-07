@@ -378,6 +378,12 @@ void KernelBootstrapProc() {
     printf("kernel: initalized drivers that have initalized.\r\n");
     printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     
+    // test
+    VfsFile* f = VfsFindFile("ext2_1:/hi.txt");
+    if (f != NULL) {
+        printf("kernel: f->Size = %d\r\n", f->Size);
+        printf("kernel: f->Type = 0x%lx\r\n", f->Type);
+    }
     ThreadCtrlBlk* thr = ThreadNew(KeUtilShell, SCHED_PRIV_KERNEL, (const char**)0, 0, 0, 0);
     ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
     ThreadAdd(thr);

@@ -41,7 +41,7 @@ KSTATUS PtableEnumerate(void* Lba1) {
         UtilPrintW(Entry->PartitionName, 36);
         printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
         if (i == 1 && gInitPart1 == 0) {
-            Ext2SbInit(Entry->StartLba);
+            Ext2SbInit(Entry->StartLba, i);
             gInitPart1 = 1;
         }
         base += PartEntrySz;

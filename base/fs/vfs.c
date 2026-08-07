@@ -9,6 +9,7 @@
 #include <kedriver.h>
 #include <util/kbdtransl.h>
 #include <external/posix/stat.h>
+void VfsGetDrvFromPath(const char* Path, char* BufOut);
 // 16 max drives
 VfsDrive* gVfsDrives[16];
 int gVfsDrivesMounted = 0;
@@ -44,8 +45,15 @@ int VfsReadDir(struct VfsFile* file, VfsDirEntry* outdir, int idx) {
 VfsFile* VfsFindFile(const char* Path) {
     for (int i = 0; i < 16; i++) {
         if (!gVfsDrives[i]) { continue; }
-        //printf("fs: vfs: gVfsDrives[%d]->DriverOps->FindFile @ 0x%p\r\n", i, gVfsDrives[i]->DriverOps->FindFile);
-        if (gVfsDrives[i]->DriverOps->FindFile) return gVfsDrives[i]->DriverOps->FindFile(Path);        
+        char Buf[VFS_MAX_ALLOWED_PATH];
+        memset(Buf, 0, VFS_MAX_ALLOWED_PATH);
+        memcpy(Buf, Path, strlen(Path)+1);
+        VfsGetDrvFromPath(Path, Buf);
+        if (strcmpl(Buf, gVfsDrives[i]->Name, strlen(Buf)) == 0) {
+            if (gVfsDrives[i]->DriverOps->FindFile) {
+                return gVfsDrives[i]->DriverOps->FindFile(Path);
+            }
+        }    
     }
     return NULL;
 }
@@ -54,6 +62,13 @@ void VfsAddDriveToList(VfsDrive* drive) {
     if ((gVfsDrivesMounted+1) > 16) return;
     gVfsDrives[gVfsDrivesMounted] = drive;
     gVfsDrivesMounted++;
+}
+
+void VfsListMountedDrives() {
+    for (int i = 0; i < 16; i++) {
+        if (!gVfsDrives[i]) {continue;}
+        printf("vfs: drive %d: name=%s\r\n", i, gVfsDrives[i]->Name);
+    }
 }
 
 char* VfsRemoveFormatPath(const char* in) {
@@ -79,6 +94,16 @@ int VfsIsAbsolute(const char* in) {
         p++;
     }
     return 0;
+}
+// this is actually disgusting
+void VfsGetDrvFromPath(const char* Path, char* BufOut) {
+    if (Path == NULL) return;
+    for (int i = 0; BufOut[i] != '\0'; i++) {
+        if (BufOut[i] == ':') {
+            BufOut[i] = '\0';
+            return;
+        }
+    }
 }
 
 void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size) {

@@ -29,7 +29,7 @@ typedef struct {
 } VfsDriverOperation;
 
 typedef struct {
-    char* Name; // accessing a file would be [VfsDrive->Name]:/[Path]
+    char Name[VFS_MAX_ALLOWED_PATH]; // accessing a file would be [VfsDrive->Name]:/[Path]
     VfsDriverOperation* DriverOps;
 } VfsDrive;
 
@@ -40,6 +40,7 @@ typedef struct VfsFile {
     const char Path[VFS_MAX_ALLOWED_PATH]; // actual full path
     uint64_t Size; // file size in bytes
     uint64_t Type;
+    uint64_t Perms; // useless cuz we dont even enforce any of them lmfao
     VfsDrive* DrivePtr; // ptr back to the drive it's on
 } VfsFile;
 
@@ -55,11 +56,13 @@ typedef struct {
     IoPipeObj* PipeEntry; // only applies if Flag = VFS_OFD_FLAG_PIPE otherwise NULL
 } VfsOpenFileDescr;
 
+void VfsListMountedDrives();
 void VfsAddDriveToList(VfsDrive* drive);
 char* VfsRemoveFormatPath(const char* in) ;
 int VfsIsAbsolute(const char* in);
 void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size);
 int VfsTranslatePath(char* path, char* acpath, struct ProcessCtrlBlk* proc);
+VfsFile* VfsFindFile(const char* Path);
 
 int OsOpen(const char* path, int flags);
 int OsClose(int handle);
