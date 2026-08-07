@@ -7,3 +7,5 @@ stdout.txt
 COM1.OUT
 *.o
 *.elf
+osdev.img
+*.fd
