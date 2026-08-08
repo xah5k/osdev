@@ -223,3 +223,25 @@ and debugfs should return:
 ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testi <15>" ext2.img
 debugfs 1.47.2 (1-Jan-2025)
 Inode 15 is marked in use*/
+
+// write an inode to disk
+    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc inode %d\r\n", Inode1);
+    Ext2InoData* InodeData = MmAllocate(sizeof(Ext2InoData));
+    memset(InodeData, 0, sizeof(Ext2InoData));
+    InodeData->SizeLow = 16384;
+    r = Ext2WriteInode(Vol, Inode1, InodeData);
+    printf("ext2: written inode with size 16384\r\n");
+    printf("ext2: attempt to read that inode from disk.\r\n");
+    Ext2InoData* DiskIno = MmAllocate(sizeof(Ext2InoData));
+    r = Ext2ReadInode(Vol, Inode1, DiskIno);
+    printf("ext2: DiskIno->SizeLow=%d\r\n", DiskIno->SizeLow);
+    MmFree(InodeData);
+    MmFree(DiskIno);
+    ext2: counted 2 entries in fs.
+ext2: alloc: Bgdt.FreeIno=8179 Sb.FreeIno=131059
+ext2: alloc inode 13
+ext2: written inode with size 16384
+ext2: attempt to read that inode from disk.
+ext2: DiskIno->SizeLow=16384
+should get smth like above and also debugfs should be similar

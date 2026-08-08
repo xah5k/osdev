@@ -484,6 +484,24 @@ KSTATUS Ext2FreeBlock(KeExt2Volume* Vol, uint32_t GlobalBlockNum) {
     if (r != KSUCCESS) KATTEMPT(0); // also todo
     return KSUCCESS;
 }
+
+KSTATUS Ext2WriteInode(KeExt2Volume* Vol, uint32_t ino, Ext2InoData* In) {
+    if (ino == 0 || ino > Vol->InodeCount) return KINVALID;
+    uint32_t Group = (ino - 1) / Vol->InodesPerGroup;
+    uint32_t IndexInGroup = (ino - 1) % Vol->InodesPerGroup;
+    Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
+    uint32_t InoTableBlk = Bgdt[Group].InodeTable;
+    uint64_t Offset = (uint64_t)InoTableBlk * Vol->BlockSize + (uint64_t)IndexInGroup * Vol->InodeSz;
+    uint64_t Lba = Offset / 512;
+    uint32_t SectorOff = Offset % 512;
+    uint32_t Pages;
+    void* pBuf;
+    KSTATUS r = Ext2AhciWrite(Vol, Lba, SectorOff + Vol->InodeSz, In, &pBuf, &Pages);
+    if (r != KSUCCESS) return r;
+    PmmFreePages(pBuf, Pages);
+    return KSUCCESS;
+}
+
 VfsFile* Ext2VfsFindFile(const char* Path) {
     for (int i = 0; i < gCurrFileIdx; i++) {
         // printf("ext2: vfs: %s ag %s\r\n", Path, gVolume->Ext2Files[i].Path);
@@ -578,12 +596,4 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;
-    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
-    printf("ext2: alloc inode %d\r\n", Inode1);
-    uint32_t Inode2 = Ext2AllocInode(Vol, 0);
-    printf("ext2: alloc new inode %d\r\n", Inode2);
-    Ext2FreeInode(Vol, Inode1, 0);
-    Ext2FreeInode(Vol, Inode2, 0);
-    uint32_t Inode3 = Ext2AllocInode(Vol, 0);
-    printf("ext2: alloc another inode %d\r\n", Inode3);
 }
