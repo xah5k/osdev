@@ -201,3 +201,25 @@ and debugfs should return:
 ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testb 1" ext2.img
 debugfs 1.47.2 (1-Jan-2025)
 Block 1 marked in use
+
+/* ext2 inode alloc and free test
+    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc inode %d\r\n", Inode1);
+    uint32_t Inode2 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc new inode %d\r\n", Inode2);
+    Ext2FreeInode(Vol, Inode1, 0);
+    Ext2FreeInode(Vol, Inode2, 0);
+    uint32_t Inode3 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc another inode %d\r\n", Inode3);
+should get smth like:
+ext2: counted 2 entries in fs.
+ext2: alloc: Bgdt.FreeIno=8179 Sb.FreeIno=131059
+ext2: alloc inode 13
+ext2: alloc: Bgdt.FreeIno=8178 Sb.FreeIno=131058
+ext2: alloc new inode 14
+ext2: alloc: Bgdt.FreeIno=8177 Sb.FreeIno=131057
+ext2: alloc another inode 15
+and debugfs should return: 
+ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testi <15>" ext2.img
+debugfs 1.47.2 (1-Jan-2025)
+Inode 15 is marked in use*/

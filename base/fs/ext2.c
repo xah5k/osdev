@@ -204,6 +204,7 @@ KSTATUS Ext2Mount(int AhciPortNum, uint64_t PartitionStartLba, KeExt2Volume* Vol
     VolOut->InodeSz = (Sb->Revision == EXT2_GOOD_OLD_REV) ? 128 : SbExt->InodeSz;
     VolOut->GroupsCount = (Sb->BlockCount + Sb->BlksPerGroup - 1) / Sb->BlksPerGroup;
     VolOut->SbPtr = Sb;
+    VolOut->SbExtPtr = SbExt;
     uint64_t BgdtLba = ((uint64_t)(VolOut->FirstDataBlk + 1) * VolOut->BlockSize) / 512;
     uint32_t BgdtBytes = VolOut->GroupsCount * sizeof(Ext2BlkGroupDesc);
     uint32_t Pages2;
@@ -357,6 +358,93 @@ uint32_t Ext2AllocBlock(KeExt2Volume* Vol) {
     return 0;
     
 }
+// same as allocblock
+uint32_t Ext2AllocInode(KeExt2Volume* Vol, int IsDir) {
+    Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
+    for (uint32_t Group = 0; Group < Vol->InodesPerGroup; Group++) {
+        if (Bgdt[Group].FreeInodesCount > 0) {
+            uint64_t Lba = (uint64_t)Bgdt[Group].InodeBitmap * Vol->BlockSize / 512;
+            void* pBuf;
+            void* vBuf;
+            uint32_t Pages;
+            KSTATUS r = Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf, &Pages);
+            uint8_t* Bitmap = (uint8_t*)vBuf;
+            // check for clear
+            for (uint32_t i = 0; i < Vol->InodesPerGroup; i++) {
+                uint32_t ByteIdx = i / 8;
+                uint32_t BitIdx = i % 8;
+                uint32_t GlobalInodeNum = Group * Vol->InodesPerGroup + i + 1;
+                uint32_t FirstIno;
+                if (Vol->SbPtr->Revision == EXT2_DYNAMIC_REV) {
+                    FirstIno = Vol->SbExtPtr->FirstIno;
+                } else FirstIno = 11;
+                if (GlobalInodeNum < FirstIno) continue; // dont hand out a reserved inode
+                if (!(Bitmap[ByteIdx] & (1<<BitIdx))) {
+                    Bitmap[ByteIdx] |= (1<<BitIdx);
+                    void* pBuf2;
+                    uint32_t Pages;
+                    r = Ext2AhciWrite(Vol, Lba, Vol->BlockSize, (void*)Bitmap, &pBuf2, &Pages);
+                    if (r != KSUCCESS) KATTEMPT(0); // panic
+                    PmmFreePages(pBuf2, Pages);
+                    Bgdt[Group].FreeInodesCount--;
+                    Vol->SbPtr->FreeInodeCount--;
+                    if (IsDir) Bgdt[Group].UsedDirsCount++;
+                    printf("ext2: alloc: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
+                    uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
+                    uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
+                    r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
+                    if (r != KSUCCESS) KATTEMPT(0); // handle
+                    PmmFreePages(pBuf2, Pages);
+                    r = Ext2AhciWrite(Vol, 2, 1024, (void*)Vol->SbPtr, &pBuf2, &Pages);
+                    if (r != KSUCCESS) KATTEMPT(0); // also todo
+                    return GlobalInodeNum;
+                }
+            }
+            PmmFreePages(pBuf, Pages);
+        }
+    }
+    return 0;
+    
+}
+KSTATUS Ext2FreeInode(KeExt2Volume* Vol, uint32_t GlobalInodeNum, int IsDir) {
+    Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
+    uint32_t RelNode = GlobalInodeNum - 1;
+    uint32_t Group = RelNode / Vol->InodesPerGroup;
+    uint32_t LocalIdx = RelNode % Vol->InodesPerGroup;
+    uint64_t BitmapLba = (uint64_t)Bgdt[Group].InodeBitmap * Vol->InodeSz / 512;
+    void* pBuf;
+    void* vBuf;
+    uint32_t Pages;
+    KSTATUS r = Ext2AhciRead(Vol, BitmapLba, Vol->BlockSize, &vBuf, &pBuf, &Pages);
+    if (r != KSUCCESS) return r;
+    uint8_t* Bitmap = (uint8_t*)vBuf;
+    uint32_t ByteIdx = LocalIdx / 8;
+    uint32_t BitIdx = LocalIdx % 8;
+    if (!(Bitmap[ByteIdx] & (1 << BitIdx))) {
+        PmmFreePages(pBuf, Pages);
+        return KDOUBLEFREE;
+    }
+    Bitmap[ByteIdx] &= ~(1 << BitIdx);
+    void* pBuf2;
+    uint32_t Pages2;
+    r = Ext2AhciWrite(Vol, BitmapLba, Vol->InodeSz, (void*)Bitmap, &pBuf2, &Pages2);
+    if (r != KSUCCESS) {
+        PmmFreePages(pBuf, Pages);
+        return r;
+    }
+    Bgdt[Group].FreeInodesCount++;
+    Vol->SbPtr->FreeInodeCount++;
+    if (IsDir) Bgdt[Group].UsedDirsCount--;
+    printf("ext2: free: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
+    uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
+    uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
+    r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
+    if (r != KSUCCESS) KATTEMPT(0); // handle
+    PmmFreePages(pBuf2, Pages);
+    r = Ext2AhciWrite(Vol, 2, 1024, (void*)Vol->SbPtr, &pBuf2, &Pages);
+    if (r != KSUCCESS) KATTEMPT(0); // also todo
+    return KSUCCESS;
+}
 
 KSTATUS Ext2FreeBlock(KeExt2Volume* Vol, uint32_t GlobalBlockNum) {
     Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
@@ -490,4 +578,12 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;
+    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc inode %d\r\n", Inode1);
+    uint32_t Inode2 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc new inode %d\r\n", Inode2);
+    Ext2FreeInode(Vol, Inode1, 0);
+    Ext2FreeInode(Vol, Inode2, 0);
+    uint32_t Inode3 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc another inode %d\r\n", Inode3);
 }
