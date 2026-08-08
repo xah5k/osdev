@@ -159,6 +159,7 @@ typedef struct {
     uint32_t GroupsCount;
     void* Bgdtvbuf; // ts is the one we should use if actually reading/writing to it at all times
     void* Bgdtpbuf; // for freeing
+    Ext2Superblock* SbPtr;
     VfsDrive* Ext2Drive; // the actual vfs drive
     VfsFile* Ext2Files;
 } KeExt2Volume;

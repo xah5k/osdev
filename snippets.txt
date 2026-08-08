@@ -165,3 +165,39 @@ hi!
 
 
 kshell> 
+
+/* ext2 block alloc and free test
+also check with debugfs just incase
+    uint32_t Block1 = Ext2AllocBlock(Vol);
+    printf("ext2: alloc block %d\r\n", Block1);
+    // write sm bs into it
+    char Data[512] = "give me pennies i like pennies";
+    void* pBuf;
+    uint32_t Pages;
+    r = Ext2AhciWrite(Vol, (uint64_t)Block1 * Vol->BlockSize / 512, Vol->BlockSize, (void*)Data, &pBuf, &Pages);
+    void *rpBuf;
+    void *rvBuf;
+    uint32_t Pages2;
+    r = Ext2AhciRead(Vol, (uint64_t)Block1 * Vol->BlockSize / 512, Vol->BlockSize, &rvBuf, &rpBuf, &Pages2);
+    printf("ext2: read back: %s\r\n", (char*)rvBuf);
+    PmmFreePages(rpBuf, Pages2);
+    uint32_t Block2 = Ext2AllocBlock(Vol);
+    printf("ext2: new alloc block %d\r\n", Block2);
+    Ext2FreeBlock(Vol, Block1);
+    Ext2FreeBlock(Vol, Block2);
+    uint32_t Block3 = Ext2AllocBlock(Vol);
+    printf("ext2: allocated block %d after freeing (expect reuse of %d or %d)\r\n", Block3, Block1, Block2);*/
+should get smth like:
+ext2: alloc: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: alloc block 1
+ext2: read back: give me pennies i like pennies
+ext2: alloc: Bgdt.FreeBlk=32116 Sb.FreeBlk=515281
+ext2: new alloc block 2
+ext2: free: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: free: Bgdt.FreeBlk=32118 Sb.FreeBlk=515283
+ext2: alloc: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: allocated block 1 after freeing (expect reuse of 1 or 2)
+and debugfs should return:
+ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testb 1" ext2.img
+debugfs 1.47.2 (1-Jan-2025)
+Block 1 marked in use

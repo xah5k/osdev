@@ -162,6 +162,24 @@ KSTATUS Ext2AhciRead(KeExt2Volume* Volume, uint64_t RelLba, uint32_t Bytes, void
     return KSUCCESS;
 }
 
+KSTATUS Ext2AhciWrite(KeExt2Volume* Volume, uint64_t RelLba, uint32_t Bytes, void* vBufIn, void** pBufOut, uint32_t* PagesOut) {
+    uint32_t Sectors = (Bytes + 511) / 512;
+    uint32_t Pages = (Sectors * 512 + MMU_PAGE_SIZE - 1) / MMU_PAGE_SIZE;
+    void* pBuf = PmmAllocatePages(Pages);
+    if (!pBuf) return KOOMERR;
+    void* vBuf = (void*)P2V(pBuf);
+    memcpy((void*)vBuf, vBufIn, Bytes);
+    uint64_t AbsoluteLba = Volume->PartitionStartLba + RelLba;
+    KSTATUS r = AhciPortWrite(Volume->Port, AbsoluteLba, Sectors, (void*)pBuf);
+    if (r != KSUCCESS) {
+        PmmFreePages(pBuf, Pages);
+        return r;
+    }
+    *pBufOut = pBuf;
+    *PagesOut = Pages;
+    return KSUCCESS;
+}
+
 // todo: vfs has a vfsdrive type so uh try integrate mounting like that.
 KSTATUS Ext2Mount(int AhciPortNum, uint64_t PartitionStartLba, KeExt2Volume* VolOut) {
     VolOut->Port = AhciGetPort(AhciPortNum);
@@ -185,7 +203,7 @@ KSTATUS Ext2Mount(int AhciPortNum, uint64_t PartitionStartLba, KeExt2Volume* Vol
     VolOut->FirstDataBlk = Sb->FirstDataBlk;
     VolOut->InodeSz = (Sb->Revision == EXT2_GOOD_OLD_REV) ? 128 : SbExt->InodeSz;
     VolOut->GroupsCount = (Sb->BlockCount + Sb->BlksPerGroup - 1) / Sb->BlksPerGroup;
-    PmmFreePages(sbP, Pages);
+    VolOut->SbPtr = Sb;
     uint64_t BgdtLba = ((uint64_t)(VolOut->FirstDataBlk + 1) * VolOut->BlockSize) / 512;
     uint32_t BgdtBytes = VolOut->GroupsCount * sizeof(Ext2BlkGroupDesc);
     uint32_t Pages2;
@@ -294,6 +312,88 @@ KSTATUS Ext2EnumDirent(KeExt2Volume* Vol, uint64_t Block) {
         Ptr += Ent->Reclen;
     }
     PmmFreePages(pBuf, Pages);
+    return KSUCCESS;
+}
+
+// write specific
+uint32_t Ext2AllocBlock(KeExt2Volume* Vol) {
+    Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
+    for (uint32_t Group = 0; Group < Vol->GroupsCount; Group++) {
+        if (Bgdt[Group].FreeBlocksCount > 0) {
+            uint64_t Lba = (uint64_t)Bgdt[Group].BlockBitmap * Vol->BlockSize / 512;
+            void* pBuf;
+            void* vBuf;
+            uint32_t Pages;
+            KSTATUS r = Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf, &Pages);
+            uint8_t* Bitmap = (uint8_t*)vBuf;
+            // check for clear
+            for (uint32_t i = 0; i < Vol->BlocksPerGroup; i++) {
+                uint32_t ByteIdx = i / 8;
+                uint32_t BitIdx = i % 8;
+                if (!(Bitmap[ByteIdx] & (1<<BitIdx))) {
+                    Bitmap[ByteIdx] |= (1<<BitIdx);
+                    void* pBuf2;
+                    uint32_t Pages;
+                    r = Ext2AhciWrite(Vol, Lba, Vol->BlockSize, (void*)Bitmap, &pBuf2, &Pages);
+                    if (r != KSUCCESS) KATTEMPT(0); // panic
+                    PmmFreePages(pBuf2, Pages);
+                    Bgdt[Group].FreeBlocksCount--;
+                    Vol->SbPtr->FreeBlocksCount--;
+                    printf("ext2: alloc: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
+                    uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
+                    uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
+                    r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
+                    if (r != KSUCCESS) KATTEMPT(0); // handle
+                    PmmFreePages(pBuf2, Pages);
+                    r = Ext2AhciWrite(Vol, 2, 1024, (void*)Vol->SbPtr, &pBuf2, &Pages);
+                    if (r != KSUCCESS) KATTEMPT(0); // also todo
+                    uint32_t GlobalBlockNum = Group * Vol->BlocksPerGroup + BitIdx + Vol->FirstDataBlk;
+                    return GlobalBlockNum;
+                }
+            }
+            PmmFreePages(pBuf, Pages);
+        }
+    }
+    return 0;
+    
+}
+
+KSTATUS Ext2FreeBlock(KeExt2Volume* Vol, uint32_t GlobalBlockNum) {
+    Ext2BlkGroupDesc* Bgdt = (Ext2BlkGroupDesc*)Vol->Bgdtvbuf;
+    uint32_t RelBlock = GlobalBlockNum - Vol->FirstDataBlk;
+    uint32_t Group = RelBlock / Vol->BlocksPerGroup;
+    uint32_t LocalIdx = RelBlock % Vol->BlocksPerGroup;
+    uint64_t BitmapLba = (uint64_t)Bgdt[Group].BlockBitmap * Vol->BlockSize / 512;
+    void* pBuf;
+    void* vBuf;
+    uint32_t Pages;
+    KSTATUS r = Ext2AhciRead(Vol, BitmapLba, Vol->BlockSize, &vBuf, &pBuf, &Pages);
+    if (r != KSUCCESS) return r;
+    uint8_t* Bitmap = (uint8_t*)vBuf;
+    uint32_t ByteIdx = LocalIdx / 8;
+    uint32_t BitIdx = LocalIdx % 8;
+    if (!(Bitmap[ByteIdx] & (1 << BitIdx))) {
+        PmmFreePages(pBuf, Pages);
+        return KDOUBLEFREE;
+    }
+    Bitmap[ByteIdx] &= ~(1 << BitIdx);
+    void* pBuf2;
+    uint32_t Pages2;
+    r = Ext2AhciWrite(Vol, BitmapLba, Vol->BlockSize, (void*)Bitmap, &pBuf2, &Pages2);
+    if (r != KSUCCESS) {
+        PmmFreePages(pBuf, Pages);
+        return r;
+    }
+    Bgdt[Group].FreeBlocksCount++;
+    Vol->SbPtr->FreeBlocksCount++;
+    printf("ext2: free: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
+    uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
+    uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
+    r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
+    if (r != KSUCCESS) KATTEMPT(0); // handle
+    PmmFreePages(pBuf2, Pages);
+    r = Ext2AhciWrite(Vol, 2, 1024, (void*)Vol->SbPtr, &pBuf2, &Pages);
+    if (r != KSUCCESS) KATTEMPT(0); // also todo
     return KSUCCESS;
 }
 VfsFile* Ext2VfsFindFile(const char* Path) {

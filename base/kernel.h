@@ -46,7 +46,8 @@ typedef enum {
     KINVALID,
     KOOMERR,
     KHUNG,
-    KRESEND
+    KRESEND,
+    KDOUBLEFREE
 } KSTATUS;
 
 #define KDBG printf("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);
