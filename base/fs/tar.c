@@ -112,6 +112,7 @@ void TarInitalizeVfs(void* archive) {
     gTarInitrdPtr = archive;
     gTarVfsDrive = MmAllocate(sizeof(VfsDrive));
     VfsDriverOperation* DriverOps = MmAllocate(sizeof(VfsDriverOperation));
+    memset((void*)DriverOps, 0, sizeof(VfsDriverOperation));
     DriverOps->Open = (void*)TarFsOpen;
     DriverOps->Close = (void*)TarFsClose;
     DriverOps->Read = (void*)TarFsRead;

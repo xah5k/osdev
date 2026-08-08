@@ -1,3 +1,3 @@
 #!/usr/bin/bash
-sudo umount ./ext2root
+sudo umount -f ./ext2root
 rm -rf ext2root

@@ -26,6 +26,8 @@ typedef struct {
     int (*GetFileSize)(struct VfsFile*);
     struct VfsFile* (*FindFile)(const char*);
     int (*ReadDir)(struct VfsFile*, VfsDirEntry*, int); // IN file, OUT dirent, IN index
+    int (*Create)(const char*); // IN name, OUT status
+    int (*Delete)(struct VfsFile*); // IN file
 } VfsDriverOperation;
 
 typedef struct {

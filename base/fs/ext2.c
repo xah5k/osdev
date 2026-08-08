@@ -30,7 +30,7 @@ static uint32_t Ext2ReadIndirect(KeExt2Volume* Vol, uint32_t BlockNum, uint32_t 
 static uint32_t Ext2ResolveBlockIdx(KeExt2Volume* Vol, Ext2InoData* Inode, uint32_t LogicalBlks) {
     uint32_t PtrsPerBlk = Vol->BlockSize / 4;
     if (LogicalBlks < 12) {
-        return (&Inode->Dbp0)[LogicalBlks];
+        return (&Inode->Dbp[0])[LogicalBlks];
     }
     LogicalBlks -= 12;
     if (LogicalBlks < PtrsPerBlk) {
@@ -247,7 +247,7 @@ KSTATUS Ext2ReadRaw(KeExt2Volume* Vol, uint32_t ino, void* Out) {
     }
     uint32_t FileSz = Inode->SizeLow;
     uint32_t BlockCount = (FileSz + Vol->BlockSize - 1) / Vol->BlockSize;
-    uint32_t Dbp[12] = {Inode->Dbp0, Inode->Dbp1, Inode->Dbp2, Inode->Dbp3, Inode->Dbp4, Inode->Dbp5, Inode->Dbp6, Inode->Dbp7, Inode->Dbp8, Inode->Dbp9, Inode->Dbp10, Inode->Dbp11};
+    // uint32_t Dbp[12] = {Inode->Dbp0, Inode->Dbp1, Inode->Dbp2, Inode->Dbp3, Inode->Dbp4, Inode->Dbp5, Inode->Dbp6, Inode->Dbp7, Inode->Dbp8, Inode->Dbp9, Inode->Dbp10, Inode->Dbp11};
     uint32_t RemainByte = FileSz;
     uint8_t* OutBuf = Out;
     for (uint32_t i = 0; i < BlockCount; i++) {
@@ -348,7 +348,7 @@ uint32_t Ext2AllocBlock(KeExt2Volume* Vol) {
                     PmmFreePages(pBuf2, Pages);
                     r = Ext2AhciWrite(Vol, 2, 1024, (void*)Vol->SbPtr, &pBuf2, &Pages);
                     if (r != KSUCCESS) KATTEMPT(0); // also todo
-                    uint32_t GlobalBlockNum = Group * Vol->BlocksPerGroup + BitIdx + Vol->FirstDataBlk;
+                    uint32_t GlobalBlockNum = Group * Vol->BlocksPerGroup + i + Vol->FirstDataBlk;
                     return GlobalBlockNum;
                 }
             }
@@ -484,7 +484,7 @@ KSTATUS Ext2FreeBlock(KeExt2Volume* Vol, uint32_t GlobalBlockNum) {
     if (r != KSUCCESS) KATTEMPT(0); // also todo
     return KSUCCESS;
 }
-
+// a bug in this caused so much fucking issues and waste of my time
 KSTATUS Ext2WriteInode(KeExt2Volume* Vol, uint32_t ino, Ext2InoData* In) {
     if (ino == 0 || ino > Vol->InodeCount) return KINVALID;
     uint32_t Group = (ino - 1) / Vol->InodesPerGroup;
@@ -494,12 +494,87 @@ KSTATUS Ext2WriteInode(KeExt2Volume* Vol, uint32_t ino, Ext2InoData* In) {
     uint64_t Offset = (uint64_t)InoTableBlk * Vol->BlockSize + (uint64_t)IndexInGroup * Vol->InodeSz;
     uint64_t Lba = Offset / 512;
     uint32_t SectorOff = Offset % 512;
+    void *vBuf, *pBuf;
     uint32_t Pages;
-    void* pBuf;
-    KSTATUS r = Ext2AhciWrite(Vol, Lba, SectorOff + Vol->InodeSz, In, &pBuf, &Pages);
+    KSTATUS r = Ext2AhciRead(Vol, Lba, SectorOff + Vol->InodeSz, &vBuf, &pBuf, &Pages);
     if (r != KSUCCESS) return r;
+    memcpy((uint8_t*)vBuf + SectorOff, In, sizeof(Ext2InoData));
+    void* pBuf2;
+    uint32_t Pages2;
+    r = Ext2AhciWrite(Vol, Lba, SectorOff + Vol->InodeSz, vBuf, &pBuf2, &Pages2);
     PmmFreePages(pBuf, Pages);
+    if (r != KSUCCESS) { if(pBuf2) PmmFreePages(pBuf2, Pages2); return r; }
+    PmmFreePages(pBuf2, Pages2);
     return KSUCCESS;
+}
+
+KSTATUS Ext2InsertDirent(KeExt2Volume* Vol, uint32_t ParentInode, uint32_t PInode, char* Name, uint32_t NameLen, uint8_t FileType) {
+    uint32_t NeededLen = 8 + NameLen;
+    NeededLen = (NeededLen + 3) & ~3;
+    Ext2InoData Inode;
+    KSTATUS r;
+    if (Ext2ReadInode(Vol, ParentInode, &Inode) != KSUCCESS) return 0;
+    uint32_t BlockCount = (Inode.SizeLow + Vol->BlockSize - 1) / Vol->BlockSize;
+    for (uint32_t Block = 0; Block < BlockCount; Block++) {
+        uint32_t BlockNum = Ext2ResolveBlockIdx(Vol, &Inode, Block);
+        if (BlockNum == 0) continue;
+        uint64_t Lba = (uint64_t)BlockNum * Vol->BlockSize / 512;
+        void* pBuf;
+        void* vBuf;
+        uint32_t Pages;
+        r = Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf, &Pages);
+        if (r != KSUCCESS) return r;
+        uint8_t* Ptr = (uint8_t*)vBuf;
+        uint8_t* End = Ptr + Vol->BlockSize;
+        Ext2Dirent* Ent = (Ext2Dirent*)Ptr;
+        while (Ptr < End) {
+            uint32_t MinSz = 8 + Ent->NameLen;
+            MinSz = (MinSz + 3) & ~3;
+            if (Ent->Reclen == 0) break;
+            if (Ent->Reclen > MinSz) {
+                if (Ent->Reclen - MinSz >= NeededLen) {
+                    uint32_t OldReclen = Ent->Reclen;
+                    Ent->Reclen = MinSz;
+                    Ext2Dirent* NewEnt = (Ext2Dirent*)((uint8_t*)Ent + MinSz);
+                    NewEnt->Inode = PInode;
+                    NewEnt->Reclen = OldReclen - MinSz;
+                    NewEnt->NameLen = NameLen;
+                    NewEnt->FileType = FileType;
+                    memcpy(NewEnt->Name, Name, NameLen);
+                    uint32_t Pages2;
+                    void* pBuf2;
+                    r = Ext2AhciWrite(Vol, Lba, Vol->BlockSize, vBuf, &pBuf2, &Pages2);
+                    printf("ext2: Lba=%lu Vol->BlockSize=%d OldReclen=%d MinSz=%d NeededLen=%d\r\n", Lba, Vol->BlockSize, OldReclen, MinSz, NeededLen);
+                    if (r != KSUCCESS) KATTEMPT(0);
+                    PmmFreePages(pBuf, Pages);
+                    return KSUCCESS;
+                }
+            }
+            Ptr += Ent->Reclen;
+        }
+        PmmFreePages(pBuf, Pages);
+        uint32_t NewBlockNum = Ext2AllocBlock(Vol);
+        uint64_t Lba2 = (uint64_t)NewBlockNum * Vol->BlockSize / 512;
+        Ext2Dirent* NewEnt = (Ext2Dirent*)MmAllocate(Vol->BlockSize);
+        memset(NewEnt, 0, Vol->BlockSize);
+        NewEnt->Inode = PInode;
+        NewEnt->Reclen = Vol->BlockSize;
+        NewEnt->NameLen = NameLen;
+        NewEnt->FileType = FileType;
+        memcpy(NewEnt->Name, Name, NameLen);
+        uint32_t Pages2;
+        void* pBuf2;
+        r = Ext2AhciWrite(Vol, Lba2, Vol->BlockSize, NewEnt, &pBuf2, &Pages2);
+        printf("ext2: Lba=%lu Vol->BlockSize=%d NeededLen=%d\r\n", Lba2, Vol->BlockSize, NeededLen);
+        if (r != KSUCCESS) KATTEMPT(0);
+        for (int i = 0; i < 12; i++) if (Inode.Dbp[i] == 0) Inode.Dbp[i] = NewBlockNum;
+        Inode.SizeLow += Vol->BlockSize;
+        r = Ext2WriteInode(Vol, ParentInode, &Inode);
+        if (r != KSUCCESS) KATTEMPT(0);
+        PmmFreePages(pBuf2, Pages2);
+        return KSUCCESS;
+    }
+    return KFAIL;
 }
 
 VfsFile* Ext2VfsFindFile(const char* Path) {
@@ -596,4 +671,7 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;
+    printf("ext2: write entry with name 'yowassup' to dirent starting at root.\r\n");
+    r = Ext2InsertDirent(Vol, EXT2_ROOT_INODE, 11, "yowassup", 9, 1);
+    KATTEMPT(r == KSUCCESS);
 }
