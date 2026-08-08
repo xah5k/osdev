@@ -427,7 +427,7 @@ KSTATUS Ext2FreeInode(KeExt2Volume* Vol, uint32_t GlobalInodeNum, int IsDir) {
     Bitmap[ByteIdx] &= ~(1 << BitIdx);
     void* pBuf2;
     uint32_t Pages2;
-    r = Ext2AhciWrite(Vol, BitmapLba, Vol->InodeSz, (void*)Bitmap, &pBuf2, &Pages2);
+    r = Ext2AhciWrite(Vol, BitmapLba, Vol->BlockSize, (void*)Bitmap, &pBuf2, &Pages2);
     if (r != KSUCCESS) {
         PmmFreePages(pBuf, Pages);
         return r;
