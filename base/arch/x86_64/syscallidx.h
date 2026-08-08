@@ -27,5 +27,6 @@ typedef enum {
     OS_FORK,
     OS_EXECVE,
     OS_DUP,
-    OS_DUP2
+    OS_DUP2,
+    OS_GETPPID
 } KiSyscallIdx;

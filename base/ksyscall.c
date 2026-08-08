@@ -467,6 +467,10 @@ uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2
     return (uint64_t)newhdl;
 }
 
+uint64_t SysGetPpid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
+    return ThrGetCurrent()->ParentProc->Parent->pid;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -474,6 +478,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_CONWRITE, SysConWrite); // todo: remove
     KiRegisterSyscall(OS_YIELD, SysYield);
     KiRegisterSyscall(OS_GETPID, SysGetPid);
+    KiRegisterSyscall(OS_GETPPID, SysGetPpid);
     KiRegisterSyscall(OS_WAIT, SysWaitPid);
     KiRegisterSyscall(OS_SBRK, SysSBrk);
     KiRegisterSyscall(OS_OPEN, SysOpen);

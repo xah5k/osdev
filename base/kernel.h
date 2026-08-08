@@ -27,6 +27,7 @@ typedef struct KernelInformation {
     struct ProcessCtrlBlk* ProcessListHead; // list of processes
     CpuFeatures* cpufeats;
     struct ProcessCtrlBlk* CurrentProcess;
+    struct ProcessCtrlBlk* KernelProcess;
 } KernelInformation;
 
 typedef enum {

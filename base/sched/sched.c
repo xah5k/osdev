@@ -56,6 +56,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     gkinfoPtr = kinfo;
     gkinfoPtr->ProcessListHead = KernelProc;
     gkinfoPtr->CurrentProcess = KernelProc;
+    gkinfoPtr->KernelProcess = KernelProc;
 }
 void Schedule() {
     uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);

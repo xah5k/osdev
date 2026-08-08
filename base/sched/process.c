@@ -218,7 +218,7 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->SbrkBase = PS_USER_BRK_BASE;
     new->SbrkCurrent = PS_USER_BRK_BASE;
     new->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
-    new->Parent = NULL;
+    new->Parent = KernelGetInformation()->KernelProcess;
     new->Next = NULL;
     new->exitcode = 0;
     new->BlockedQueueHead = NULL;
