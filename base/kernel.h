@@ -28,6 +28,7 @@ typedef struct KernelInformation {
     CpuFeatures* cpufeats;
     struct ProcessCtrlBlk* CurrentProcess;
     struct ProcessCtrlBlk* KernelProcess;
+    int DriverExt2Load;
 } KernelInformation;
 
 typedef enum {
@@ -49,6 +50,8 @@ typedef enum {
     KRESEND,
     KDOUBLEFREE
 } KSTATUS;
+
+#define KFORWARD(x, c, i) x[c+i]
 
 #define KDBG printf("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 #define KATTEMPT(x) if (!(x)) KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__)

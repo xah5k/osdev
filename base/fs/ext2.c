@@ -576,7 +576,81 @@ KSTATUS Ext2InsertDirent(KeExt2Volume* Vol, uint32_t ParentInode, uint32_t PInod
     }
     return KFAIL;
 }
+KSTATUS Ext2CreateFile(KeExt2Volume* Vol, uint32_t ParentInode, char* Name, int IsDir) {
+    uint32_t Inode = Ext2AllocInode(Vol, IsDir);
+    if (Inode == 0) return KFAIL;
+    Ext2InoData NewData;
+    memset(&NewData, 0, sizeof(Ext2InoData));
+    NewData.TypePerm = IsDir ? (0x4000 | 0755) : (0x8000 | 0644);
+    NewData.SizeLow = 0;
+    NewData.HardlinkCount = IsDir ? 2 : 1;
+    NewData.CreationTime = 0; // dont have rtc so todo
+    NewData.LastModification = NewData.CreationTime;
+    if (IsDir) {
+        uint32_t DirBlk = Ext2AllocBlock(Vol);
+        uint8_t* BlkData = MmAllocate(Vol->BlockSize);
+        Ext2Dirent* Dot =  (Ext2Dirent*)BlkData;
+        Dot->Inode = Inode;
+        Dot->Reclen = 12;
+        Dot->NameLen = 1;
+        Dot->FileType = 2;
+        Dot->Name[0] = '.';
+        Ext2Dirent* DotDot = (Ext2Dirent*)((uint64_t)BlkData + 12);
+        DotDot->Inode = Inode;
+        DotDot->Reclen = Vol->BlockSize - 12; // take up rest of block
+        DotDot->NameLen = 2;
+        DotDot->FileType = 2;
+        Dot->Name[0] = '.';
+        Dot->Name[1] = '.';
+        void* pBuf;
+        uint32_t Pages;
+        KSTATUS r = Ext2AhciWrite(Vol, (DirBlk * Vol->BlockSize / 512), Vol->BlockSize, (void*)BlkData, &pBuf, &Pages);
+        if (r != KSUCCESS) {
+            MmFree(BlkData);
+            Ext2FreeInode(Vol, Inode, IsDir);
+            Ext2FreeBlock(Vol, DirBlk);
+            return r;
+        }
+        NewData.Dbp[0] = DirBlk;
+        NewData.SizeLow = Vol->BlockSize;
+        r = Ext2WriteInode(Vol, Inode, &NewData);
+        if (r != KSUCCESS) {
+            MmFree(BlkData);
+            Ext2FreeInode(Vol, Inode, IsDir);
+            Ext2FreeBlock(Vol, DirBlk);
+            return r;
+        }
+    } else {
+        KSTATUS r = Ext2WriteInode(Vol, Inode, &NewData);
+        if (r != KSUCCESS) {
+            Ext2FreeInode(Vol, Inode, IsDir);
+            return r;
+        }
+    } 
+    // holy if statement js merge it in with the other its never this deep
+    if (IsDir) {
+        // increase link count
+        Ext2InoData ParentData;
+        KSTATUS r = Ext2ReadInode(Vol, ParentInode, &ParentData);
+        if (r != KSUCCESS) {
+            // ???
+            return r;
+        }
+        ParentData.HardlinkCount++;
+        r = Ext2WriteInode(Vol, ParentInode, &ParentData);
+        if (r != KSUCCESS) {
+            // not really sure how to handle
+            return r;
+        }
 
+    }
+    KSTATUS r = Ext2InsertDirent(Vol, ParentInode, Inode, Name, strlen(Name), IsDir ? 2 : 1);
+    if (r != KSUCCESS) {
+        // atleast we tried
+        return r;
+    }
+    return KSUCCESS;
+}
 VfsFile* Ext2VfsFindFile(const char* Path) {
     for (int i = 0; i < gCurrFileIdx; i++) {
         // printf("ext2: vfs: %s ag %s\r\n", Path, gVolume->Ext2Files[i].Path);
@@ -671,7 +745,6 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;
-    printf("ext2: write entry with name 'yowassup' to dirent starting at root.\r\n");
-    r = Ext2InsertDirent(Vol, EXT2_ROOT_INODE, 11, "yowassup", 9, 1);
+    r = Ext2CreateFile(Vol, EXT2_ROOT_INODE, "test.txt", 0);
     KATTEMPT(r == KSUCCESS);
 }

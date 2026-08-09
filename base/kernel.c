@@ -231,6 +231,19 @@ KSTATUS KeMmInitalize() {
     return VmmInitalize() && MmHeapInitalize();
 }
 
+
+static void KeParseConfig(KernelInformation* kinfo) {
+    // messy code
+    for (int i = 0; i < 4096; i++) {
+        if (KFORWARD(environment, i, 0) == 'd' && KFORWARD(environment, i, 1) == 'r' && KFORWARD(environment, i, 2) == 'v') {
+            if (KFORWARD(environment, i, 4) == 'e' && KFORWARD(environment, i, 5) == 'x' && KFORWARD(environment, i, 6) == 't') {
+                int val = KFORWARD(environment, i, 9) - '0';
+                kinfo->DriverExt2Load = val;
+            }
+        }
+    }
+    printf("\r\n");
+}
 static KernelInformation* KeCreateKinfo() {
     KernelInformation* kInfo = PmmAllocate();
     kInfo->bootinfo = &bootboot;
@@ -242,6 +255,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->fb->width = bootboot.fb_width;
     kInfo->fb->height = bootboot.fb_height;
     kInfo->fb->scanline = bootboot.fb_scanline;
+    KeParseConfig(kInfo);
     return kInfo;
 }
 

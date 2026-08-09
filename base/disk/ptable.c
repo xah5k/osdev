@@ -40,7 +40,7 @@ KSTATUS PtableEnumerate(void* Lba1) {
         printf("ptable: partition %d: name=", i);
         UtilPrintW(Entry->PartitionName, 36);
         printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
-        if (i == 1 && gInitPart1 == 0) {
+        if (i == 1 && gInitPart1 == 0 && KernelGetInformation()->DriverExt2Load) {
             Ext2SbInit(Entry->StartLba, i);
             gInitPart1 = 1;
         }
