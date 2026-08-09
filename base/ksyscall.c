@@ -33,7 +33,6 @@ static void UserAcEnd() {
     }
 }
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
-    printf("ksyscall: SysExit: exit current thread with code %d\r\n", exitcode);
     // handle exit
     CurrentThread->exitcode = exitcode;
     CurrentThread->ParentProc->exitcode = exitcode;
@@ -107,7 +106,6 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     ThreadCtrlBlk* thrlist = process->ThreadListHead;
     if (!thrlist) return -1; // well somethings probably gone wrong (process is probably in the process of being killed)
     // set pending kill flag on all threads on process
-    printf("ksyscall: SysKill: set kill flag on all threads for pid %d (kill syscall from process with pid %d)\r\n", pid, CurrentThread->ParentProc->pid);
     ThreadCtrlBlk* current = thrlist;
     while (current != NULL) {
         current->pendingkill = 1;
@@ -125,7 +123,6 @@ uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, uint64_t envp
     OsRead(handle, buf, size);
     OsClose(handle);
     uint64_t pid = 0;
-    printf("ksyscall: SysSpawn: spawn new process\r\n");
     KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid, (const char**)argv, (int)argc, (const char**)envp, (uint64_t)envc, basename(path));
     MmFree(buf);
     return (result == KSUCCESS) ? pid : -1;
@@ -295,7 +292,6 @@ uint64_t SysFstat(uint64_t handle, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
 
 uint64_t SysStat(uint64_t path, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
     if (path == 0) return (uint64_t)-1;
-    if (path < 0x400000 || path + 1 >= 0x800000000000) return (uint64_t)-1; // holy hardcode
     char acpath[VFS_MAX_ALLOWED_PATH];
     int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
     if (r2 < 0) return (uint64_t)-1;
@@ -471,6 +467,28 @@ uint64_t SysGetPpid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
     return ThrGetCurrent()->ParentProc->Parent->pid;
 }
 
+uint64_t SysAccess(uint64_t patha, uint64_t exist, uint64_t readp, uint64_t writep, uint64_t execp) {
+    const char* path = (const char*)patha;
+    if (writep) {
+        return (uint64_t)-2;
+    }
+    if (exist) {
+        int h = OsOpen(path, 0);
+        if (h < 0) return (uint64_t)-1; // doesnt exist
+    }
+    if (readp) {
+        int h = OsOpen(path, 0);
+        if (h < 0) return (uint64_t)-1;
+        return 0;
+    }
+    if (execp) {
+        int h = OsOpen(path, 0);
+        if (h < 0) return (uint64_t)-1;
+        return 0;
+    }
+    return (uint64_t)-1;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -500,6 +518,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXECVE, SysExecve);
     KiRegisterSyscall(OS_DUP, SysDup);
     KiRegisterSyscall(OS_DUP2, SysDup2);
+    KiRegisterSyscall(OS_ACCESS, SysAccess);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

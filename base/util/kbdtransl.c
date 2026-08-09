@@ -3,8 +3,8 @@
 #include <mm/heap.h>
 static int gStateShift = 0;
 static int gStateCapsLock = 0;
+static int gStateCtrl = 0;
 
-//             
 static const char ScancodeToAsciiLower[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\r',
@@ -40,11 +40,18 @@ static const char ScancodeToAsciiUpper[128] = {
 #define SC_CAPSLOCK 0x3A
 #define SC_ENTER 0x1C
 
+#define SC_CTRL 0x1D
+#define SC_CTRL_REL (0x1D | 0x80)
+
 char KbdTranslScancode(uint8_t scancode) {
     int release = scancode & 0x80;
     uint8_t code = scancode & 0x7F;
     if (code == SC_LSHIFT || code == SC_RSHIFT) {
         gStateShift = !release;
+        return 0;
+    }
+    if (code == SC_CTRL) {
+        gStateCtrl = !release;
         return 0;
     }
     if (code == SC_CAPSLOCK && release) {
@@ -56,11 +63,18 @@ char KbdTranslScancode(uint8_t scancode) {
     }
     if (release) return 0;
     if (code >= 128) return 0;
+
     int UseUpper = gStateShift;
     if (gStateCapsLock && code >= 0x10 && code <= 0x32) {
         UseUpper = !UseUpper;
     }
     char c = UseUpper ? ScancodeToAsciiUpper[code] : ScancodeToAsciiLower[code];
+    if (gStateCtrl && c >= 'a' && c <= 'z') {
+        return c - 'a' + 1;
+    }
+    if (gStateCtrl && c >= 'A' && c <= 'Z') {
+        return c - 'A' + 1;
+    }
     return c;
 }
 

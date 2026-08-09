@@ -28,5 +28,6 @@ typedef enum {
     OS_EXECVE,
     OS_DUP,
     OS_DUP2,
-    OS_GETPPID
+    OS_GETPPID,
+    OS_ACCESS
 } KiSyscallIdx;
