@@ -165,7 +165,9 @@ hi!
 
 
 kshell> 
-
+// ext2 extract partition from image
+dd if=osdev.img of=ext2.img bs=512 skip=32896 count=4194304
+for use with debugfs
 /* ext2 block alloc and free test
 also check with debugfs just incase
     uint32_t Block1 = Ext2AllocBlock(Vol);

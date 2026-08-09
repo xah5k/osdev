@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <stdint.h>
 #include <kedriver.h>
+#include <printfwrapper.h>
 // offset used for memory
 uint64_t gMmuVOffset = 0;
 
