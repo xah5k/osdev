@@ -47,9 +47,10 @@ int TarFsGetFileSize(struct VfsFile* file) {
 }
 
 struct VfsFile* TarFsFindFile(const char* Path) {
+    char* ptr = Path;
     for (int i = 0; i < gTarFsNumEntries; i++) {
         //printf("fs: tar: %s against %s\r\n", Path, gTarFsEntries[i].Path);
-        if (memcmp(gTarFsEntries[i].Path, Path, strlen(gTarFsEntries[i].Path)+1) == 0) return &gTarFsEntries[i];
+        if (memcmp(gTarFsEntries[i].Path, ptr, strlen(gTarFsEntries[i].Path)+1) == 0) return &gTarFsEntries[i];
     }
     return NULL;
 }

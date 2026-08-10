@@ -86,10 +86,9 @@ void KeShlProcess(char* string) {
         printf("----------------------- process -----------------------\r\n");
         printf("exec - execute a user mode binary.\r\n");
         printf("lsproc - list processes and threads.\r\n");
-        printf("----------------------- user -----------------------\r\n");
-        printf("busybox - launch busybox\r\n");
         printf("----------------------- fs -----------------------\r\n");
         printf("fsisabsol - checks if a path is absolute.\r\n");
+        printf("fstranslpath - translates a rel path to a absolute one.\r\n");
         printf("chdir - changes proc cwd.\r\n");
         printf("getcwd - gets current working directory.\r\n");
         printf("stat - posix-compat function that returns a stat struct.\r\n");
@@ -129,27 +128,6 @@ void KeShlProcess(char* string) {
         printf("enter path: ");
         char* s = KeShlReadStr();
         printf("\r\n");
-        printf("enter num of args: ");
-        char* argcstr = KeShlReadStr();
-        int argc = AsciiAsInt(argcstr);
-        MmFree(argcstr);
-        char** argv = MmAllocate(argc+1 * sizeof(char*));
-        argv[0] = MmAllocate(strlen(s)+1 * sizeof(char));
-        strlcpy(argv[0], s, strlen(s)+1);
-        for (int i = 1; i < argc; i++) {
-            printf("\r\nenter argv[%d]: ", i);
-            char* str = KeShlReadStr();
-            argv[i] = MmAllocate(strlen(str)+1 * sizeof(char));
-            memcpy((void*)argv[i], (const void*)str, strlen(str)+1);
-        }
-        argv[argc] = NULL;
-        uint64_t pid = SysSpawn((uint64_t)s, (uint64_t)argv, (uint64_t)argc, (uint64_t)gKeEnvp, (uint64_t)gKeEnvc);
-        printf("\r\nspawned process with pid %d\r\n", pid);
-        uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
-        printf("\r\nprocess exited with code %d\r\n", r);
-        MmFree(s);
-    } else if (strcmp(string, "busybox") == 0) {
-        char* s = "initrd:/programs/busybox";
         printf("enter num of args: ");
         char* argcstr = KeShlReadStr();
         int argc = AsciiAsInt(argcstr);
@@ -463,17 +441,24 @@ void KeShlProcess(char* string) {
         printf("%d:%d:%d\r\n", Walltime.Hours, Walltime.Minutes, Walltime.Seconds);
         printf("%d/%d/%d\r\n", Walltime.Days, Walltime.Month, Walltime.Year);
         printf("\r\n");
+    } else if (strcmp(string, "fstranslpath") == 0) {
+        printf("enter path: \r\n");
+        char* path = KeShlReadStr();
+        char acpath[VFS_MAX_ALLOWED_PATH];
+        VfsTranslatePath(path, acpath, ThrGetCurrent()->ParentProc);
+        printf("translated path: %s\r\n", acpath);
+        MmFree(path);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
     }
 }
-extern uint64_t PmmTotalPhysicalMem;
+extern uint64_t PmmTotalFreePhysRam;
 
 void KeUtilShell() {
     FbClear();
     printf("kshell: Welcome to ah5kos 1.0.0\r\n");
-    printf("kshell: Total Physical RAM: %d MB\r\n", PmmTotalPhysicalMem /  1048576);
+    printf("kshell: Total Free Physical RAM: %ld MB\r\n", UTIL_DIV_RUP(UTIL_DIV_RUP(PmmTotalFreePhysRam, 1024), 1024));
     char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
     KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
     printf("kshell: cwd is %s\r\n", cwdbuf);

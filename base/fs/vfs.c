@@ -139,6 +139,16 @@ void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size) {
 
 int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
     if (!proc) return (uint64_t)-1;
+    if (path[0] == '.' && path[1] == '/') {
+        uint64_t len = strlen((const char*)path)-2;
+        char* ptr = path+2;
+        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, ptr);
+        uint64_t nl = strlen(acpath);
+        if (acpath[nl-1] == '/') {
+            acpath[nl-1] = '\0';
+        }
+        return 0;
+    }
     if (VfsIsAbsolute((const char*)path)) {
         uint64_t len = strlen((const char*)path);
         if (len > VFS_MAX_ALLOWED_PATH - 1) len = VFS_MAX_ALLOWED_PATH - 1;

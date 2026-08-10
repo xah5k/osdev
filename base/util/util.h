@@ -2,6 +2,8 @@
 #include <stdint.h>
 typedef unsigned short wchar_t;
 
+#define UTIL_DIV_RUP(a, b) (a + b - 1) / b
+
 int strcmp(const char* s1, const char* s2);
 int strlen(const char* s);
 int oct2bin(unsigned char *str, int size);

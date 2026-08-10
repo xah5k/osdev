@@ -16,7 +16,7 @@ static void* PmmLargestFreeMemoryPtr = 0x0;
 static Spinlock PmmInternalLock = {ATOMIC_FLAG_INIT};
 // for paging
 uint64_t PmmTotalPhysicalMem = 0;
-
+uint64_t PmmTotalFreePhysRam = 0;
 static uint64_t* PmmInternalBitmap;
 static uint64_t PmmInternalBitmapSz = 0;
 static uint64_t PmmTotalPages = 0;
@@ -38,6 +38,7 @@ KSTATUS PmmInitalize(BOOTBOOT* b) {
                 printf("pmm: dbg: found new largest free memory chunk. size=%d ptr=0x%lx\r\n", PmmLargestFreeMemorySize, PmmLargestFreeMemoryPtr);
                 #endif
             }
+            PmmTotalFreePhysRam += MMapEnt_Size(entry);
         }
         TopAddress = MMapEnt_Ptr(entry) + MMapEnt_Size(entry);
         if (TopAddress > PmmHighestAddr) {
