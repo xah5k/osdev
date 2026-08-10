@@ -829,6 +829,7 @@ VfsFile* Ext2VfsFindFile(const char* Path) {
 
 int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
     (void)Offset; // todo
+    if (File->Type != VFS_TYPE_FILE) return -1;
     uint32_t Inode = File->DriverRsv;
     KSTATUS r = Ext2ReadRaw(gVolume, Inode, OutBuf);
     if (r != KSUCCESS) return -1;
@@ -836,6 +837,7 @@ int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
 }
 
 int Ext2VfsWrite(VfsFile* File, const void* InBuf, size_t Bytes, uint64_t Offset) {
+    if (File->Type != VFS_TYPE_FILE) return -1;
     uint32_t Inode = File->DriverRsv;
     KSTATUS r = Ext2WriteFile(gVolume, Inode, InBuf, Bytes, (uint32_t)Offset);
     if (r != KSUCCESS) return -1;
@@ -871,7 +873,7 @@ int Ext2VfsCreate(const char* Path, int Type) {
     // also make vfs recognize it
     VfsFile* File = MmAllocate(sizeof(VfsFile));
     strlcpy(File->Path, Path, VFS_MAX_ALLOWED_PATH);
-    File->Type = Type;
+    File->Type = (Type == 1) ? VFS_TYPE_DIRECTORY : VFS_TYPE_FILE;
     File->DrivePtr = gVolume->Ext2Drive;
     File->DriverRsv = InodeOut;
     File->Size = 0;
