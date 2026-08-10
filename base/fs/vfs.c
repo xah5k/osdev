@@ -247,6 +247,9 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
     } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_CNSL) {
         KernelUnlockRsLck();
         char c = KbdTranslGetc();
+        if (c == 0) {
+            return 0;
+        }
         memcpy(buffer, &c, 1);
         return 1;
     }
