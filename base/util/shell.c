@@ -95,6 +95,8 @@ void KeShlProcess(char* string) {
         printf("stat - posix-compat function that returns a stat struct.\r\n");
         printf("lsdrive - lists mounted drives.\r\n");
         printf("cat - outputs contents of a file.\r\n");
+        printf("create - creates a new file.\r\n");
+        printf("write - overwrites a file.\r\n");
         printf("----------------------- env -----------------------\r\n");
         printf("getenv - dumps environment variables.\r\n");
         printf("addenv - adds an env variable.\r\n");
@@ -394,9 +396,10 @@ void KeShlProcess(char* string) {
         int h = OsOpen(path, 0);
         if (h < 0) {
             printf("failed to open file.\r\n");
+            MmFree(path);
             return;
         } else {
-            int fsz = 128;
+            int fsz = OsGetFileSize(h);
             char* buf = MmAllocate(fsz);
             memset(buf, 0, fsz);
             int r = OsRead(h, buf, fsz);
@@ -405,6 +408,32 @@ void KeShlProcess(char* string) {
             OsClose(h);
             MmFree(buf);
         }
+        MmFree(path);
+    } else if (strcmp(string, "create") == 0) {
+        printf("enter path: ");
+        char* path = KeShlReadStr();
+        printf("\r\n");
+        int r = OsCreate(path, VFS_TYPE_FILE);
+        if (r == -1) {
+            printf("fail.\r\n");
+        }
+    } else if (strcmp(string, "write") == 0) {
+        printf("enter path: ");
+        char* path = KeShlReadStr();
+        printf("\r\n");
+        int h = OsOpen(path, 0);
+        if (h < 0) {
+            printf("failed to open file.\r\n");
+            return;
+        }
+        printf("enter string to overwrite: ");
+        char* newcontent = KeShlReadStr();
+        printf("\r\n");
+        int r = OsWrite(h, newcontent, strlen(newcontent));
+        if (r < 0) printf("OsWrite call failed.\r\n");
+        OsClose(h);
+        MmFree(path);
+        MmFree(newcontent);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

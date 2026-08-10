@@ -26,8 +26,8 @@ typedef struct {
     int (*GetFileSize)(struct VfsFile*);
     struct VfsFile* (*FindFile)(const char*);
     int (*ReadDir)(struct VfsFile*, VfsDirEntry*, int); // IN file, OUT dirent, IN index
-    int (*Create)(const char*); // IN name, OUT status
-    int (*Delete)(struct VfsFile*); // IN file
+    int (*Create)(const char*, int); // IN name, IN type (according to VFS_TYPE_*), OUT status
+    int (*Delete)(struct VfsFile*, int); // IN file
 } VfsDriverOperation;
 
 typedef struct {
@@ -45,6 +45,8 @@ typedef struct VfsFile {
     uint64_t Perms; // useless cuz we dont even enforce any of them lmfao
     uint32_t DriverRsv; // lolll i cba to actually turn a path into an inode
     VfsDrive* DrivePtr; // ptr back to the drive it's on
+    struct VfsFile* Next; /* keep compat with tarfs cuz tarfs can still do it the old way but ext2 is write now
+                             so linked list is better solution */
 } VfsFile;
 
 #define VFS_OFD_FLAG_FILE 0x1
@@ -74,3 +76,4 @@ int OsWrite(int handle, const void* buffer, size_t nbytes);
 int OsGetFileSize(int handle);
 int OsReadDir(int handle, VfsDirEntry* outdirent, int idx);
 int OsStat(int handle, uint64_t* outsize, uint64_t* outtype);
+int OsCreate(const char* path, int type);

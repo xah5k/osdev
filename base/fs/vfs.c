@@ -42,6 +42,24 @@ int VfsReadDir(struct VfsFile* file, VfsDirEntry* outdir, int idx) {
     else return -3;
 }
 
+int VfsCreate(const char* Path, int Type) {
+    for (int i = 0; i < 16; i++) {
+        if (!gVfsDrives[i]) { continue; }
+        char Buf[VFS_MAX_ALLOWED_PATH];
+        memset(Buf, 0, VFS_MAX_ALLOWED_PATH);
+        memcpy(Buf, Path, strlen(Path)+1);
+        VfsGetDrvFromPath(Path, Buf);
+        if (strcmpl(Buf, gVfsDrives[i]->Name, strlen(Buf)) == 0) {
+            if (gVfsDrives[i]->DriverOps->Create) {
+                int PassedType =  (Type == VFS_TYPE_DIRECTORY) ? 1 : 0;
+                printf("vfs: create: type=%d passedtype=%d\r\n", Type, PassedType);
+                return gVfsDrives[i]->DriverOps->Create(Path, PassedType);
+            }
+        }    
+    }
+    return -1;
+}
+
 VfsFile* VfsFindFile(const char* Path) {
     for (int i = 0; i < 16; i++) {
         if (!gVfsDrives[i]) { continue; }
@@ -238,7 +256,7 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
 
         KernelUnlockRsLck();
         int bytes_wrote = VfsWrite(f, buffer, nbytes, CurrentOff); 
-
+        printf("vfs: bytes_wrote=%d\r\n", bytes_wrote);
         if (bytes_wrote > 0) {
             proc->FileHandleTable[handle].CursorPos += bytes_wrote;
         }
@@ -310,4 +328,8 @@ int OsStat(int handle, uint64_t* outsize, uint64_t* outtype) {
     if (outsize) *outsize = f->Size;
     if (outtype) *outtype = f->Type;
     return 0;
+}
+
+int OsCreate(const char* path, int type) {
+    return VfsCreate(path, type);
 }

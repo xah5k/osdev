@@ -196,17 +196,20 @@ static KSTATUS Ext2CreateVfsTable(KeExt2Volume* Vol, uint32_t DirInode, char* Pa
 
                 Ext2InoData Inode1;
                 if (Ext2ReadInode(Vol, Ent->Inode, &Inode1) != KSUCCESS) KATTEMPT(0); // well shit
-                snprintf(Vol->Ext2Files[gCurrFileIdx].Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, PathBf);
-                if ((Inode1.TypePerm & 0xF000) == 0x8000) Vol->Ext2Files[gCurrFileIdx].Type = VFS_TYPE_FILE;
-                else if ((Inode1.TypePerm & 0xF000) == 0x4000) Vol->Ext2Files[gCurrFileIdx].Type = VFS_TYPE_DIRECTORY;
-                else Vol->Ext2Files[gCurrFileIdx].Type = 0x0;
-                Vol->Ext2Files[gCurrFileIdx].Size = Inode1.SizeLow;
-                Vol->Ext2Files[gCurrFileIdx].DrivePtr = Vol->Ext2Drive;
-                Vol->Ext2Files[gCurrFileIdx].DriverRsv = Ent->Inode;
+                VfsFile* Current = MmAllocate(sizeof(VfsFile));
+                snprintf(Current->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, PathBf);
+                if ((Inode1.TypePerm & 0xF000) == 0x8000) Current->Type = VFS_TYPE_FILE;
+                else if ((Inode1.TypePerm & 0xF000) == 0x4000) Current->Type = VFS_TYPE_DIRECTORY;
+                else Current->Type = 0x0;
+                Current->Size = Inode1.SizeLow;
+                Current->DrivePtr = Vol->Ext2Drive;
+                Current->DriverRsv = Ent->Inode;
                 if (Ent->FileType == 2) {
                     r = Ext2CreateVfsTable(Vol, Ent->Inode, PathBf, Number, Depth+1);
                 }
                 gCurrFileIdx++;
+                Current->Next = Vol->Ext2Files;
+                Vol->Ext2Files = Current;
             }
 
             Ptr += Ent->Reclen;
@@ -414,7 +417,7 @@ uint32_t Ext2AllocBlock(KeExt2Volume* Vol) {
                     PmmFreePages(pBuf2, Pages);
                     Bgdt[Group].FreeBlocksCount--;
                     Vol->SbPtr->FreeBlocksCount--;
-                    printf("ext2: alloc: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
+                    // printf("ext2: alloc: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
                     uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
                     uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
                     r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
@@ -463,7 +466,7 @@ uint32_t Ext2AllocInode(KeExt2Volume* Vol, int IsDir) {
                     Bgdt[Group].FreeInodesCount--;
                     Vol->SbPtr->FreeInodeCount--;
                     if (IsDir) Bgdt[Group].UsedDirsCount++;
-                    printf("ext2: alloc: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
+                    // printf("ext2: alloc: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
                     uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
                     uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
                     r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
@@ -509,7 +512,7 @@ KSTATUS Ext2FreeInode(KeExt2Volume* Vol, uint32_t GlobalInodeNum, int IsDir) {
     Bgdt[Group].FreeInodesCount++;
     Vol->SbPtr->FreeInodeCount++;
     if (IsDir) Bgdt[Group].UsedDirsCount--;
-    printf("ext2: free: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
+    // printf("ext2: free: Bgdt.FreeIno=%d Sb.FreeIno=%d\r\n", Bgdt[Group].FreeInodesCount, Vol->SbPtr->FreeInodeCount);
     uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
     uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
     r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
@@ -548,7 +551,7 @@ KSTATUS Ext2FreeBlock(KeExt2Volume* Vol, uint32_t GlobalBlockNum) {
     }
     Bgdt[Group].FreeBlocksCount++;
     Vol->SbPtr->FreeBlocksCount++;
-    printf("ext2: free: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
+    // printf("ext2: free: Bgdt.FreeBlk=%d Sb.FreeBlk=%d\r\n", Bgdt[Group].FreeBlocksCount, Vol->SbPtr->FreeBlocksCount);
     uint64_t BgdtLba = ((uint64_t)(Vol->FirstDataBlk + 1) * Vol->BlockSize) / 512;
     uint32_t BgdtBytes = Vol->GroupsCount * sizeof(Ext2BlkGroupDesc);
     r = Ext2AhciWrite(Vol, BgdtLba, BgdtBytes, (void*)Bgdt, &pBuf2, &Pages); // if bgdt spans multiple sectors ts will cause a problem
@@ -618,7 +621,7 @@ KSTATUS Ext2InsertDirent(KeExt2Volume* Vol, uint32_t ParentInode, uint32_t PInod
                     uint32_t Pages2;
                     void* pBuf2;
                     r = Ext2AhciWrite(Vol, Lba, Vol->BlockSize, vBuf, &pBuf2, &Pages2);
-                    printf("ext2: Lba=%lu Vol->BlockSize=%d OldReclen=%d MinSz=%d NeededLen=%d\r\n", Lba, Vol->BlockSize, OldReclen, MinSz, NeededLen);
+                    // printf("ext2: Lba=%lu Vol->BlockSize=%d OldReclen=%d MinSz=%d NeededLen=%d\r\n", Lba, Vol->BlockSize, OldReclen, MinSz, NeededLen);
                     if (r != KSUCCESS) KATTEMPT(0);
                     PmmFreePages(pBuf, Pages);
                     return KSUCCESS;
@@ -639,7 +642,6 @@ KSTATUS Ext2InsertDirent(KeExt2Volume* Vol, uint32_t ParentInode, uint32_t PInod
         uint32_t Pages2;
         void* pBuf2;
         r = Ext2AhciWrite(Vol, Lba2, Vol->BlockSize, NewEnt, &pBuf2, &Pages2);
-        printf("ext2: Lba=%lu Vol->BlockSize=%d NeededLen=%d\r\n", Lba2, Vol->BlockSize, NeededLen);
         if (r != KSUCCESS) KATTEMPT(0);
         for (int i = 0; i < 12; i++) if (Inode.Dbp[i] == 0) Inode.Dbp[i] = NewBlockNum;
         Inode.SizeLow += Vol->BlockSize;
@@ -737,15 +739,12 @@ KSTATUS Ext2WriteFile(KeExt2Volume* Vol, uint32_t InodeNum, uint8_t* Buffer, uin
     uint32_t StartBlock = Offset / Vol->BlockSize;
     uint32_t EndBlock = (Offset + Bytes - 1) / Vol->BlockSize;
     int InodeDirty = 0;
-    printf("ext2: inodedirty = %d\r\n", InodeDirty);
-    printf("ext2: startblock = %d\r\next2: end block = %d\r\n", StartBlock, EndBlock);
     uint32_t Rem = Bytes;
     uint8_t* Src = Buffer;
     for (uint32_t Block = StartBlock; Block <= EndBlock; Block++) {
         uint32_t PhysBlk = Ext2RslvBlkIdxAlloc(Vol, &Inode, Block, &InodeDirty);
-        printf("ext2: blk%d: physblk=%d inodedirty = %d\r\n", Block, PhysBlk, InodeDirty);
+        printf("ext2: Block %d -> PhysBlk %d (InodeDirty=%d)\r\n", Block, PhysBlk, InodeDirty);
         uint64_t Lba = (uint64_t)PhysBlk * Vol->BlockSize / 512;
-        printf("ext2: blkd%d: lba = %d\r\n", Block, Lba);
         void* pBuf;
         void* vBuf;
         uint32_t Pages;
@@ -767,7 +766,6 @@ KSTATUS Ext2WriteFile(KeExt2Volume* Vol, uint32_t InodeNum, uint8_t* Buffer, uin
     if (Offset + Bytes > Inode.SizeLow) {
         // update size if we have more size now
         Inode.SizeLow = Offset + Bytes;
-        printf("ext2: write new sizelow %d\r\n", Inode.SizeLow);
         InodeDirty = 1;
     }
     if (InodeDirty) {
@@ -775,32 +773,125 @@ KSTATUS Ext2WriteFile(KeExt2Volume* Vol, uint32_t InodeNum, uint8_t* Buffer, uin
     }
     return KSUCCESS;
 }
+// js goes through directories until matches path and returns inode
+// still keeping the DriverRsv though cuz its faster to look that up instead of doing this
+// every time we want to get inode for a path
+static uint32_t Ext2ResolvePath(KeExt2Volume* Vol, const char* Path) {
+    uint32_t CurrentInode = EXT2_ROOT_INODE;
+    while (*Path == '/') Path++;
+    if (*Path == '\0') return CurrentInode;
+    char Component[256];
+    while (*Path) {
+        uint32_t Len = 0;
+        while (Path[Len] && Path[Len] != '/' && Len < sizeof(Component) - 1) Len++;
+        memcpy(Component, Path, Len);
+        Component[Len] = '\0';
+        Ext2InoData DirInode;
+        if (Ext2ReadInode(Vol, CurrentInode, &DirInode) != KSUCCESS) return 0;
+        if ((DirInode.TypePerm & 0xF000) != 0x4000) return 0;
+        uint32_t NextInode = 0;
+        uint32_t BlockCount = (DirInode.SizeLow + Vol->BlockSize - 1) / Vol->BlockSize;
+        for (uint32_t b = 0; b < BlockCount && NextInode == 0; b++) {
+            uint32_t BlockNum = Ext2ResolveBlockIdx(Vol, &DirInode, b);
+            if (BlockNum == 0) continue;
+            uint64_t Lba = (uint64_t)BlockNum * Vol->BlockSize / 512;
+            void *vBuf, *pBuf; uint32_t Pages;
+            if (Ext2AhciRead(Vol, Lba, Vol->BlockSize, &vBuf, &pBuf, &Pages) != KSUCCESS) continue;
+            uint8_t* Ptr = (uint8_t*)vBuf;
+            uint8_t* End = Ptr + Vol->BlockSize;
+            while (Ptr < End) {
+                Ext2Dirent* Ent = (Ext2Dirent*)Ptr;
+                if (Ent->Reclen == 0) break;
+                if (Ent->Inode != 0 && Ent->NameLen == Len && memcmp(Ent->Name, Component, Len) == 0) {
+                    NextInode = Ent->Inode;
+                    break;
+                }
+                Ptr += Ent->Reclen;
+            }
+            PmmFreePages(pBuf, Pages);
+        }
+        if (NextInode == 0) return 0;
+        CurrentInode = NextInode;
+        Path += Len;
+        while (*Path == '/') Path++;
+    }
+    return CurrentInode;
+}
+
 VfsFile* Ext2VfsFindFile(const char* Path) {
+    VfsFile* Current = gVolume->Ext2Files;
     for (int i = 0; i < gCurrFileIdx; i++) {
-        // printf("ext2: vfs: %s ag %s\r\n", Path, gVolume->Ext2Files[i].Path);
-        if (strcmpl(gVolume->Ext2Files[i].Path, Path, strlen(gVolume->Ext2Files[i].Path)) == 0) return &gVolume->Ext2Files[i];
+        if (strcmpl(Current->Path, Path, VFS_MAX_ALLOWED_PATH) == 0) return Current;
+        Current = Current->Next;
     }
     return NULL;
 }
 
 int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
     (void)Offset; // todo
-    if (File->Type != VFS_TYPE_FILE) return -1;
     uint32_t Inode = File->DriverRsv;
     KSTATUS r = Ext2ReadRaw(gVolume, Inode, OutBuf);
     if (r != KSUCCESS) return -1;
     else return 0;
 }
 
+int Ext2VfsWrite(VfsFile* File, const void* InBuf, size_t Bytes, uint64_t Offset) {
+    uint32_t Inode = File->DriverRsv;
+    KSTATUS r = Ext2WriteFile(gVolume, Inode, InBuf, Bytes, (uint32_t)Offset);
+    if (r != KSUCCESS) return -1;
+    if (Bytes + Offset > File->Size) File->Size = (uint64_t)Bytes + Offset;
+    return Bytes;
+}
+
+int Ext2VfsCreate(const char* Path, int Type) {
+    char* DriverPath = VfsRemoveFormatPath(Path);
+    if (DriverPath[0] == '\0') return -1;
+    if (DriverPath[0] == '/' && DriverPath[1] == '\0') return -1;
+    // split parent path and filename
+    int LastSlashIdx = -1;
+    for (int i = 0; DriverPath[i] != '\0'; i++) {
+        if (DriverPath[i] == '/') LastSlashIdx = i;
+    }
+    char ParentPath[256];
+    const char* Name;
+    if (LastSlashIdx <= 0) {
+        ParentPath[0] = '/';
+        ParentPath[1] = '\0';
+        Name = (LastSlashIdx == 0) ? (DriverPath + 1) : DriverPath;
+    } else {
+        memcpy(ParentPath, DriverPath, LastSlashIdx);
+        ParentPath[LastSlashIdx] = '\0';
+        Name = DriverPath + LastSlashIdx + 1;
+    }
+    uint32_t ParentInode = Ext2ResolvePath(gVolume, ParentPath);
+    if (ParentInode == 0) return -1;
+    uint32_t InodeOut;
+    KSTATUS r = Ext2CreateFile(gVolume, ParentInode, Name, Type, &InodeOut);
+    if (r != KSUCCESS) return -1;
+    // also make vfs recognize it
+    VfsFile* File = MmAllocate(sizeof(VfsFile));
+    strlcpy(File->Path, Path, VFS_MAX_ALLOWED_PATH);
+    File->Type = Type;
+    File->DrivePtr = gVolume->Ext2Drive;
+    File->DriverRsv = InodeOut;
+    File->Size = 0;
+    File->Perms = 0;
+    File->Next = gVolume->Ext2Files;
+    gVolume->Ext2Files = File;
+    gCurrFileIdx++;
+    return 0;
+}
+
 // js copy and pasted it from tarfs cuz it was similar enough
 int Ext2VfsReadDir(VfsFile* File, VfsDirEntry* OutDirEnt, int Index) {
     uint64_t DirLen = strlen(File->Path);
     int matches = 0;
+    VfsFile* Current = gVolume->Ext2Files;
     for (int i = 0; i < gCurrFileIdx; i++) {
-        if (gVolume->Ext2Files[i].Path[0] == '\0') {
+        if (Current->Path[0] == '\0') {
             break; 
         }
-        const char* EntryPath = gVolume->Ext2Files[i].Path;
+        const char* EntryPath = Current->Path;
         if (strcmpl(EntryPath, File->Path, DirLen) != 0) continue;
         if (strcmpl(EntryPath, File->Path, DirLen) == 0 && DirLen == strlen(EntryPath)) continue;
         const char* RelativePart = EntryPath + DirLen;
@@ -819,7 +910,7 @@ int Ext2VfsReadDir(VfsFile* File, VfsDirEntry* OutDirEnt, int Index) {
         if (IsNest) continue;
         if (matches == Index) {
             OutDirEnt->Id = i;
-            OutDirEnt->Type = gVolume->Ext2Files[i].Type; // should be VFS_TYPE_DIRECTORY anyway
+            OutDirEnt->Type = Current->Type;
             memcpy(OutDirEnt->Name, RelativePart, strlen(RelativePart));
             memcpy(OutDirEnt->Path, EntryPath, strlen(EntryPath));
             OutDirEnt->Name[strlen(RelativePart)] = 0;
@@ -827,8 +918,17 @@ int Ext2VfsReadDir(VfsFile* File, VfsDirEntry* OutDirEnt, int Index) {
             return 1;
         }
         matches++;
+        Current = Current->Next;
     }
     return 0;
+}
+
+int Ext2VfsGetFileSize(VfsFile* File) {
+    uint32_t InodeNum = File->DriverRsv;
+    Ext2InoData Inode;
+    KSTATUS r = Ext2ReadInode(gVolume, InodeNum, &Inode);
+    KATTEMPT(r == KSUCCESS);
+    return Inode.SizeLow;
 }
 
 void Ext2SbInit(uint64_t lba, uint64_t partnum) {
@@ -839,9 +939,11 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     Vol->Ext2Drive->DriverOps->FindFile = Ext2VfsFindFile;
     Vol->Ext2Drive->DriverOps->Open = NULL; // dont really need these currently
     Vol->Ext2Drive->DriverOps->Close = NULL; // same goes
-    Vol->Ext2Drive->DriverOps->Write = NULL; // read only rn
+    Vol->Ext2Drive->DriverOps->Write = Ext2VfsWrite;
     Vol->Ext2Drive->DriverOps->Read = Ext2VfsRead;
     Vol->Ext2Drive->DriverOps->ReadDir = Ext2VfsReadDir;
+    Vol->Ext2Drive->DriverOps->Create = Ext2VfsCreate;
+    Vol->Ext2Drive->DriverOps->GetFileSize = Ext2VfsGetFileSize;
     snprintf(Vol->Ext2Drive->Name, 7, "ext2_%d", partnum);
     KSTATUS r = Ext2Mount(0, lba, Vol);
     if (r != KSUCCESS) {
@@ -859,24 +961,15 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
     }
     uint64_t Count = Ext2CountEntries(Vol, EXT2_ROOT_INODE, 0);
     printf("ext2: counted %d entries in fs.\r\n", Count);
-    Vol->Ext2Files = MmAllocate(sizeof(VfsFile) * Count);
+    Vol->Ext2Files = MmAllocate(sizeof(VfsFile));
     // manually make root node
-    snprintf(Vol->Ext2Files[gCurrFileIdx].Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, "/");
-    Vol->Ext2Files[gCurrFileIdx].DrivePtr = Vol->Ext2Drive;
-    Vol->Ext2Files[gCurrFileIdx].Size = Vol->BlockSize;
-    Vol->Ext2Files[gCurrFileIdx].Type = VFS_TYPE_DIRECTORY;
+    snprintf(Vol->Ext2Files->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, "/");
+    Vol->Ext2Files->DrivePtr = Vol->Ext2Drive;
+    Vol->Ext2Files->Size = Vol->BlockSize;
+    Vol->Ext2Files->Type = VFS_TYPE_DIRECTORY;
+    Vol->Ext2Files->Next = NULL;
     gCurrFileIdx++;
     r = Ext2CreateVfsTable(Vol, EXT2_ROOT_INODE, "/", 1, 0);
     VfsAddDriveToList(Vol->Ext2Drive);
     gVolume = Vol;
-    uint32_t Inode;
-    printf("ext2: created file called test.txt\r\n");
-    r = Ext2CreateFile(Vol, EXT2_ROOT_INODE, "test.txt", 0, &Inode);
-    KATTEMPT(r == KSUCCESS);
-    printf("ext2: writing string into file\r\n");
-    char* stuff = MmAllocate(20);
-    strlcpy(stuff, "hello ext2 :D", 14);
-    printf("stuff=%s\r\n", stuff);
-    r = Ext2WriteFile(Vol, Inode, stuff, 14, 0);
-    KATTEMPT(r == KSUCCESS);
 }
