@@ -42,6 +42,14 @@ KeDeviceObj* KeFindDeviceByName(const char* name) {
     return NULL;
 }
 
+void KeListDevices() {
+    KeDeviceObj* d = gDeviceListHead;
+    while (d != NULL) {
+        printf("kedriver: device: name='%s' driver name='%s'\r\n", d->Name, d->Owner->Name);
+        d = d->Next;
+    }
+}
+
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq) {
     if (!device || !ioreq) return KINVALID;
     KSTATUS (*handler)(struct KeDeviceObj*, struct KeIoRequest*) = device->Dispatch[ioreq->Major];

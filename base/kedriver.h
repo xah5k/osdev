@@ -29,7 +29,7 @@ typedef struct KeDeviceObj {
 typedef enum {
     IO_READ,
     IO_WRITE,
-    IO_RW,
+    IO_HWSPEC,
     IO_OPEN,
     IO_CLOSE,
 } KeIoReqType;
@@ -40,6 +40,17 @@ typedef struct KeIoRequest {
     uint64_t Length;
     uint64_t ReadBytes;
 } KeIoRequest;
+
+// hardware specific
+typedef struct {
+    uint8_t Seconds;
+    uint8_t Minutes;
+    uint8_t Hours;
+    uint8_t Days;
+    uint8_t Month;
+    uint8_t Year; // short hand as in 0-99
+} KeDevClockWallTime;
+#define KE_WALLTIME_HWSPEC_OFF 16
 
 #define KE_EXPORT_SYMBOL(func) \
     static const char __export_name_##func[] = #func; \
@@ -57,3 +68,4 @@ KeDriverObj* KeDrvFindDriverByName(const char* name);
 KeDeviceObj* KeFindDeviceByName(const char* name);
 void KeRegisterDevice(KeDeviceObj* dev);
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq);
+void KeListDevices() ;

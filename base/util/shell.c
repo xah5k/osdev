@@ -111,6 +111,8 @@ void KeShlProcess(char* string) {
         printf("getahci - read from ahci port.\r\n");
         printf("setahci - write a string to an ahci port.\r\n");
         printf("gptdump - checks gpt header and partitions.\r\n");
+        printf("lsdrvdev - list devices registered by drivers.\r\n");
+        printf("getwalltime - get walltime from a clock device.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -434,6 +436,33 @@ void KeShlProcess(char* string) {
         OsClose(h);
         MmFree(path);
         MmFree(newcontent);
+    } else if (strcmp(string, "lsdrvdev") == 0) {
+        KeListDevices();
+    } else if (strcmp(string, "getwalltime") == 0) {
+        printf("enter device name: ");
+        char* devname = KeShlReadStr();
+        printf("\r\n");
+        KeDeviceObj* Dev = KeFindDeviceByName(devname);
+        if (!Dev) {
+            printf("no such device '%s'\r\n", devname);
+            MmFree(devname);
+            return;
+        }
+        KeDevClockWallTime Walltime;
+        KeIoRequest Irp;
+        Irp.Major = IO_HWSPEC + KE_WALLTIME_HWSPEC_OFF;
+        Irp.Buffer = &Walltime;
+        Irp.Length = sizeof(KeDevClockWallTime);
+        Irp.ReadBytes = 0;
+        KSTATUS r = KeIoDispatch(Dev, &Irp);
+        if (r != KSUCCESS) {
+            printf("failed to do iorequest to device. (KSTATUS 0x%lx)\r\n", r);
+            MmFree(devname);
+            return;
+        }
+        printf("%d:%d:%d\r\n", Walltime.Hours, Walltime.Minutes, Walltime.Seconds);
+        printf("%d/%d/%d\r\n", Walltime.Days, Walltime.Month, Walltime.Year);
+        printf("\r\n");
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
