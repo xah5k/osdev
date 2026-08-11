@@ -538,7 +538,6 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
 
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
     MmapEntry* e = ThrGetCurrent()->ParentProc->MmapEntryHead;
-    printf("unmap: addr=0x%lx length=%lu\r\n", addr, length);
     while (e != NULL) {
         if (e->Vaddr == addr && e->Length == length) {
             for (int i = 0; i < e->Length; i+=PAGE_SIZE) {
