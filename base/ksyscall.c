@@ -489,6 +489,68 @@ uint64_t SysAccess(uint64_t patha, uint64_t exist, uint64_t readp, uint64_t writ
     return (uint64_t)-1;
 }
 
+uint64_t SysGetTermAttr(uint64_t IsStdinBuffer, uint64_t IsStdoutBuffer, KE_SYSCALL_ARGS_UNUSED2) {
+    *(uint64_t*)IsStdinBuffer = ThrGetCurrent()->ParentProc->TtyObj->TtyInfo->StdinBufferFl;
+    *(uint64_t*)IsStdoutBuffer = ThrGetCurrent()->ParentProc->TtyObj->TtyInfo->StdoutBufferFl;
+    return 0;
+}
+
+uint64_t SysSetTermAttr(uint64_t IsStdinBuffer, uint64_t IsStdoutBuffer, KE_SYSCALL_ARGS_UNUSED2) {
+    KeTtyInfo* TtyInfo = ThrGetCurrent()->ParentProc->TtyObj->TtyInfo;
+    TtyInfo->StdinBufferFl = IsStdinBuffer;
+    TtyInfo->StdoutBufferFl = IsStdoutBuffer;
+    return 0;
+}
+
+// stupid shi for max arg 5 limit
+typedef struct {
+    void* addr;
+    uint64_t length;
+    int protect;
+    int flags;
+    int fd;
+    uint64_t offset;
+} MmapArgs;
+
+uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
+    MmapArgs* args = (MmapArgs*)structptr;
+    if (!args) return (uint64_t)-1;
+    if (args->fd == -1 && args->flags & 0x20) {
+        MmapEntry* e = MmAllocate(sizeof(MmapEntry));
+        memset(e, 0, sizeof(MmapEntry));
+        uint64_t length = MMU_ROUND_PAGE_UP(args->length);
+        if (args->addr == 0x0) {
+            args->addr = (void*)ThrGetCurrent()->ParentProc->MmapBumpNext;
+            ThrGetCurrent()->ParentProc->MmapBumpNext += length;
+        }
+        for (int i = 0; i < length; i+=PAGE_SIZE) {
+            void* physframe = PmmAllocate();
+            memset((void*)P2V(physframe), 0, MMU_PAGE_SIZE);
+            MmuMapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), ((uint64_t)args->addr + i), (physaddr)physframe, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER); // todo actually set perms based off the args passed
+        }
+        e->Vaddr = (virtaddr)args->addr;
+        e->Next = ThrGetCurrent()->ParentProc->MmapEntryHead;
+        ThrGetCurrent()->ParentProc->MmapEntryHead = e;
+        return (uint64_t)args->addr;
+    }
+    return (uint64_t)-1;
+}
+
+uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
+    MmapEntry* e = ThrGetCurrent()->ParentProc->MmapEntryHead;
+    printf("unmap: addr=0x%lx length=%lu\r\n", addr, length);
+    while (e != NULL) {
+        if (e->Vaddr == addr && e->Length == length) {
+            for (int i = 0; i < e->Length; i+=PAGE_SIZE) {
+                MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), ((uint64_t)e->Vaddr + i));
+            }
+            return 0;
+        }
+        e = e->Next;
+    }
+    return -1;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -519,6 +581,10 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_DUP, SysDup);
     KiRegisterSyscall(OS_DUP2, SysDup2);
     KiRegisterSyscall(OS_ACCESS, SysAccess);
+    KiRegisterSyscall(OS_GTERMINFO, SysGetTermAttr);
+    KiRegisterSyscall(OS_STERMINFO, SysSetTermAttr);
+    KiRegisterSyscall(OS_MMAP, SysMmap);
+    KiRegisterSyscall(OS_MUNMAP, SysMunmap);
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif

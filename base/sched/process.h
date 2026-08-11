@@ -4,12 +4,15 @@
 #endif
 #include <kernel.h>
 #include <fs/vfs.h>
-
+#include <ttyobj.h>
 #define PS_USER_STACK_PAGES 4
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
 #define PS_USER_BRK_BASE 0x700000000000
 #define PS_USER_BRK_SIZE 0x40000000
+
+// only if hint=0x0 otherwise js use the hint
+#define PS_USER_MMAPDEC_BASE 0x0000700000000000ULL
 
 #define SCHED_THREAD_READY 1
 #define SCHED_THREAD_RUNNING 2
@@ -19,6 +22,13 @@
 #define SCHED_PRIV_KERNEL 0
 #define SCHED_PRIV_USER 1
 
+typedef struct MmapEntry {
+    virtaddr Vaddr;
+    uint64_t Length;
+    int Prot;
+    int Flags;
+    struct MmapEntry* Next;
+} MmapEntry;
 
 typedef struct ProcessCtrlBlk {
     char name[256]; // after like 20 years
@@ -33,6 +43,9 @@ typedef struct ProcessCtrlBlk {
     uint64_t SbrkLimit;
     uint64_t exitcode;
     uint64_t Mode; // stub for umask
+    KeTerminalObj* TtyObj;
+    MmapEntry* MmapEntryHead;
+    uint64_t MmapBumpNext;
     struct ThreadCtrlBlk* BlockedQueueHead;
     struct ThreadCtrlBlk* BlockedQueueTail;
     VfsOpenFileDescr* FileHandleTable;

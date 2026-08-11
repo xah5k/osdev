@@ -29,5 +29,9 @@ typedef enum {
     OS_DUP,
     OS_DUP2,
     OS_GETPPID,
-    OS_ACCESS
+    OS_ACCESS,
+    OS_GTERMINFO,
+    OS_STERMINFO,
+    OS_MMAP,
+    OS_MUNMAP
 } KiSyscallIdx;

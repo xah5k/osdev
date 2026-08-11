@@ -127,7 +127,6 @@ void Schedule() {
         _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
         #endif
     }
-
     if (DeathThread != NULL) {
         if (DeathThread->KernelStackBase) {
             MmFree((void*)DeathThread->KernelStackBase);
@@ -150,8 +149,19 @@ void Schedule() {
                 previous->Next = current->Next;
             }
             _s:
+            KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
             ProcFreePML4(DeathThread->ParentProc->pml4);
+            if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
+            if (DeathThread->ParentProc->MmapEntryHead) {
+                MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
+                MmapEntry* n;
+                while (c != NULL) {
+                    n = c->Next;
+                    MmFree(c);
+                    c = n;
+                }
+            }
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

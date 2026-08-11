@@ -9,6 +9,7 @@
 #include <kedriver.h>
 #include <util/kbdtransl.h>
 #include <external/posix/stat.h>
+#include <ttyobj.h>
 void VfsGetDrvFromPath(const char* Path, char* BufOut);
 // 16 max drives
 VfsDrive* gVfsDrives[16];
@@ -246,12 +247,7 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
         return BytesToRead;
     } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_CNSL) {
         KernelUnlockRsLck();
-        char c = KbdTranslGetc();
-        if (c == 0) {
-            return 0;
-        }
-        memcpy(buffer, &c, 1);
-        return 1;
+        return TtyRead(proc->TtyObj, buffer, nbytes);
     }
     KernelUnlockRsLck();
     return -1;
@@ -300,11 +296,7 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
         return BytesToWrite;
     } else if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_CNSL) {
         KernelUnlockRsLck();
-        const char* buf = (const char*)buffer;
-        for (uint64_t i = 0; i < nbytes; i++) {
-            _putchar(buf[i]); // before printf wouldve caused weird glitch characters to print out.
-        }
-        return nbytes;
+        return TtyWrite(proc->TtyObj, buffer, nbytes);
     }
     KernelUnlockRsLck();
     return -1;

@@ -221,11 +221,14 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->Parent = KernelGetInformation()->KernelProcess;
     new->Next = NULL;
     new->exitcode = 0;
+    new->MmapEntryHead = NULL;
+    new->MmapBumpNext = PS_USER_MMAPDEC_BASE;
     new->BlockedQueueHead = NULL;
     new->BlockedQueueTail = NULL;
     new->FileHandleTable[VFS_HANDLE_STDIN].Flag = VFS_OFD_FLAG_CNSL;
     new->FileHandleTable[VFS_HANDLE_STDOUT].Flag = VFS_OFD_FLAG_CNSL;
     new->FileHandleTable[VFS_HANDLE_STDERR].Flag = VFS_OFD_FLAG_CNSL;
+    new->TtyObj = TtyCreateObj(VFS_HANDLE_STDIN, VFS_HANDLE_STDOUT, VFS_HANDLE_STDERR);
     return new;
 }
 
@@ -273,6 +276,8 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     new->SbrkCurrent = proc->SbrkCurrent;
     new->SbrkLimit = proc->SbrkLimit;
     new->Parent = proc;
+    new->MmapEntryHead = proc->MmapEntryHead; // lazy
+    new->MmapBumpNext = proc->MmapBumpNext;
     memcpy((void*)new->cwd, (void*)proc->cwd, strlen(proc->cwd)+1);
     memcpy((void*)new->FileHandleTable, proc->FileHandleTable, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     ThreadCtrlBlk* thr = MmAllocate(sizeof(ThreadCtrlBlk));
@@ -405,6 +410,16 @@ void ThreadEntry() {
             KernelUnlockRsLck();
             MmFree(DeathThread->ParentProc->FileHandleTable);
             ProcFreePML4(DeathThread->ParentProc->pml4);
+            if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
+            if (DeathThread->ParentProc->MmapEntryHead) {
+                MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
+                MmapEntry* n;
+                while (c != NULL) {
+                    n = c->Next;
+                    MmFree(c);
+                    c = n;
+                }
+            }
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

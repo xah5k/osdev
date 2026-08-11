@@ -18,7 +18,7 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
     uint64_t arg5 = registers->r8;
     uint64_t result = 0;
     if (syscallnum >= KE_MAX_SYSCALL || !gSyscallTable[syscallnum]) {
-        printf("archsyscall: invalid syscall.\r\n");
+        printf("archsyscall: invalid syscall (index %d).\r\n", syscallnum);
         registers->rax = -1;
         return;
     }
