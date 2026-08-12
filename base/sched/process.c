@@ -256,9 +256,7 @@ void ThrCheckSignals(CpuInterruptArgs* OldCtx) {
     // uint64_t r = SpnLckAcquireRfl(&SignalChkLock);
     uint64_t Deliver = CurrentThread->SigPendingSet & ~CurrentThread->SigBlockedSet;
     if (!Deliver) return;
-    printf("process: Deliver=0x%lx, pid=%d\r\n", Deliver, CurrentThread->ParentProc->pid);
     uint8_t SigIdx = __builtin_ctzll(Deliver);
-    printf("process: SigIdx=%d\r\n", SigIdx);
     CurrentThread->SigPendingSet &= ~(1ULL << SigIdx);
     if (SigIdx == SIGKILL) {
         KE_SYSCALL_CALL_ARG1(SysExit, (uint64_t)-1);
@@ -267,7 +265,6 @@ void ThrCheckSignals(CpuInterruptArgs* OldCtx) {
     KeSignalHdlObj* SigObj = &CurrentThread->ParentProc->Handlers[SigIdx];
 
     if (SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTIGN) {
-        printf("process: ignoring because no handler\r\n");
         // ignore it
         return;
     }
@@ -276,18 +273,14 @@ void ThrCheckSignals(CpuInterruptArgs* OldCtx) {
         switch (KeSignalDefAct(SigIdx)) {
             case KE_SIGNAL_DEF_TERMINATE:
             case KE_SIGNAL_DEF_COREDUMP:
-            printf("process: exiting because no handler for critical signal (sigidx=%d)\r\n", SigIdx);
                 KE_SYSCALL_CALL_ARG1(SysExit, (uint64_t)512 + SigIdx);
                 return;
             case KE_SIGNAL_DEF_IGNORE:
-            printf("process: ignoring because no handler for KHDL (sigidx=%d)\r\n", SigIdx);
                 return;
             case KE_SIGNAL_DEF_STOP:
-                printf("process: todo job control.\r\n");
                 // todo cuz no job control
                 return;
             case KE_SIGNAL_DEF_CONT:
-                printf("process: todo job control.\r\n");
                 // same
                 return;
         }

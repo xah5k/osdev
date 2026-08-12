@@ -24,7 +24,6 @@ KSTATUS KeSignalDeregister(int Index, struct ProcessCtrlBlk* proc) {
 uint64_t SysSigReturn(uint64_t iframe, KE_SYSCALL_ARGS_UNUSED1) {
     CpuInterruptArgs* registers = (CpuInterruptArgs*)iframe;
     KeSignalUserFrame* SigFrame = (KeSignalUserFrame*)registers->rsp;
-    printf("registers=0x%lx SigFrame=0x%lx\r\n", registers, SigFrame);
     registers->r15 = SigFrame->r15;
     registers->r14 = SigFrame->r14;
     registers->r13 = SigFrame->r13;
