@@ -67,18 +67,9 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
             printf("kernel: page fault.\r\n");
             uint64_t faultaddr;
             asm volatile("mov %%cr2, %0" : "=r"(faultaddr));
-            // try correct the fault
-            if ((registers->errcode & 0x6) == 0x6) {
-                virtaddr VirtPage = faultaddr & ~0xFFF;
-                void* Page = PmmAllocate();
-                if (!Page) {
-                    // well shit
-                    printf("kernel: couldnt even allocate a physical page to try fix.\r\n");
-                    printf("kernel: killing user task..\r\n");
-                    KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
-                }
-                MmuMapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), VirtPage, (physaddr)Page, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
-                return; // retry
+            printf("fault address = 0x%lx rip = 0x%lx err = 0x%lx\r\n", faultaddr, registers->rip, registers->errcode);
+            while (1) {
+                __asm__("cli; hlt");
             }
         } else {
             printf("kernel: fault (intvec=%d)", registers->intnum);

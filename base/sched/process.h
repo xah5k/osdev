@@ -5,6 +5,7 @@
 #include <kernel.h>
 #include <fs/vfs.h>
 #include <ttyobj.h>
+#include <sched/ipc/signal.h>
 #define PS_USER_STACK_PAGES 4
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
@@ -46,6 +47,7 @@ typedef struct ProcessCtrlBlk {
     KeTerminalObj* TtyObj;
     MmapEntry* MmapEntryHead;
     uint64_t MmapBumpNext;
+    KeSignalHdlObj Handlers[KE_SIGLIST_MAX];
     struct ThreadCtrlBlk* BlockedQueueHead;
     struct ThreadCtrlBlk* BlockedQueueTail;
     VfsOpenFileDescr* FileHandleTable;
@@ -66,7 +68,8 @@ typedef struct ThreadCtrlBlk {
     void* entry;
     uint8_t privilege; // 0 = kernel, 1 = user
     uint64_t exitcode;
-    uint8_t pendingkill;
+    uint64_t SigPendingSet;
+    uint64_t SigBlockedSet;
     char** UserArgv;
     int UserArgc;
     uint64_t FsBase;
@@ -74,6 +77,7 @@ typedef struct ThreadCtrlBlk {
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
+    CpuInterruptArgs* LastIframe;
 #endif
 } ThreadCtrlBlk;
 
@@ -94,5 +98,5 @@ void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);
 void ProcFreePML4(pagetable* pml4p);
 void ProcFreeInnerPML4(pagetable* pml4p);
-void ThrCheckPendingKill();
+void ThrCheckSignals(CpuInterruptArgs* OldCtx);
 void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc, const char** envp, int envc);

@@ -9,6 +9,9 @@
 #include <ksyscall.h>
 #include <util/util.h>
 #include <kedriver.h>
+#include <sched/ipc/signal.h>
+#include <external/posix/signal.h>
+#include <sched/ipc/signaltrampoline.h>
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
@@ -185,6 +188,12 @@ void ThreadMapUserStack(ThreadCtrlBlk* Tcb) {
         MmuMapPage((pagetable*)P2V(Tcb->ParentProc->cr3), CurrentVirt, phys, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
         CurrentVirt += PAGE_SIZE;
     }
+    // also map signal trampoline
+    void* SignalTrampoline = PmmAllocate();
+    memset((void*)P2V(SignalTrampoline), 0, MMU_PAGE_SIZE);
+    memcpy((void*)P2V(SignalTrampoline), __signal_trampoline, sizeof(__signal_trampoline));
+    MmuMapPage((pagetable*)P2V(Tcb->ParentProc->cr3), KE_LDR_SIGNAL_ADDR, (physaddr)SignalTrampoline, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_US_USER);
+    // for (int i = 0; i < 10; i++) printf("thrmap: SignalTrampoline(mapped into proc cr3)[%d]=%x\r\n", i, vtmp[i]);
 }
 
 ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc, const char** envp, int envc) {
@@ -198,7 +207,6 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc,
         ThreadCreateUserStack(new, entry, argv, argc, envp, envc);
     }
     new->exitcode = 0;
-    new->pendingkill = 0;
     new->FsBase = 0;
     new->GsBase = 0;
     return new;
@@ -229,6 +237,7 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->FileHandleTable[VFS_HANDLE_STDOUT].Flag = VFS_OFD_FLAG_CNSL;
     new->FileHandleTable[VFS_HANDLE_STDERR].Flag = VFS_OFD_FLAG_CNSL;
     new->TtyObj = TtyCreateObj(VFS_HANDLE_STDIN, VFS_HANDLE_STDOUT, VFS_HANDLE_STDERR);
+    KATTEMPT(KeSignalInitDef(new) == KSUCCESS);
     return new;
 }
 
@@ -239,10 +248,52 @@ ThreadCtrlBlk* ThrGetCurrent() {
     return c;
 }
 KE_EXPORT_SYMBOL(ThrGetCurrent);
-void ThrCheckPendingKill() {
-    if (CurrentThread->pendingkill) {
-        KE_SYSCALL_CALL_ARG1(SysExit, -1);
+// checks if a signal is pending
+// sm bs always randomly jumping to this static Spinlock SignalChkLock = {ATOMIC_FLAG_INIT};
+
+void ThrCheckSignals(CpuInterruptArgs* OldCtx) {
+    if (!OldCtx) return;
+    // uint64_t r = SpnLckAcquireRfl(&SignalChkLock);
+    uint64_t Deliver = CurrentThread->SigPendingSet & ~CurrentThread->SigBlockedSet;
+    if (!Deliver) return;
+    printf("process: Deliver=0x%lx, pid=%d\r\n", Deliver, CurrentThread->ParentProc->pid);
+    uint8_t SigIdx = __builtin_ctzll(Deliver);
+    printf("process: SigIdx=%d\r\n", SigIdx);
+    CurrentThread->SigPendingSet &= ~(1ULL << SigIdx);
+    if (SigIdx == SIGKILL) {
+        KE_SYSCALL_CALL_ARG1(SysExit, (uint64_t)-1);
+        return;
     }
+    KeSignalHdlObj* SigObj = &CurrentThread->ParentProc->Handlers[SigIdx];
+
+    if (SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTIGN) {
+        printf("process: ignoring because no handler\r\n");
+        // ignore it
+        return;
+    }
+
+    if (SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTKHDL) {
+        switch (KeSignalDefAct(SigIdx)) {
+            case KE_SIGNAL_DEF_TERMINATE:
+            case KE_SIGNAL_DEF_COREDUMP:
+            printf("process: exiting because no handler for critical signal (sigidx=%d)\r\n", SigIdx);
+                KE_SYSCALL_CALL_ARG1(SysExit, (uint64_t)512 + SigIdx);
+                return;
+            case KE_SIGNAL_DEF_IGNORE:
+            printf("process: ignoring because no handler for KHDL (sigidx=%d)\r\n", SigIdx);
+                return;
+            case KE_SIGNAL_DEF_STOP:
+                printf("process: todo job control.\r\n");
+                // todo cuz no job control
+                return;
+            case KE_SIGNAL_DEF_CONT:
+                printf("process: todo job control.\r\n");
+                // same
+                return;
+        }
+    }
+    // SpnLckReleaseRfl(&SignalChkLock, r);
+    KeSignalHandle(CurrentThread, SigIdx, SigObj, OldCtx);
 }
 
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv) {
@@ -285,7 +336,6 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     thr->state = SCHED_THREAD_READY;
     thr->privilege = caller->privilege;
     thr->exitcode = 0;
-    thr->pendingkill = 0;
 
     // fake a stack cuz if we use cpuinterruptargs directly itll pop absolute garbage
     uint64_t* StackBase = (uint64_t*)MmAllocate(16384);

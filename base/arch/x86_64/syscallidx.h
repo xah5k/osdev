@@ -33,5 +33,7 @@ typedef enum {
     OS_GTERMINFO,
     OS_STERMINFO,
     OS_MMAP,
-    OS_MUNMAP
+    OS_MUNMAP,
+    OS_SIGRETURN,
+    OS_SIGREGISTER,
 } KiSyscallIdx;

@@ -10,6 +10,7 @@ void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr) {
     gSyscallTable[index] = ptr;
 }
 void KiHandleSyscall(CpuInterruptArgs* registers) {
+    ThrGetCurrent()->LastIframe = registers;
     uint64_t syscallnum = registers->rax;
     uint64_t arg1 = registers->rdi;
     uint64_t arg2 = registers->rsi;
@@ -23,14 +24,12 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
         return;
     }
     // special cuz it needs the whole register frame
-    if (syscallnum == OS_FORK) {
-        result = gSyscallTable[OS_FORK]((uint64_t)registers, 0, 0, 0, 0);
+    if (syscallnum == OS_FORK || syscallnum == OS_SIGRETURN) {
+        result = gSyscallTable[syscallnum]((uint64_t)registers, 0, 0, 0, 0);
     }
     else  { result = gSyscallTable[syscallnum](arg1, arg2, arg3, arg4, arg5); }
     registers->rax = result;
-    if (CurrentThread->pendingkill) {
-        KE_SYSCALL_CALL_ARG1(SysExit, -1);
-    }
+    ThrCheckSignals(ThrGetCurrent()->LastIframe);
 }
 
 uint64_t SysSetFsBase(uint64_t base, KE_SYSCALL_ARGS_UNUSED1) {

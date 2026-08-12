@@ -9,6 +9,7 @@
 #include <memory.h>
 #include <sched/process.h>
 #include <external/posix/stat.h>
+#include <external/posix/signal.h>
 #ifdef __x86_64__
 #include <arch/x86_64/pci/pci.h>
 #endif
@@ -86,6 +87,7 @@ void KeShlProcess(char* string) {
         printf("----------------------- process -----------------------\r\n");
         printf("exec - execute a user mode binary.\r\n");
         printf("lsproc - list processes and threads.\r\n");
+        printf("kill - kills a process.\r\n");
         printf("----------------------- fs -----------------------\r\n");
         printf("fsisabsol - checks if a path is absolute.\r\n");
         printf("fstranslpath - translates a rel path to a absolute one.\r\n");
@@ -144,8 +146,8 @@ void KeShlProcess(char* string) {
         argv[argc] = NULL;
         uint64_t pid = SysSpawn((uint64_t)s, (uint64_t)argv, (uint64_t)argc, (uint64_t)gKeEnvp, (uint64_t)gKeEnvc);
         printf("\r\nspawned process with pid %d\r\n", pid);
-        uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
-        printf("\r\nprocess exited with code %d\r\n", r);
+        // uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
+        // printf("\r\nprocess exited with code %d\r\n", r);
         MmFree(s);
     } else if (strcmp(string, "lsproc") == 0) {
         ProcListRunning(KernelGetInformation());
@@ -448,6 +450,24 @@ void KeShlProcess(char* string) {
         VfsTranslatePath(path, acpath, ThrGetCurrent()->ParentProc);
         printf("translated path: %s\r\n", acpath);
         MmFree(path);
+    } else if (strcmp(string, "kill") == 0) {
+        printf("enter pid: ");
+        char* pids = KeShlReadStr();
+        printf("\r\n");
+        int pid = AsciiAsInt(pids);
+        MmFree(pids);
+        printf("enter signum: ");
+        char* sigs = KeShlReadStr();
+        printf("\r\n");
+        int sig = AsciiAsInt(sigs);
+        MmFree(sigs);
+        ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
+        ThreadCtrlBlk* current = process->ThreadListHead;
+        while (current != NULL) {
+            current->SigPendingSet |= (1ULL << sig);
+            current = current->ProcNext;
+        }
+        printf("sent signal to pid.\r\n");
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

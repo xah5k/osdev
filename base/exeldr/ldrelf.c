@@ -71,7 +71,6 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     ThreadMapUserStack(self);
     self->entry = (void*)entry;
     self->exitcode = 0;
-    self->pendingkill = 0;
     target->ThreadListHead = self;
     for (int i = 0; i < argc; i++) MmFree(kargv[i]);
     for (int i = 0; i < envc; i++) MmFree(kenvp[i]);

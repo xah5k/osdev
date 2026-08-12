@@ -17,6 +17,8 @@
 #include <external/posix/dirent.h>
 #include <external/utsname.h>
 #include <external/posix/ioctl.h>
+#include <sched/ipc/signal.h>
+#include <external/posix/signal.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -105,10 +107,10 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     if (!process) return -1; // no such process
     ThreadCtrlBlk* thrlist = process->ThreadListHead;
     if (!thrlist) return -1; // well somethings probably gone wrong (process is probably in the process of being killed)
-    // set pending kill flag on all threads on process
+    // send SIGKILL
     ThreadCtrlBlk* current = thrlist;
     while (current != NULL) {
-        current->pendingkill = 1;
+        current->SigPendingSet |= (1ULL << SIGKILL);
         current = current->ProcNext;
     }
     return 0;
@@ -584,6 +586,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_STERMINFO, SysSetTermAttr);
     KiRegisterSyscall(OS_MMAP, SysMmap);
     KiRegisterSyscall(OS_MUNMAP, SysMunmap);
+    KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();
     #endif
