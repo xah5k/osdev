@@ -1,7 +1,7 @@
 #pragma once
 #include <kernel.h>
 #include <arch/x86_64/cpu/cpu.h>
-#define KE_SIGLIST_MAX 32
+#define KE_SIGLIST_MAX 128
 // ignore
 #define KE_SIGLIST_ADDR_DEFAULTIGN 0
 // kernel default handler
