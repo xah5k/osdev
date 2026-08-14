@@ -24,6 +24,9 @@ KeDriverObj* KeDrvFindDriverByName(const char* name) {
 void* KeGetExport(const char* name) {
     uint64_t TotalExports = (uint64_t)__end_kexports - (uint64_t)__start_kexports;
     for (uint64_t i = 0; i < TotalExports; i++) {
+        if (__start_kexports[i].name == 0) {
+            printf("kedriver: GetExport: failed to search for export '%s'. export list end\r\n", name);
+        }
         if (strcmp(__start_kexports[i].name, name) == 0) {
             return __start_kexports[i].addr;
         }

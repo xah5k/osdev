@@ -54,6 +54,7 @@ typedef enum {
 #define KFORWARD(x, c, i) x[c+i]
 
 #define KDBG printf("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);
+#define KDBGC(x) x("dbg %s:%d:%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 #define KATTEMPT(x) if (!(x))  { printf("x=%lu\r\n", x); KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__); }
 
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers);

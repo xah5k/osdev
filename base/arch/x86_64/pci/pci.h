@@ -26,7 +26,6 @@ typedef struct {
     uint32_t BAR3;
     uint32_t BAR4;
     uint32_t BAR5;
-    uint32_t BAR6;
     uint32_t CardbusCISPtr;
     uint16_t SbSysVendorId;
     uint16_t SbSysId;
@@ -49,3 +48,6 @@ typedef struct KePciDeviceHdr {
 
 void PciEnumerate(AcpiMcfgTable* mcfg);
 KePciDeviceHdr* PciGetLinkedList();
+uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset);
+
+#define PCI_ECAM(base, bus, dev, func, offset) (volatile uint32_t*)(base + ((uint64_t)bus << 20) + ((uint64_t)dev << 15) + ((uint64_t)func << 12) + offset)

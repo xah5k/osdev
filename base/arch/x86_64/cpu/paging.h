@@ -1,6 +1,5 @@
 #pragma once
 #include <stdint.h>
-
 #define PAGE_SIZE 4096
 
 #define MMU_PAGE_SIZE 4096
@@ -35,9 +34,12 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
 void MmuMapRegion(pagetable* pml4, virtaddr vstart, physaddr pstart, physaddr pend, unsigned int flags);
 physaddr MmuGetPhys(uint64_t pml4p, virtaddr virt);
 void MmuUnmapPage(pagetable* pml4, virtaddr virt);
+
 //void MapLargePage(physaddr physical, virtaddr virtual, unsigned int flags) ;
 
 extern uint64_t gMmuVOffset;
 extern void _x86_64_load_pml4(uint64_t);
 extern uint64_t _x86_64_get_pml4();
+
 int MmuForkCopyUserSpace(pagetable* ParentPml4, pagetable* ChildPml4);
+uint64_t MmuGetPml4();

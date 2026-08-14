@@ -6,7 +6,7 @@
 #include <printfwrapper.h>
 // offset used for memory
 uint64_t gMmuVOffset = 0;
-
+KE_EXPORT_SYMBOL(gMmuVOffset);
 void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flags) {
     uint64_t pml4idx = (virt >> 39) & 0x1FF;
     uint64_t pdptidx = (virt >> 30) & 0x1FF;
@@ -165,3 +165,9 @@ int MmuForkCopyUserSpace(pagetable* ParentPml4, pagetable* ChildPml4) {
 
     return 0;
 }
+
+// hack for drivers cuz we cant export asm symbols (well atleast not in elf files)
+uint64_t MmuGetPml4() {
+    return _x86_64_get_pml4();
+}
+KE_EXPORT_SYMBOL(MmuGetPml4);

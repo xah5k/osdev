@@ -9,12 +9,19 @@ KePciDeviceHdr* gPciDevListHead = NULL;
 KePciDeviceHdr* PciGetLinkedList() {
     return gPciDevListHead;
 }
+KE_EXPORT_SYMBOL(PciGetLinkedList);
+
+uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
+    volatile uint32_t* p = PCI_ECAM(base, bus, dev, func, offset & ~0x3);
+    return *p;
+}
+KE_EXPORT_SYMBOL(PciReadDword);
 
 void PciEnumFunction(uint64_t DevAddress, uint64_t Function) {
     uint64_t Offset = Function << 12;
     uint64_t FuncAddress = DevAddress + Offset;
     // map address otherwise mmu will go oh shittings
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)FuncAddress, (virtaddr)P2V(FuncAddress), MMU_PAGE_BIT_P_PRESENT);
+    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)FuncAddress, (virtaddr)P2V(FuncAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(FuncAddress);
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
@@ -39,7 +46,7 @@ void PciEnumDev(uint64_t BusAddress, uint64_t Device) {
     uint64_t Offset = Device << 15;
     uint64_t DeviceAddress = BusAddress + Offset;
     // map address otherwise mmu will go oh shittings
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)DeviceAddress, (virtaddr)P2V(DeviceAddress), MMU_PAGE_BIT_P_PRESENT);
+    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)DeviceAddress, (virtaddr)P2V(DeviceAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(DeviceAddress);
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
@@ -52,7 +59,8 @@ void PciEnumBus(uint64_t Base, uint64_t Bus) {
     uint64_t Offset = Bus << 20;
     uint64_t BusAddress = Base + Offset;
     // map address otherwise mmu will go oh shittings
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)BusAddress, (virtaddr)P2V(BusAddress), MMU_PAGE_BIT_P_PRESENT);
+    // note: we still in identity mapped so we dont need to convert pml4
+    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)BusAddress, (virtaddr)P2V(BusAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(BusAddress);
     if (PciDevHdr->DeviceID == 0 || PciDevHdr->DeviceID == 0xFFFF) return;
     for (uint64_t Dev = 0; Dev < 32; Dev++) {

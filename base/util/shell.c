@@ -16,7 +16,7 @@
 #include <disk/ahci.h>
 #include <mm/pmm.h>
 #include <disk/ptable.h>
-
+#include <net/net.h>
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -114,6 +114,8 @@ void KeShlProcess(char* string) {
         printf("gptdump - checks gpt header and partitions.\r\n");
         printf("lsdrvdev - list devices registered by drivers.\r\n");
         printf("getwalltime - get walltime from a clock device.\r\n");
+        printf("----------------------- networking -----------------------\r\n");
+        printf("lsnic - list network cards and their relevant info.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -468,6 +470,15 @@ void KeShlProcess(char* string) {
             current = current->ProcNext;
         }
         printf("sent signal to pid.\r\n");
+    } else if (strcmp(string, "lsnic") == 0) {
+        NetInterface* Nic = NetGetLinkedList();
+        while (Nic != NULL) {
+            printf("%s: \r\n", Nic->Name);
+            printf("    MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", Nic->MacAddress[0], Nic->MacAddress[1], Nic->MacAddress[2], Nic->MacAddress[3], Nic->MacAddress[4], Nic->MacAddress[5]);
+            printf("    Drvdev info: \r\n");
+            printf("         name='%s' driver name='%s'\r\n", Nic->Device->Name, Nic->Device->Owner->Name);
+            Nic = Nic->Next;
+        }
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

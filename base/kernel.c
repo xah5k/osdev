@@ -285,7 +285,11 @@ static void KeInitalizeDrivers() {
                     continue;
                 }
                 printf("kernel: driver object @ 0x%lx\r\n", driver);
+                if (!driver->Initalize) {
+                    printf("kernel: error: driver load fail. no initalize func???\r\n");
+                }
                 KSTATUS init = driver->Initalize(driver);
+                printf("kernel: driver return KSTATUS %d\r\n", init);
                 if (init != KSUCCESS) {
                     printf("kernel: warn: driver load fail. discarding.\r\n");
                     MmFree(driver);
