@@ -58,10 +58,10 @@ clean:
 	@$(MAKE) -C drivers clean ARCH=$(ARCH)
 
 run-x86_64:
-	qemu-system-x86_64 -net none -m 128M -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio
+	qemu-system-x86_64 -net none -net nic,model=rtl8139 -net user -m 128M -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio
 
 run-x86_64-uefi:
-	qemu-system-x86_64 -net none -m 128M -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
+	qemu-system-x86_64 -net none -net nic,model=rtl8139 -net user -m 128M -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
 
 run-x86_64-efi-dbg:
-	qemu-system-x86_64 -net none -m 128M -s -S -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
+	qemu-system-x86_64 -net none -net nic,model=rtl8139 -net user -m 128M -s -S -M q35 -drive file=osdev.img,format=raw $(QARG) -serial stdio -drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on
