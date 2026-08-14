@@ -12,11 +12,13 @@
 #include <external/posix/signal.h>
 #ifdef __x86_64__
 #include <arch/x86_64/pci/pci.h>
+#include <arch/x86_64/cpu/ioapic.h>
 #endif
 #include <disk/ahci.h>
 #include <mm/pmm.h>
 #include <disk/ptable.h>
 #include <net/net.h>
+
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -114,6 +116,7 @@ void KeShlProcess(char* string) {
         printf("gptdump - checks gpt header and partitions.\r\n");
         printf("lsdrvdev - list devices registered by drivers.\r\n");
         printf("getwalltime - get walltime from a clock device.\r\n");
+        printf("ioapiclgirq - translates a legacy irq into ioapic gsi.\r\n");
         printf("----------------------- networking -----------------------\r\n");
         printf("lsnic - list network cards and their relevant info.\r\n");
     } else if (strcmp(string, "ls") == 0) {
@@ -479,6 +482,14 @@ void KeShlProcess(char* string) {
             printf("         name='%s' driver name='%s'\r\n", Nic->Device->Name, Nic->Device->Owner->Name);
             Nic = Nic->Next;
         }
+    } else if (strcmp(string, "ioapiclgirq") == 0) {
+        printf("enter irq num: ");
+        char* irqs = KeShlReadStr();
+        printf("\r\n");
+        int irq = AsciiAsInt(irqs);
+        MmFree(irqs);
+        uint32_t gsi = CpuIoApicTranslateIrq(irq);
+        printf("translated to gsi %d\r\n", gsi);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

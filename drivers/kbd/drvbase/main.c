@@ -87,7 +87,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
 
     entry |= 0x21;
 
-    CpuIoApicSetRedirEntry(1, entry);
+    CpuIoApicSetRedirEntry(CpuIoApicTranslateIrq(1), entry);
     CpuRegisterHandler(33, KbdInterruptHandler);
     
     // create device object

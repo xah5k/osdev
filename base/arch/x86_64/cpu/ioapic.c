@@ -15,6 +15,15 @@ physaddr ioapicphysbase;
 virtaddr ioapicvirtbase;
 static Spinlock IoApicLock = {ATOMIC_FLAG_INIT};
 
+typedef struct CpuIoApicRedirEnt {
+    uint8_t LegacyIrq;
+    uint32_t Gsi;
+    uint16_t Flags;
+    int Present;
+} CpuIoApicRedirEnt;
+
+static CpuIoApicRedirEnt IoApicLegacyMap[16];
+
 void CpuIoApicWrite(uint32_t reg, uint32_t value) {
     SpnLckAcquire(&IoApicLock);
     *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_SELECTOR) = reg;
@@ -38,15 +47,26 @@ KE_EXPORT_SYMBOL(CpuGetIoApicVirtBase);
 physaddr CpuGetIoApicPhysBase(AcpiMadtTable* madt) {
     AcpiMadtIntDeviceHdr* Hdr = madt->IntDevices;
     uint64_t end = ((uint64_t)Hdr + madt->header.Length);
+    uint64_t IoApicR = 0;
     while ((uint64_t)Hdr < end) {
+        if (Hdr->Type == 2) {
+            AcpiMadtIntDevIntSrc* DevIntSrc = (AcpiMadtIntDevIntSrc*)Hdr;
+            IoApicLegacyMap[DevIntSrc->IrqSource].LegacyIrq = DevIntSrc->IrqSource;
+            IoApicLegacyMap[DevIntSrc->IrqSource].Flags = DevIntSrc->Flags;
+            IoApicLegacyMap[DevIntSrc->IrqSource].Gsi = DevIntSrc->Gsi;
+            IoApicLegacyMap[DevIntSrc->IrqSource].Present = 1;
+        }
         if (Hdr->Type == 1) {
             AcpiMadtIntDevIoApic* DevIoApic = (AcpiMadtIntDevIoApic*)Hdr;
-            return DevIoApic->IoApicAddress;
+            if (IoApicR != 0) {
+                return IoApicR; // a entry was already previously found.
+            }
+            IoApicR = DevIoApic->IoApicAddress;
         }
         //printf("ioapic: hdr @ 0x%lx end @ 0x%lx\r\n", Hdr, end);
         Hdr = (AcpiMadtIntDeviceHdr*)((uint8_t*)Hdr + Hdr->Length);
     }
-    return 0;
+    return IoApicR;
 }
 
 void CpuIoApicSetRedirEntry(uint8_t gsi, uint64_t data) {
@@ -56,7 +76,20 @@ void CpuIoApicSetRedirEntry(uint8_t gsi, uint64_t data) {
     CpuIoApicWrite(low, (uint32_t)data);
     CpuIoApicWrite(high, (uint32_t)(data >> 32));
 }
+
 KE_EXPORT_SYMBOL(CpuIoApicSetRedirEntry);
+
+uint32_t CpuIoApicTranslateIrq(uint32_t Irq) {
+    if (Irq < 16) {
+        // legacy irq
+        if (IoApicLegacyMap[Irq].Present) {
+            return IoApicLegacyMap[Irq].Gsi;
+        }
+    }
+    // no override found
+    return Irq;
+}
+KE_EXPORT_SYMBOL(CpuIoApicTranslateIrq);
 
 void CpuInitalizeIoApic(AcpiRsdtTable* rsdt) {
     AcpiMadtTable* madt = AcpiFindTable(rsdt, "APIC");

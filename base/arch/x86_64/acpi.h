@@ -46,6 +46,14 @@ typedef struct {
 } __attribute__((packed)) AcpiMadtIntDevIoApic;
 
 typedef struct {
+    AcpiMadtIntDeviceHdr header;
+    char BusSource;
+    char IrqSource;
+    uint32_t Gsi;
+    uint16_t Flags;
+} __attribute__((packed)) AcpiMadtIntDevIntSrc;
+
+typedef struct {
     AcpiTableHeader header;
     uint32_t LapicAddress;
     uint32_t Flags;

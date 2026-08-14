@@ -39,6 +39,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     Nic->IoBase = ((PciDeviceHeaderTy0*)PciDev->Header)->BAR0 & ~0x3;
     uint32_t Cmd = PciReadDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04);
     Cmd |= (1 << 2); // dma
+    Cmd &= ~(1 << 10); // if for some reason interrupt disable bit is 1 clear it
     PciWriteDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04, Cmd);
     outb(Nic->IoBase + 0x52, 0); // turn on the rtl8139
     // reset (similar to ne2k)
