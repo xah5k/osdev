@@ -134,6 +134,7 @@ void Ne2kIrqHandler(CpuInterruptArgs* r) {
         // todo
         KeDrvWrite("ne2k: irq: transmit packet finished.\r\n");
     }
+    KeDrvWrite("ne2k: irq: clearing iobase bits.\r\n");
     outb((uint16_t)stupid->IoBase + 0x07, isr); // clear bits otherwise bad stuff might happen
     // see whos next in queue and handle their packet too
     uint64_t rfl = SpnLckAcquireRfl(&PckLck); // not a good idea to lock inside an irq
@@ -174,11 +175,15 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     KeDrvWriteFmt("ne2k: pci int line 0x%lx pci int pin 0x%lx\r\n", ((PciDeviceHeaderTy0*)PciDev->Header)->InterruptLine, ((PciDeviceHeaderTy0*)PciDev->Header)->InterruptPin);
     Nic->Next = NULL;
     Nic->Device = device;
+    uint32_t Cmd = PciReadDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04);
+    Cmd |= (1 << 0);
+    Cmd |= (1 << 2);
+    Cmd &= ~(1 << 10); // if for some reason interrupt disable bit is 1 clear it
+    PciWriteDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04, Cmd);
     // write reset
     outb((uint16_t)Nic->IoBase + 0x1F, inb((uint16_t)Nic->IoBase + 0x1F));
     // wait for reset
     while ((inb((uint16_t)Nic->IoBase + 0x07) & 0x80) == 0);
-    // disable interrupts
     // prob should use Ne2kWriteReg but i wrote this before i added that
     outb((uint16_t)Nic->IoBase + 0x07, 0xFF);
     uint8_t Rom[32];
@@ -220,6 +225,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     // also ne2k should send interrupts
     outb((uint16_t)Nic->IoBase + 0x0F, NE2K_IMR_PRXE | NE2K_IMR_PTXE | NE2K_IMR_RXEE | NE2K_IMR_TXEE | NE2K_IMR_OVWE);
     outb((uint16_t)Nic->IoBase + 0x0C, (1 << 2) | (1 << 4));
+    outb((uint16_t)Nic->IoBase, (1 << 1)); // actually start the card
     NetRegisterNic(Nic);
     KeDrvWrite("ne2k: registered irq handler and nic inside kernel nic list.\r\n");
     return KSUCCESS;

@@ -13,11 +13,20 @@ KE_EXPORT_SYMBOL(PciGetLinkedList);
 
 uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
     volatile uint32_t* p = PCI_ECAM(base, bus, dev, func, offset & ~0x3);
-    return *p;
+    volatile uint32_t* v = (volatile uint32_t*)P2V(p);
+    return *v;
 }
 KE_EXPORT_SYMBOL(PciReadDword);
 
-void PciEnumFunction(uint64_t DevAddress, uint64_t Function) {
+void PciWriteDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_t value) {
+    volatile uint32_t* p = PCI_ECAM(base, bus, dev, func, offset & ~0x1);
+    volatile uint32_t* v = (volatile uint32_t*)P2V(p);
+    *v = value;
+}
+
+KE_EXPORT_SYMBOL(PciWriteDword);
+
+void PciEnumFunction(uint64_t DevAddress, uint64_t Function, uint64_t Base, uint64_t Bus, uint64_t Dev) {
     uint64_t Offset = Function << 12;
     uint64_t FuncAddress = DevAddress + Offset;
     // map address otherwise mmu will go oh shittings
@@ -27,6 +36,10 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function) {
     if (PciDevHdr->DeviceID == 0xFFFF) return;
     printf("pci: new device: %lx:%lx\r\n", PciDevHdr->VendorID, PciDevHdr->DeviceID);
     KePciDeviceHdr* LinkedListType = MmAllocate(sizeof(KePciDeviceHdr));
+    LinkedListType->Bus = Bus;
+    LinkedListType->Dev = Dev;
+    LinkedListType->Func = Function;
+    LinkedListType->EcamBase = Base;
     LinkedListType->Header = PciDevHdr;
     LinkedListType->Next = gPciDevListHead;
     gPciDevListHead = LinkedListType;
@@ -42,7 +55,7 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function) {
     }
 }
 
-void PciEnumDev(uint64_t BusAddress, uint64_t Device) {
+void PciEnumDev(uint64_t BusAddress, uint64_t Device, uint64_t Base, uint64_t Bus) {
     uint64_t Offset = Device << 15;
     uint64_t DeviceAddress = BusAddress + Offset;
     // map address otherwise mmu will go oh shittings
@@ -51,7 +64,7 @@ void PciEnumDev(uint64_t BusAddress, uint64_t Device) {
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
     for (uint64_t Func = 0; Func < 8; Func++) {
-        PciEnumFunction(DeviceAddress, Func);
+        PciEnumFunction(DeviceAddress, Func, Base, Bus, Device);
     }
 }
 
@@ -64,7 +77,7 @@ void PciEnumBus(uint64_t Base, uint64_t Bus) {
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(BusAddress);
     if (PciDevHdr->DeviceID == 0 || PciDevHdr->DeviceID == 0xFFFF) return;
     for (uint64_t Dev = 0; Dev < 32; Dev++) {
-        PciEnumDev(BusAddress, Dev);
+        PciEnumDev(BusAddress, Dev, Base, Bus);
     }
 }
 void PciEnumerate(AcpiMcfgTable* mcfg) {

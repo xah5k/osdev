@@ -258,3 +258,9 @@ ah5k@DESKTOP-JL92OAJ:~/osdev$ cd ext2root
 ah5k@DESKTOP-JL92OAJ:~/osdev/ext2root$ ls
 ls: cannot access 'yowassup': No such file or directory
 hi.txt  lost+found  yowassup
+
+
+
+// ne2k reg trace
+
+ah5k@DESKTOP-JL92OAJ:~/osdev$ make run-x86_64-uefi "QARG=-trace ne2000\*"

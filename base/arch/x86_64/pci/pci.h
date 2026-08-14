@@ -42,12 +42,17 @@ typedef struct {
 
 
 typedef struct KePciDeviceHdr {
+    uint64_t Bus;
+    uint64_t Dev;
+    uint64_t Func;
+    uint64_t EcamBase;
     PciDeviceHeader* Header;
     struct KePciDeviceHdr* Next;
 } KePciDeviceHdr; 
 
 void PciEnumerate(AcpiMcfgTable* mcfg);
 KePciDeviceHdr* PciGetLinkedList();
+void PciWriteDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_t value);
 uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset);
 
 #define PCI_ECAM(base, bus, dev, func, offset) (volatile uint32_t*)(base + ((uint64_t)bus << 20) + ((uint64_t)dev << 15) + ((uint64_t)func << 12) + offset)
