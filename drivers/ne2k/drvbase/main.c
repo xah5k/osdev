@@ -159,7 +159,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     device->Owner = Self;
     device->Device = NULL;
     device->Next = NULL;
-    KeRegisterDevice(device);
+
     // look for device in pci list
     KePciDeviceHdr* PciDev = PciGetLinkedList();
     while (PciDev != NULL) {
@@ -168,6 +168,12 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
         }
         PciDev = PciDev->Next;
     }
+    if (PciDev == NULL) {
+        // no ne2k in the system
+        MmFree(device);
+        return KUNSUPPORTED;
+    }
+    KeRegisterDevice(device);
     NetInterface* Nic = MmAllocate(sizeof(NetInterface));
     memcpy(Nic->Name, "ne2k_eth0", 10);
     // based off https://wiki.osdev.org/Ne2000
