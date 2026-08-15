@@ -3,7 +3,7 @@
 #include <memory.h>
 #include <printfwrapper.h>
 #include <kedriver.h>
-
+#include <uacpi/sleep.h>
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature) {
     int entries = ((rsdt->header.Length - sizeof(rsdt->header)) / 4);
     //printf("acpi: xsdt=0x%lx\r\n", xsdt);
@@ -18,3 +18,12 @@ void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature) {
     return NULL;
 }
 KE_EXPORT_SYMBOL(AcpiFindTable);
+
+KSTATUS AcpiSystemShutdown() {
+    uacpi_status r = uacpi_enter_sleep_state_simple(UACPI_SLEEP_STATE_S5);
+    if (uacpi_unlikely_error(r)) {
+        printf("acpi: failed to enter S5 sleep (shutdown). error message: \"%s\"\r\n", uacpi_status_to_string(r));
+        return KFAIL;
+    }
+    return KSUCCESS; // unreachable
+}

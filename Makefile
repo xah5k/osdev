@@ -1,8 +1,8 @@
 ARCH=x86_64
-CFLAGS = -g -Wall -fshort-wchar -fno-pie -ffreestanding -fpic -mno-red-zone -fno-stack-protector -nostdlib -I./base -D__$(ARCH)__
+CFLAGS = -g -Wall -fshort-wchar -fno-pie -ffreestanding -fpic -mno-red-zone -fno-stack-protector -nostdlib -I./base -I./base/external/uACPI/include -D__$(ARCH)__
 LDFLAGS = -g -nostdlib -n -T link.ld -no-pie
 KNAME=osdev
-override SRCFILES := $(shell find -L base -type f -not -path 'base/arch/*' 2>/dev/null | LC_ALL=C sort)
+override SRCFILES := SRCFILES := $(shell find -L base -type f -not -path 'base/arch/*' -not -path '*/tests/*' 2>/dev/null | LC_ALL=C sort)
 override SRCFILES += $(shell find -L base/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 override CFILES := $(filter %.c,$(SRCFILES))
 override CFILES := $(filter %.c,$(SRCFILES))
@@ -39,6 +39,7 @@ $(KNAME).x86_64.elf: $(OBJ)
 	@echo " $<"
 
 obj-$(ARCH)/%.c.o: %.c
+
 	@mkdir -p "$(dir $@)"
 	@$(ARCH)-elf-gcc $(CFLAGS) -c $< -o $@
 	@echo " $<"

@@ -51,10 +51,11 @@ void _putchar(char character) {
 }
 
 
-const char* BugcheckTable[3] = {
+const char* BugcheckTable[4] = {
     "UNREGISTERED_INTERRUPT",
     "INTENTIONAL_INVOCATION",
-    "KERNEL_CORE_COMP_FAIL"
+    "KERNEL_CORE_COMP_FAIL",
+    "KERNEL_ACPI_FIRMWARE_FATAL"
 };
 
 /* printf("kernel: killing user task..\r\n");
@@ -246,6 +247,11 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->fb->width = bootboot.fb_width;
     kInfo->fb->height = bootboot.fb_height;
     kInfo->fb->scanline = bootboot.fb_scanline;
+    if (bootboot.arch.x86_64.efi_ptr) {
+        kInfo->FwType = 1;
+    } else {
+        kInfo->FwType = 0;
+    }
     KeParseConfig(kInfo);
     return kInfo;
 }
@@ -387,9 +393,7 @@ void KernelBootstrapProc() {
     printf("kernel: initalized drivers that have initalized.\r\n");
     printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     
-    ThreadCtrlBlk* thr = ThreadNew(KeUtilShell, SCHED_PRIV_KERNEL, (const char**)0, 0, 0, 0);
-    ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
-    ThreadAdd(thr);
+    KeUtilShell();
     while(1) { __asm__("hlt"); }
 }
 

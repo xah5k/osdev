@@ -30,6 +30,7 @@ typedef struct {
 
 CpuIdtEntry idt[256];
 irqhandler handlers[256]; // 256 handlers
+void* handlerargs[256]; // this is such a stupid way of passing args
 static  CpuIdtr idtr;
 
 extern void _x86_64_load_idt(uint64_t idtr);
@@ -54,6 +55,10 @@ void CpuRegisterHandler(uint64_t index, irqhandler handler) {
 }
 KE_EXPORT_SYMBOL(CpuRegisterHandler);
 
+void CpuRegisterHandlerArg(uint64_t index, void* arg) {
+    handlerargs[index] = arg;
+}
+KE_EXPORT_SYMBOL(CpuRegisterHandlerArg);
 
 void CpuIdtSetEntry(CpuIdtEntry* table, uint8_t index, void* base, uint8_t flags) {
     CpuIdtEntry* entry = &table[index];

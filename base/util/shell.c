@@ -86,6 +86,7 @@ void KeShlProcess(char* string) {
         printf("ver - display kernel version.\r\n");
         printf("echo - echo something to the screen!\r\n");
         printf("ls - list directory\r\n");
+        printf("shutdown - does a shutdown using uACPI.\r\n");
         printf("----------------------- process -----------------------\r\n");
         printf("exec - execute a user mode binary.\r\n");
         printf("lsproc - list processes and threads.\r\n");
@@ -490,6 +491,12 @@ void KeShlProcess(char* string) {
         MmFree(irqs);
         uint32_t gsi = CpuIoApicTranslateIrq(irq);
         printf("translated to gsi %d\r\n", gsi);
+    } else if (strcmp(string, "shutdown") == 0) {
+        KSTATUS r = AcpiSystemShutdown();
+        if (r != KSUCCESS) {
+            printf("failed to do shutdown. KSTATUS %d\r\n", r);
+        }
+        // unreachable
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

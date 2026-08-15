@@ -11,6 +11,7 @@
 #include "arch/x86_64/cpu/ioapic.h"
 #include <arch/x86_64/acpi.h>
 #include <arch/x86_64/pci/pci.h>
+#include <arch/x86_64/uacpi_compat.h>
 void HalInitalize(KernelInformation* kinfo) {
     CpuInitalizeGdt((struct KernelInformation*)kinfo);
     CpuInitalizeIdt();
@@ -21,4 +22,5 @@ void HalInitalize(KernelInformation* kinfo) {
     kinfo->cpufeats = CpuDetectFeatures();
     AcpiMcfgTable* table = (AcpiMcfgTable*)AcpiFindTable(kinfo->rsdt, "MCFG");
     PciEnumerate(table);
+    KATTEMPT(uAcpiInitalize() == KSUCCESS);
 }

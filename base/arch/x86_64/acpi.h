@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <kstatus.h>
 
 typedef struct {
     char Signature[4];
@@ -29,6 +30,18 @@ typedef struct {
 
 #define ACPI_MADT_FLAG_PROCESSOR_ENABLED (1<<0) 
 #define ACPI_MADT_FLAG_PROCESSOR_CAPABLE (1<<1)
+
+typedef struct {
+    char Signature[8];
+    char Checksum;
+    char OemId[6];
+    char Revision;
+    uint32_t Rsdt;
+    uint32_t Length;
+    uint64_t Xsdt;
+    char ExtChecksum;
+    uint8_t Reserved[3];
+} __attribute__((packed)) AcpiRsdpTable;
 
 typedef struct {
     AcpiMadtIntDeviceHdr header;
@@ -75,3 +88,4 @@ typedef struct {
 } __attribute__((packed)) AcpiMcfgTable;
 
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature); 
+KSTATUS AcpiSystemShutdown();

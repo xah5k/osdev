@@ -29,27 +29,20 @@ typedef struct KernelInformation {
     struct ProcessCtrlBlk* CurrentProcess;
     struct ProcessCtrlBlk* KernelProcess;
     int DriverExt2Load;
+    int FwType; // 0 = bios, 1 = uefi
 } KernelInformation;
 
 typedef enum {
     UNREGISTERED_INTERRUPT,
     INTENTIONAL_INVOCATION,
     KERNEL_CORE_COMP_FAIL,
+    KERNEL_ACPI_FIRMWARE_FATAL
 } BugcheckCode;
 struct ProcessCtrlBlk* KernelGetCurrentProc();
 KernelInformation* KernelGetInformation();
 void KernelUnlockRsLck();
 
-typedef enum {
-    KSUCCESS,
-    KFAIL,
-    KUNSUPPORTED,
-    KINVALID,
-    KOOMERR,
-    KHUNG,
-    KRESEND,
-    KDOUBLEFREE
-} KSTATUS;
+#include <kstatus.h> // im not gonna deal with stupid header shi
 
 #define KFORWARD(x, c, i) x[c+i]
 

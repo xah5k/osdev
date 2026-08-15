@@ -1,0 +1,3 @@
+[submodule "base/external/uACPI"]
+	path = base/external/uACPI
+	url = https://github.com/uACPI/uACPI

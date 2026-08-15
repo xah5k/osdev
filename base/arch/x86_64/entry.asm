@@ -1,7 +1,14 @@
+section .bss
+; cuz uACPI crashes due to stack being too small
+kstack_bottom:
+    resb 65536
+kstack_top:
+
+section .text
 extern bootboot
 extern KernelBootstrapProc
 extern KernelApplicationProc
-; extern kstack
+
 global _start
 _start:
     ; mov rsp, kstack
@@ -10,6 +17,9 @@ _start:
     shr ebx, 24
     cmp [bootboot + 0xC], bx
     jne .ap
+    mov rsp, kstack_top
+    mov rbp, rsp
+    sub rsp, 8
     jmp KernelBootstrapProc
 .loop:
     cli
