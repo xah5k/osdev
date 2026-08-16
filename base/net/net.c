@@ -16,3 +16,14 @@ KSTATUS NetRegisterNic(NetInterface* Nic) {
 }
 
 KE_EXPORT_SYMBOL(NetRegisterNic);
+
+KSTATUS NetWriteRaw(NetInterface* Nic) {
+    KeIoRequest Irp;
+    char* Buffer = "some stupid garbage";
+    Irp.Major = IO_WRITE;
+    Irp.Buffer = Buffer;
+    Irp.Length = 20;
+    Irp.ReadBytes = 0;
+    KSTATUS r = KeIoDispatch(Nic->Device, &Irp);
+    return r;
+}

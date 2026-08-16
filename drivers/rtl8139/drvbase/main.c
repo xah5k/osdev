@@ -16,10 +16,74 @@
 #define RTL8139_RXBUF_SZ 8192+16+1500
 #define RTL8139_INT_VECTOR 0x30
 
+typedef struct {
+    physaddr TxSavedAddrs[4];
+    uint32_t TxSavedSizes[4];
+} Rtl8139DriverSt;
+
+static NetInterface* gNic; // shouldnt break even with more than 1 rtl8139 cuz we only initalize the first one we find
 void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
-    KeDrvWrite("rtl8139: hello from interrupt handler!\r\n");
+    uint16_t Status = inw(gNic->IoBase + 0x3E);
+    outw(gNic->IoBase + 0x3E, 0x05);
+    // received packet
+    if (Status & 0x1) {
+        KeDrvWrite("rtl8139: received packet.\r\n");
+    }
+    // transmit packet success
+    if (Status & (1 << 2)) {
+        KeDrvWrite("rtl8139: transmit packet success.\r\n");
+        Rtl8139DriverSt* DrvSt = (Rtl8139DriverSt*)gNic->DriverState;
+        for (int i = 0; i < 4; i++) {
+            uint32_t PortStatus = inl(gNic->IoBase + 0x10 + (i * 4));
+            if ((PortStatus & (1 << 15)) && DrvSt->TxSavedAddrs[i]) {
+                PmmFreePages((void*)DrvSt->TxSavedAddrs[i], DrvSt->TxSavedSizes[i]);
+                DrvSt->TxSavedAddrs[i] = 0;
+                DrvSt->TxSavedSizes[i] = 0;
+            }
+        }
+    }
+    if (Status & (1 << 1)) {
+        KeDrvWrite("rtl8139: error while receiving packet.\r\n");
+    }
+    if (Status & (1 << 3)) {
+        KeDrvWrite("rtl8139: error while transmitting packet.\r\n");
+    }
     CpuLapicEoi();
 }
+
+
+KSTATUS Rtl8139Transmit(NetInterface* Nic, void* Data, uint16_t Length) {
+    if (Length < 60) Length = 60; // padding cuz eth min frame
+    if (Length > 1792) return KINVALID; // oversized
+    void* TxBufferPhys = PmmAllocatePages(UTIL_DIV_RUP(Length, MMU_PAGE_SIZE));
+    memset((void*)P2V(TxBufferPhys), 0, UTIL_DIV_RUP(Length, MMU_PAGE_SIZE));
+    memcpy((void*)P2V(TxBufferPhys), Data, Length);
+    uint32_t TsadReg = 0x20 + (Nic->NextTxDesc * 4);
+    uint32_t TsdReg  = 0x10 + (Nic->NextTxDesc * 4);
+    outl(Nic->IoBase + TsadReg, (uint32_t)TxBufferPhys);
+    outl(Nic->IoBase + TsdReg, Length);
+    Rtl8139DriverSt* DrvSt =  (Rtl8139DriverSt*)Nic->DriverState;
+    DrvSt->TxSavedAddrs[Nic->NextTxDesc] = (physaddr)TxBufferPhys;
+    DrvSt->TxSavedSizes[Nic->NextTxDesc] = UTIL_DIV_RUP(Length, MMU_PAGE_SIZE);
+    Nic->NextTxDesc = (Nic->NextTxDesc + 1) % 4;
+    return KSUCCESS;
+}
+
+// expose to rest of os
+KSTATUS Rtl8139Write(KeDeviceObj* dev, KeIoRequest* irp) {
+    if (!dev) return KINVALID;
+    if (!irp) return KINVALID;
+    if (irp->Major != IO_WRITE) return KINVALID;
+    if (!irp->Buffer || irp->Length == 0) return KINVALID;
+    KSTATUS r = Rtl8139Transmit(gNic, irp->Buffer, irp->Length);
+    if (r != KSUCCESS) {
+        irp->ReadBytes = (uint64_t)-1;
+        return r;
+    }
+    irp->ReadBytes = irp->Length;
+    return r;
+}
+
 
 KSTATUS DriverEntry(KeDriverObj* Self) {
     memcpy(Self->Name, "rtl8139-nic", 12);
@@ -42,11 +106,15 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
         MmFree(device);
         return KUNSUPPORTED;
     }
+    device->Dispatch[IO_WRITE] = Rtl8139Write;
     KeRegisterDevice(device);
     NetInterface* Nic = MmAllocate(sizeof(NetInterface));
     memcpy(Nic->Name, "rtl8139_eth0", 13);
+    Nic->NextTxDesc = 0;
     Nic->Device = device;
     Nic->IoBase = ((PciDeviceHeaderTy0*)PciDev->Header)->BAR0 & ~0x3;
+    Nic->DriverState = MmAllocate(sizeof(Rtl8139DriverSt));
+    memset((void*)Nic->DriverState, 0, sizeof(Rtl8139DriverSt));
     uint32_t Cmd = PciReadDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04);
     Cmd |= (1 << 2); // dma
     Cmd &= ~(1 << 10); // if for some reason interrupt disable bit is 1 clear it
@@ -79,6 +147,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     entry |= (1 << 15); // and level triggered
     CpuIoApicSetRedirEntry(Gsi, entry);
     CpuRegisterHandler(RTL8139_INT_VECTOR, Rtl8139InterruptHandler);
+    gNic = Nic;
     NetRegisterNic(Nic);
     return KSUCCESS;
 }

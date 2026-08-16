@@ -10,8 +10,12 @@ typedef struct NetInterface {
     KeDeviceObj* Device;
     physaddr RxBuffer;
     physaddr TxBuffer; // if applicable
+    uint8_t NextTxDesc; // if applicable
+    void* DriverState;
+    void* DriverState2;
     struct NetInterface* Next;
 } NetInterface;
 
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
+KSTATUS NetWriteRaw(NetInterface* Nic);
