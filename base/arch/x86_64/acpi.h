@@ -89,3 +89,4 @@ typedef struct {
 
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature); 
 KSTATUS AcpiSystemShutdown();
+KSTATUS AcpiEnumPrt();;
