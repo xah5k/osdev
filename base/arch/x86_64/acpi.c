@@ -6,6 +6,9 @@
 #include <uacpi/sleep.h>
 #include <uacpi/utilities.h>
 #include <uacpi/resources.h>
+#include "pci/pci.h"
+#include <mm/heap.h>
+static KePciGsiResolv* gGsiResHead = NULL;
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature) {
     int entries = ((rsdt->header.Length - sizeof(rsdt->header)) / 4);
     //printf("acpi: xsdt=0x%lx\r\n", xsdt);
@@ -35,16 +38,17 @@ static uacpi_iteration_decision AcpiRsrcLoop(void* user, uacpi_resource* resourc
     if (resource->type == UACPI_RESOURCE_TYPE_IRQ) {
         // legacy
         gsi = resource->irq.irqs[0];
-        printf("acpi: rsrcloop: gsi = 0x%lx\r\n", gsi);
+        if (user) *(uint64_t*)user = gsi;
         return UACPI_ITERATION_DECISION_BREAK;
     } else if (resource->type == UACPI_RESOURCE_TYPE_EXTENDED_IRQ) {
         gsi = resource->extended_irq.irqs[0];
-        printf("acpi: rsrcloop: gsi = 0x%lx\r\n", gsi);
+        if (user) *(uint64_t*)user = gsi;
         return UACPI_ITERATION_DECISION_BREAK;
     }
     return UACPI_ITERATION_DECISION_CONTINUE;
 } 
-KSTATUS AcpiEnumPrt() {
+
+KSTATUS AcpiResolvePciGsi() {
     // todo actually properly match ids but like
     // that only matters once i try on real hardware
     uacpi_namespace_node *root_bridge_node;
@@ -63,30 +67,51 @@ KSTATUS AcpiEnumPrt() {
         return KFAIL;
     }
     uacpi_namespace_node *sb_node = uacpi_namespace_get_predefined(UACPI_PREDEFINED_NAMESPACE_SB);
-    int err = 0;
     // js loop through the table
-    printf("acpi: enumerating _PRT.\r\n");
     for (uacpi_size i = 0; i < prt->num_entries; i++) {
         uacpi_pci_routing_table_entry* e = &prt->entries[i];
-        printf("acpi: entry %d: address=0x%lx index=%d source name = \"%.4s\" pin=%d\r\n", i, e->address, e->index, uacpi_namespace_node_name(e->source).text, e->pin);
+        uint16_t Func = (e->address & 0xFFFF);
+        uint32_t Device = (e->address >> 16) & 0xFFFF;
         uacpi_namespace_node* link_node = e->source;
         uacpi_resources *resources;
+
         ret = uacpi_get_current_resources(link_node, &resources);
         if (uacpi_unlikely_error(ret)) {
-            printf("acpi: warn: failed to get  resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
-            err++;
-            continue;
+            printf("acpi: fail: failed to get  resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
+            return KFAIL;
         }
-        ret = uacpi_for_each_resource(resources, AcpiRsrcLoop, NULL);
+        uint64_t gsi;
+        ret = uacpi_for_each_resource(resources, AcpiRsrcLoop, &gsi);
+        uacpi_free_resources(resources);
         if (uacpi_unlikely_error(ret)) {
-            printf("acpi: warn: failed to interate through resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
-            err++;
-            continue;
+            printf("acpi: fail: failed to interate through resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
+            return KFAIL;
         }
+        if (gsi == UINT64_MAX) {
+            printf("acpi: warn: gsi was populated as UINT64_MAX!! (AcpiRsrcLoop didn't find IRQ number!)\r\n");
+            continue; // continue here cuz it might js be the device doesn't have have an actual IRQ
+        }
+        KePciGsiResolv* Resolv = MmAllocate(sizeof(KePciGsiResolv));
+        Resolv->Bus = 0; // todo
+        Resolv->Dev = Device;
+        Resolv->Func = Func;
+        Resolv->Pin = e->pin;
+        Resolv->Gsi = gsi;
+        Resolv->Next = gGsiResHead;
+        gGsiResHead = Resolv;
     }
-    printf("acpi: end _PRT.\r\n");
-    printf("acpi: error count %d\r\n", err);
     uacpi_free_pci_routing_table(prt);
-    
     return KSUCCESS;
 }
+
+uint32_t AcpiPciGsiLookup(uint64_t Bus, uint64_t Dev, uint8_t Pin) {
+    KePciGsiResolv* Current = gGsiResHead;
+    while (Current != NULL) {
+        if (Current->Bus == Bus && Current->Dev == Dev && Current->Pin == (Pin - 1)) {
+            return (uint32_t)Current->Gsi;
+        }
+        Current = Current->Next;
+    }
+    return (uint32_t)-1;
+}
+KE_EXPORT_SYMBOL(AcpiPciGsiLookup);

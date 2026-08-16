@@ -118,7 +118,6 @@ void KeShlProcess(char* string) {
         printf("lsdrvdev - list devices registered by drivers.\r\n");
         printf("getwalltime - get walltime from a clock device.\r\n");
         printf("ioapiclgirq - translates a legacy irq into ioapic gsi.\r\n");
-        printf("enumprt - enumerates _PRT.\r\n");
         printf("----------------------- networking -----------------------\r\n");
         printf("lsnic - list network cards and their relevant info.\r\n");
     } else if (strcmp(string, "ls") == 0) {
@@ -498,9 +497,6 @@ void KeShlProcess(char* string) {
             printf("failed to do shutdown. KSTATUS %d\r\n", r);
         }
         // unreachable
-    } else if (strcmp(string, "enumprt") == 0) {
-        KSTATUS r = AcpiEnumPrt();
-        if (r != KSUCCESS) printf("failed to enumerate prt. KSTATUS %d\r\n", r);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

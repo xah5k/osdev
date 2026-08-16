@@ -1,6 +1,7 @@
 #include <kernel.h>
 #include <kedriver.h>
 #include <arch/x86_64/pci/pci.h>
+#include <arch/x86_64/acpi.h>
 #include <fs/vfs.h>
 #include <mm/heap.h>
 #include <mm/pmm.h>
@@ -60,6 +61,8 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
         Mac[i] = inb(Nic->IoBase + i);
     }
     memcpy((void*)Nic->MacAddress, Mac, 6);
+    uint32_t Gsi = AcpiPciGsiLookup(PciDev->Bus, PciDev->Dev, ((PciDeviceHeaderTy0*)PciDev->Header)->InterruptPin);
+    KeDrvWriteFmt("rtl8139: resolved gsi 0x%lx\r\n", Gsi);
     NetRegisterNic(Nic);
     return KSUCCESS;
 }

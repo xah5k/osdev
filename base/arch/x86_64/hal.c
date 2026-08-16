@@ -23,4 +23,5 @@ void HalInitalize(KernelInformation* kinfo) {
     AcpiMcfgTable* table = (AcpiMcfgTable*)AcpiFindTable(kinfo->rsdt, "MCFG");
     PciEnumerate(table);
     KATTEMPT(uAcpiInitalize() == KSUCCESS);
+    KATTEMPT(AcpiResolvePciGsi() == KSUCCESS);
 }

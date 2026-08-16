@@ -87,6 +87,17 @@ typedef struct {
     PciConfigSpBaStruct Ecm[];
 } __attribute__((packed)) AcpiMcfgTable;
 
+// kernel tracking struct
+typedef struct KePciGsiResolv {
+    uint64_t Bus;
+    uint64_t Dev;
+    uint64_t Func;
+    uint8_t Pin;
+    uint64_t Gsi;
+    struct KePciGsiResolv* Next;
+} KePciGsiResolv;
+
 void* AcpiFindTable(AcpiRsdtTable* rsdt, char* signature); 
 KSTATUS AcpiSystemShutdown();
-KSTATUS AcpiEnumPrt();;
+KSTATUS AcpiResolvePciGsi();
+uint32_t AcpiPciGsiLookup(uint64_t Bus, uint64_t Dev, uint8_t Pin);
