@@ -1,7 +1,10 @@
 #include <kernel.h>
 #include <kedriver.h>
 #include <arch/x86_64/pci/pci.h>
+#include <arch/x86_64/cpu/lapic.h>
+#include <arch/x86_64/cpu/ioapic.h>
 #include <arch/x86_64/acpi.h>
+#include <arch/x86_64/cpu/idt.h>
 #include <fs/vfs.h>
 #include <mm/heap.h>
 #include <mm/pmm.h>
@@ -11,6 +14,12 @@
 #include <memory.h>
 
 #define RTL8139_RXBUF_SZ 8192+16+1500
+#define RTL8139_INT_VECTOR 0x30
+
+void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
+    KeDrvWrite("rtl8139: hello from interrupt handler!\r\n");
+    CpuLapicEoi();
+}
 
 KSTATUS DriverEntry(KeDriverObj* Self) {
     memcpy(Self->Name, "rtl8139-nic", 12);
@@ -62,7 +71,14 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     }
     memcpy((void*)Nic->MacAddress, Mac, 6);
     uint32_t Gsi = AcpiPciGsiLookup(PciDev->Bus, PciDev->Dev, ((PciDeviceHeaderTy0*)PciDev->Header)->InterruptPin);
-    KeDrvWriteFmt("rtl8139: resolved gsi 0x%lx\r\n", Gsi);
+    uint64_t entry = 0;
+    uint64_t dest = CpuLapicGetId();
+    entry |= (dest << 56);
+    entry |= RTL8139_INT_VECTOR;
+    entry |= (1 << 13); // pci devices normally expect polarity low
+    entry |= (1 << 15); // and level triggered
+    CpuIoApicSetRedirEntry(Gsi, entry);
+    CpuRegisterHandler(RTL8139_INT_VECTOR, Rtl8139InterruptHandler);
     NetRegisterNic(Nic);
     return KSUCCESS;
 }
