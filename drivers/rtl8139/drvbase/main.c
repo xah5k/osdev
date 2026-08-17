@@ -17,8 +17,19 @@
 #define RTL8139_INT_VECTOR 0x30
 
 typedef struct {
+    void* Buffer;
+    uint16_t Length;
+} Rtl8139Packet;
+
+typedef struct {
+    Rtl8139Packet* Head;
+} Rtl8139PacketQueue;
+
+typedef struct {
     physaddr TxSavedAddrs[4];
     uint32_t TxSavedSizes[4];
+    uint16_t RxReadOffset;
+    Rtl8139PacketQueue RxQueue; // this is what read would read from and isr would push data onto there
 } Rtl8139DriverSt;
 
 static NetInterface* gNic; // shouldnt break even with more than 1 rtl8139 cuz we only initalize the first one we find
@@ -27,7 +38,30 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
     outw(gNic->IoBase + 0x3E, 0x05);
     // received packet
     if (Status & 0x1) {
-        KeDrvWrite("rtl8139: received packet.\r\n");
+        while (!(inb(gNic->IoBase + 0x37) & 0x01))  {
+            Rtl8139DriverSt* DrvSt = (Rtl8139DriverSt*)gNic->DriverState;
+            KeDrvWrite("rtl8139: received packet.\r\n");
+            uint16_t Capr = inw(gNic->IoBase + 0x38);
+            uint16_t Offset = (Capr + 16) % RTL8139_RXBUF_SZ;
+            physaddr RxAddr = gNic->RxBuffer + DrvSt->RxReadOffset;
+            void* VRxAddr = (void*)P2V(RxAddr);
+            KeDrvWriteFmt("rtl8139: phys addr of rx @ 0x%lx virt addr of rx @ 0x%lx\r\n", RxAddr, VRxAddr);
+            uint16_t PckStatus = (uint16_t)(*(uint32_t*)VRxAddr & 0xFFFF);
+            uint16_t PckLength = (uint16_t)(*(uint32_t*)VRxAddr >> 16) & 0xFFFF;
+            if (!PckStatus || PckStatus == 0xe1e3) {
+                goto _recv_error;
+            }
+            KeDrvWriteFmt("rtl8139: packet length %d\r\n", PckLength);
+            uint8_t *FrameData = (uint8_t*)(VRxAddr + 4);
+            KeDrvWriteFmt("rtl8139: FrameData @ 0x%lx\r\n", FrameData);
+            DrvSt->RxReadOffset = (DrvSt->RxReadOffset + PckLength + 4 + 3) & ~3;
+            DrvSt->RxReadOffset %= RTL8139_RXBUF_SZ;
+            outw(gNic->IoBase + 0x38, DrvSt->RxReadOffset - 16);
+            KeDrvWriteFmt("rtl8139: first bytes: ");
+            for (int i = 0; i < 20; i++) KeDrvWriteFmt("%02x ", FrameData[i]);
+            KeDrvWriteFmt("\r\n");
+        }
+
     }
     // transmit packet success
     if (Status & (1 << 2)) {
@@ -43,6 +77,7 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
         }
     }
     if (Status & (1 << 1)) {
+        _recv_error:
         KeDrvWrite("rtl8139: error while receiving packet.\r\n");
     }
     if (Status & (1 << 3)) {

@@ -392,8 +392,6 @@ void KernelBootstrapProc() {
     KeInitalizeDrivers();
     printf("kernel: initalized drivers that have initalized.\r\n");
     // test raw write
-    KSTATUS r = NetWriteRaw(NetGetLinkedList());
-    printf("KSTATUS 0x%lx\r\n", r);
     printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     
     KeUtilShell();

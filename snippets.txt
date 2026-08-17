@@ -264,3 +264,16 @@ hi.txt  lost+found  yowassup
 // ne2k reg trace
 
 ah5k@DESKTOP-JL92OAJ:~/osdev$ make run-x86_64-uefi "QARG=-trace ne2000\*"
+
+// YOO RTL8139 RECEIVES PACKETS
+kshell: cwd is initrd:/boot
+kshell> rtl8139: received packet.
+rtl8139: phys addr of rx @ 0x6481000 virt addr of rx @ 0xffff888006481000
+rtl8139: packet length 64
+rtl8139: FrameData @ 0xffff888006481004
+rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 04 
+rtl8139: received packet.
+rtl8139: phys addr of rx @ 0x6481044 virt addr of rx @ 0xffff888006481044
+rtl8139: packet length 64
+rtl8139: FrameData @ 0xffff888006481048
+rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 04 
