@@ -8,7 +8,6 @@
 #include <arch/x86_64/acpi.h>
 #endif
 
-
 #define ARCHS_X86_64 "x86-64"
 
 typedef struct {
@@ -18,6 +17,11 @@ typedef struct {
     uint32_t height;
     uint32_t scanline;
 } Framebuffer;
+typedef struct {
+    uint8_t Mac[6];
+    uint8_t Ip[4];
+} KeNetInfo;
+
 typedef struct KernelInformation {
     BOOTBOOT* bootinfo;
     AcpiRsdtTable* rsdt;
@@ -30,6 +34,7 @@ typedef struct KernelInformation {
     struct ProcessCtrlBlk* KernelProcess;
     int DriverExt2Load;
     int FwType; // 0 = bios, 1 = uefi
+    KeNetInfo net;
 } KernelInformation;
 
 typedef enum {

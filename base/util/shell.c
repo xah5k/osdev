@@ -121,6 +121,7 @@ void KeShlProcess(char* string) {
         printf("----------------------- networking -----------------------\r\n");
         printf("lsnic - list network cards and their relevant info.\r\n");
         printf("netread - waits until a packet comes and reads/dumps packet.\r\n");
+        printf("getip - gets our current ip address.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -522,22 +523,11 @@ void KeShlProcess(char* string) {
             printf("] to [");
             UtilPrintMacAddr(EthFrame->DestMac);
             printf("]\r\n");
-            if (UtilSwapEnd16(EthFrame->EtherType) == 0x0806) {
-                // is arp packet
-                NetArpHdr* ArpHdr = (NetArpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
-                printf("Packet is ARP packet.\r\n");
-                if (UtilSwapEnd16(ArpHdr->Opcode) == 1) {
-                    printf("Opcode type is Request.\r\n");
-                } else if (UtilSwapEnd16(ArpHdr->Opcode) == 2) {
-                    printf("Opcode tye is Reply.\r\n");
-                }
-                printf("ARP Packet from [%d.%d.%d.%d] to [%d.%d.%d.%d]\r\n", ArpHdr->SrcPr[0], ArpHdr->SrcPr[1], ArpHdr->SrcPr[2], ArpHdr->SrcPr[3], ArpHdr->DestPr[0], ArpHdr->DestPr[1], ArpHdr->DestPr[2], ArpHdr->DestPr[3]);
-                // send a reply
-                KSTATUS r2 = NetArpReply(ArpHdr->SrcHw, Nic->MacAddress, ArpHdr->SrcPr, ArpHdr->DestPr);
-                printf("KSTATUS r2 0x%lx\r\n", r2);
-            }
+
             MmFree(Buffer);
         }
+    } else if (strcmp(string, "getip") == 0) {
+        printf("Current IP Address: [%d.%d.%d.%d]", KernelGetInformation()->net.Ip[0], KernelGetInformation()->net.Ip[1], KernelGetInformation()->net.Ip[2], KernelGetInformation()->net.Ip[3]);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

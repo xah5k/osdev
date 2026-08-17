@@ -70,6 +70,8 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
             }
             DrvSt->RxQueue.Tail = Packet;
             // KeDrvWriteFmt("rtl8139: adding to queue @ ring offset 0x%x\r\n", DrvSt->RxReadOffset);
+            // also call kernel callback
+            KSTATUS r = NetHandlePacket(gNic, Packet->Buffer, Packet->Length);
             Capr = inw(gNic->IoBase + 0x38); // reread
             uint16_t Cbr = inw(gNic->IoBase + 0x3A);
             if (DrvSt->RxReadOffset == Cbr) {

@@ -1,9 +1,8 @@
 #pragma once
 #include <stdint.h>
-#include <kernel.h>
+#include <sched/process.h>
 #include <kedriver.h>
 #include <arch/x86_64/cpu/paging.h> // so much for arch compat
-#include <sched/process.h>
 typedef struct NetInterface {
     char Name[64];
     uint8_t MacAddress[6];
@@ -36,8 +35,10 @@ typedef struct {
     uint8_t DestPr[4];
 } NetArpHdr;
 
+
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
 KSTATUS NetWriteRaw(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* BytesReadOut);
-KSTATUS NetArpReply(uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
+KSTATUS NetArpReply(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
+KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length);

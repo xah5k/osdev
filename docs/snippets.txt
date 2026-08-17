@@ -277,3 +277,19 @@ rtl8139: phys addr of rx @ 0x6481044 virt addr of rx @ 0xffff888006481044
 rtl8139: packet length 64
 rtl8139: FrameData @ 0xffff888006481048
 rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 04 
+
+// rtl8139 read arp request or reply
+    if (UtilSwapEnd16(EthFrame->EtherType) == 0x0806) {
+        // is arp packet
+        NetArpHdr* ArpHdr = (NetArpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
+        printf("Packet is ARP packet.\r\n");
+        if (UtilSwapEnd16(ArpHdr->Opcode) == 1) {
+            printf("Opcode type is Request.\r\n");
+        } else if (UtilSwapEnd16(ArpHdr->Opcode) == 2) {
+            printf("Opcode tye is Reply.\r\n");
+        }
+        printf("ARP Packet from [%d.%d.%d.%d] to [%d.%d.%d.%d]\r\n", ArpHdr->SrcPr[0], ArpHdr->SrcPr[1], ArpHdr->SrcPr[2], ArpHdr->SrcPr[3], ArpHdr->DestPr[0], ArpHdr->DestPr[1], ArpHdr->DestPr[2], ArpHdr->DestPr[3]);
+        // send a reply
+        KSTATUS r2 = NetArpReply(ArpHdr->SrcHw, Nic->MacAddress, ArpHdr->SrcPr, ArpHdr->DestPr);
+        printf("KSTATUS r2 0x%lx\r\n", r2);
+    }

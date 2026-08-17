@@ -252,6 +252,11 @@ static KernelInformation* KeCreateKinfo() {
     } else {
         kInfo->FwType = 0;
     }
+    memset((void*)&kInfo->net, 0, sizeof(KeNetInfo));
+    kInfo->net.Ip[0] = 192;
+    kInfo->net.Ip[1] = 168;
+    kInfo->net.Ip[2] = 100;
+    kInfo->net.Ip[3] = 1;
     KeParseConfig(kInfo);
     return kInfo;
 }
