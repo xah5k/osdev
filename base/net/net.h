@@ -12,7 +12,8 @@ typedef struct NetInterface {
     physaddr RxBuffer;
     physaddr TxBuffer; // if applicable
     uint8_t NextTxDesc; // if applicable
-    ThreadCtrlBlk* RxWaitList; // if applicable which it should be
+    ThreadCtrlBlk* RxWaitListHead; // if applicable which it should be
+    ThreadCtrlBlk* RxWaitListTail; // if applicable which it should be
     void* DriverState;
     struct NetInterface* Next;
 } NetInterface;
@@ -20,3 +21,4 @@ typedef struct NetInterface {
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
 KSTATUS NetWriteRaw(NetInterface* Nic, void* Buffer, uint16_t Length);
+KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* BytesReadOut);

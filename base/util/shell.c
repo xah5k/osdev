@@ -120,6 +120,7 @@ void KeShlProcess(char* string) {
         printf("ioapiclgirq - translates a legacy irq into ioapic gsi.\r\n");
         printf("----------------------- networking -----------------------\r\n");
         printf("lsnic - list network cards and their relevant info.\r\n");
+        printf("netread - waits until a packet comes and reads/dumps packet.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -497,6 +498,29 @@ void KeShlProcess(char* string) {
             printf("failed to do shutdown. KSTATUS %d\r\n", r);
         }
         // unreachable
+    } else if (strcmp(string, "netread") == 0) {
+        NetInterface* Nic = NetGetLinkedList();
+        if (!Nic) {
+            printf("error: no NIC in system.\r\n");
+            return;
+        } else {
+            uint8_t* Buffer = MmAllocate(1500);
+            memset((void*)Buffer, 0, 1500);
+            uint16_t BytesRead;
+            KSTATUS r = NetReadRaw(Nic, Buffer, 1500, &BytesRead);
+            if (r != KSUCCESS) {
+                printf("failed. KSTATUS 0x%lx\r\n", r);
+                MmFree(Buffer);
+                return;
+            }
+            printf("read %d bytes.\r\n", BytesRead);
+            printf("dumping packet.\r\n");
+            for (int i = 0; i < BytesRead; i++) {
+                printf("%02X ", Buffer[i]);
+            }
+            printf("\r\nend dump.\r\n");
+            MmFree(Buffer);
+        }
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

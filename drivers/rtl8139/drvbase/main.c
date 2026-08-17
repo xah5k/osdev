@@ -12,17 +12,21 @@
 #include <arch/x86_64/ports.h>
 #include <util/util.h>
 #include <memory.h>
+#include <sched/sched.h>
+#include <sched/process.h>
 
 #define RTL8139_RXBUF_SZ 8192+16+1500
 #define RTL8139_INT_VECTOR 0x30
 
-typedef struct {
+typedef struct Rtl8139Packet {
     void* Buffer;
     uint16_t Length;
+    struct Rtl8139Packet* Next;
 } Rtl8139Packet;
 
 typedef struct {
     Rtl8139Packet* Head;
+    Rtl8139Packet* Tail;
 } Rtl8139PacketQueue;
 
 typedef struct {
@@ -40,26 +44,37 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
     if (Status & 0x1) {
         while (!(inb(gNic->IoBase + 0x37) & 0x01))  {
             Rtl8139DriverSt* DrvSt = (Rtl8139DriverSt*)gNic->DriverState;
-            KeDrvWrite("rtl8139: received packet.\r\n");
             uint16_t Capr = inw(gNic->IoBase + 0x38);
             uint16_t Offset = (Capr + 16) % RTL8139_RXBUF_SZ;
             physaddr RxAddr = gNic->RxBuffer + DrvSt->RxReadOffset;
             void* VRxAddr = (void*)P2V(RxAddr);
-            KeDrvWriteFmt("rtl8139: phys addr of rx @ 0x%lx virt addr of rx @ 0x%lx\r\n", RxAddr, VRxAddr);
             uint16_t PckStatus = (uint16_t)(*(uint32_t*)VRxAddr & 0xFFFF);
             uint16_t PckLength = (uint16_t)(*(uint32_t*)VRxAddr >> 16) & 0xFFFF;
             if (!PckStatus || PckStatus == 0xe1e3) {
                 goto _recv_error;
-            }
-            KeDrvWriteFmt("rtl8139: packet length %d\r\n", PckLength);
+            };
             uint8_t *FrameData = (uint8_t*)(VRxAddr + 4);
-            KeDrvWriteFmt("rtl8139: FrameData @ 0x%lx\r\n", FrameData);
             DrvSt->RxReadOffset = (DrvSt->RxReadOffset + PckLength + 4 + 3) & ~3;
             DrvSt->RxReadOffset %= RTL8139_RXBUF_SZ;
             outw(gNic->IoBase + 0x38, DrvSt->RxReadOffset - 16);
-            KeDrvWriteFmt("rtl8139: first bytes: ");
-            for (int i = 0; i < 20; i++) KeDrvWriteFmt("%02x ", FrameData[i]);
-            KeDrvWriteFmt("\r\n");
+            uint8_t CrAfter = inb(gNic->IoBase + 0x37);
+            Rtl8139Packet* Packet = MmAllocate(sizeof(Rtl8139Packet));
+            Packet->Buffer = MmAllocate(PckLength - 4); // apparently the card can js start writing new data if we use the direct framedata ptr
+            memcpy(Packet->Buffer, FrameData, PckLength - 4);
+            Packet->Length = PckLength;
+            Packet->Next = NULL;
+            if (DrvSt->RxQueue.Tail) {
+                DrvSt->RxQueue.Tail->Next = Packet;
+            } else {
+                DrvSt->RxQueue.Head = Packet;
+            }
+            DrvSt->RxQueue.Tail = Packet;
+            // KeDrvWriteFmt("rtl8139: adding to queue @ ring offset 0x%x\r\n", DrvSt->RxReadOffset);
+            Capr = inw(gNic->IoBase + 0x38); // reread
+            uint16_t Cbr = inw(gNic->IoBase + 0x3A);
+            if (DrvSt->RxReadOffset == Cbr) {
+                break; // empty and BUFE is lying
+            }
         }
 
     }
@@ -83,6 +98,10 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
     if (Status & (1 << 3)) {
         KeDrvWrite("rtl8139: error while transmitting packet.\r\n");
     }
+    ThreadCtrlBlk* SuspendedThr = ThreadPopHead(&gNic->RxWaitListHead, &gNic->RxWaitListTail);
+    if (SuspendedThr != NULL) {
+        ThreadWake(SuspendedThr);
+    }
     CpuLapicEoi();
 }
 
@@ -104,6 +123,21 @@ KSTATUS Rtl8139Transmit(NetInterface* Nic, void* Data, uint16_t Length) {
     return KSUCCESS;
 }
 
+int Rtl8139RmQueue(Rtl8139DriverSt* DrvSt, Rtl8139Packet** PckOut) {
+    if (!DrvSt->RxQueue.Head && !DrvSt->RxQueue.Tail) {
+        return 0;
+    }
+    Rtl8139Packet* R = DrvSt->RxQueue.Head;
+    DrvSt->RxQueue.Head = DrvSt->RxQueue.Head->Next;
+    if (!DrvSt->RxQueue.Head) {
+        DrvSt->RxQueue.Tail = NULL;
+    }
+    R->Next = NULL;
+    *PckOut = R;
+    // KeDrvWriteFmt("rtl8139: removing packet{base=0x%lx, bufferaddr=0x%lx, length=%d} from queue\r\n", R, R->Buffer, R->Length);
+    return 1;
+}
+
 // expose to rest of os
 KSTATUS Rtl8139Write(KeDeviceObj* dev, KeIoRequest* irp) {
     if (!dev) return KINVALID;
@@ -119,6 +153,28 @@ KSTATUS Rtl8139Write(KeDeviceObj* dev, KeIoRequest* irp) {
     return r;
 }
 
+KSTATUS Rtl8139Read(KeDeviceObj* dev, KeIoRequest* irp) {
+    if (!dev) return KINVALID;
+    if (!irp) return KINVALID;
+    if (irp->Major != IO_READ) return KINVALID;
+    if (!irp->Buffer || irp->Length == 0) return KINVALID;
+
+    uint8_t* UserBuf = (uint8_t*)irp->Buffer;
+    Rtl8139DriverSt* DrvSt =  (Rtl8139DriverSt*)gNic->DriverState;
+    Rtl8139Packet* Pck;
+    while (!Rtl8139RmQueue(DrvSt, &Pck)) {
+        ThreadCtrlBlk* cthr = ThrGetCurrent();
+        cthr->state = SCHED_THREAD_SUSPENDED;
+        ThreadPushTail(&gNic->RxWaitListHead, &gNic->RxWaitListTail, cthr);
+        SchedYield();
+    }
+    uint64_t CopyLen = (Pck->Length < irp->Length) ? Pck->Length : irp->Length;
+    memcpy(UserBuf, Pck->Buffer, CopyLen);
+    MmFree(Pck->Buffer);
+    MmFree(Pck);
+    irp->ReadBytes = CopyLen;
+    return KSUCCESS;
+}
 
 KSTATUS DriverEntry(KeDriverObj* Self) {
     memcpy(Self->Name, "rtl8139-nic", 12);
@@ -142,6 +198,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
         return KUNSUPPORTED;
     }
     device->Dispatch[IO_WRITE] = Rtl8139Write;
+    device->Dispatch[IO_READ] = Rtl8139Read;
     KeRegisterDevice(device);
     NetInterface* Nic = MmAllocate(sizeof(NetInterface));
     memcpy(Nic->Name, "rtl8139_eth0", 13);
@@ -150,6 +207,9 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     Nic->IoBase = ((PciDeviceHeaderTy0*)PciDev->Header)->BAR0 & ~0x3;
     Nic->DriverState = MmAllocate(sizeof(Rtl8139DriverSt));
     memset((void*)Nic->DriverState, 0, sizeof(Rtl8139DriverSt));
+    Rtl8139DriverSt* s = Nic->DriverState;
+    s->RxQueue.Head = NULL;
+    s->RxQueue.Tail = NULL;
     uint32_t Cmd = PciReadDword(PciDev->EcamBase, PciDev->Bus, PciDev->Dev, PciDev->Func, 0x04);
     Cmd |= (1 << 2); // dma
     Cmd &= ~(1 << 10); // if for some reason interrupt disable bit is 1 clear it
