@@ -87,3 +87,21 @@ void UtilPrintW(wchar_t* ptr, int len) {
         _putchar(p[i]);
     }
 }
+
+uint16_t UtilSwapEnd16(uint16_t n) {
+    return (n << 8) | (n >> 8);
+}
+KE_EXPORT_SYMBOL(UtilSwapEnd16);
+
+uint32_t UtilSwapEnd32(uint32_t n) {
+    return  ((n>>24)&0xff)      |
+            ((n<<8)&0xff0000)   |
+            ((n>>8)&0xff00)     |
+            ((n<<24)&0xff000000);
+}
+
+KE_EXPORT_SYMBOL(UtilSwapEnd32);
+
+void UtilPrintMacAddr(uint8_t* macaddr) {
+    printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", macaddr[0], macaddr[1], macaddr[2], macaddr[3], macaddr[4], macaddr[5], macaddr[6]);
+}

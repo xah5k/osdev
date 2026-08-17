@@ -1,0 +1,279 @@
+// stress test of physical memory manager
+    for (int i = 0; i < PmmLargestFreeMemorySize; i++) {
+        void* x = PmmAllocate();
+        if (x == NULL) {
+            printf("stress test of pmm: ran out of memory (x=null)\r\n");
+            break;
+        }
+        printf("stress test of pmm: x=0x%lx\r\n", x);
+        // also write to the page it returns
+        uint64_t* y = x;
+        *y = 4;
+        printf("*x = %d\r\n", *y);
+    }
+
+// test hhdm
+void* test = (void*)(0x1000 + gMmuVOffset);
+printf("test=0x%lx phys(test)=0x%lx\r\n", test, MmuGetPhys((virtaddr)test));
+
+    // stress vmm
+    printf("current vmm pool idx: %d\r\n", VmmBlockPoolIdx);
+    for (int i = 0; i < 100; i++) {
+        void* ptr = VmmAllocate(4096);
+        VmmFree(ptr);
+    }
+    printf("now vmm pool idx: %d\r\n", VmmBlockPoolIdx);
+
+// test kernel heap
+
+    void* a = MmAllocate(128);
+    void* b = MmAllocate(128);
+    void* c = MmAllocate(128);
+    void* d = MmAllocate(128);
+    void* e = MmAllocate(128);
+    printf("allocated a(0x%lx) b(0x%lx) c(0x%lx) d(0x%lx) e(0x%lx)\r\n", a, b, c, d, e);
+    MmHeapDumpMap();
+    MmFree(b);
+    MmFree(d);
+    printf("freed b and d\r\n");
+    MmHeapDumpMap();
+    MmFree(c);
+    printf("freed c\r\n");
+    MmHeapDumpMap();
+    MmFree(a);
+    MmFree(e);
+    printf("freed a and e\r\n");
+    MmHeapDumpMap();
+
+/* should result in something like:
+    allocated a(0xffff8880407cff80) b(0xffff8880407cfee8) c(0xffff8880407cfe50) d(0xffff8880407cfdb8) e(0xffff8880407cfd20)
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    freed b and d
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    kheap: Block #1: addr: @0xffff8880407cfdb8 size=152 status=0
+    kheap: Block #2: addr: @0xffff8880407cfee8 size=152 status=0
+    freed c
+    kheap: Block #0: addr: @0xffff888040000018 size=8191240 status=0
+    kheap: Block #1: addr: @0xffff8880407cfdb8 size=456 status=0
+    freed a and e
+    kheap: Block #0: addr: @0xffff888040000018 size=8192000 status=0
+*/
+
+/* OLD OLD OLD test if tarfs is correctly setup in vfs
+    const char* p = "initrd:/hi.txt";
+    printf("kernel: going to find file using path '%s'\r\n", p);
+    VfsFile* f = VfsFindFile(p);
+    printf("kernel: attempt to find. vfs file=0x%lx\r\n", f);
+    VfsOpen(f);
+    printf("kernel: reading vfs file into buffer\r\n");
+    const char* buffer = MmAllocate(128);
+    int x = VfsRead(f, (void*)buffer, 128);
+    printf("kernel: vfsread returned %d \r\n", x);
+    printf("kernel: dump buffer: \r\n%s\r\n", buffer);
+    printf("kernel: freeing buffer now.\r\n");
+    MmFree((void*)buffer);
+*/
+
+/* better test of vfs
+    int handle = OsOpen("initrd:/hi.txt", 0);
+    printf("kernel: handle for 'initrd:/hi.txt': %d\r\n", handle);
+    printf("kernel: attempting to read from handle\r\n");
+    char* buf = MmAllocate(128);
+    OsRead(handle, (void*)buf, 128);
+    printf("kernel: dump buffer:\r\n");
+    printf("%s", buf);
+    printf("\r\nkernel: end buffer.\r\n");
+    MmFree(buf);
+    OsClose(handle);
+*/
+
+
+/* sm bs
+    ProcessCreate(NewThr, gkInfo);
+    ProcListRunning(gkInfo);
+    for (int i = 0; i < 1000; i++) printf("%i\r\n", i);
+    ProcListRunning(gkInfo);
+*/
+
+/* flat binary (non process)
+    int h = OsOpen("initrd:/user.prog", 0);
+    int sz = OsGetFileSize(h);
+    printf("program is located at initrd:/user.prog with %d size\r\n", sz);
+    const char* buf = MmAllocate(sz);
+    if (!buf) {
+        printf("memory allocation fail.\r\n");
+    } else {
+        int st = OsRead(h, buf, sz);
+        printf("bytes read: %d\r\n", st);
+        OsClose(h);
+        void (*entry)() = (void*)buf;
+        entry();
+        printf("\r\nback from program.\r\n");
+    }
+*/
+
+
+
+/* flat binary (in a process)
+    int h = OsOpen("initrd:/user.prog", 0);
+    int sz = OsGetFileSize(h);
+    printf("program is located at initrd:/user.prog with %d size\r\n", sz);
+    const char* buf = MmAllocate(sz);
+    if (!buf) {
+        printf("memory allocation fail.\r\n");
+    } else {
+        int st = OsRead(h, buf, sz);
+        printf("bytes read: %d\r\n", st);
+        OsClose(h);
+        void (*entry)() = (void*)buf;
+        ProcessCreate(entry, gkInfo);
+        printf("\r\ncreated process.\r\n");
+    }
+*/
+
+/* test kbd blocking
+void test() {
+    uint8_t scancode;
+    uint32_t id = ThrGetCurrent()->ParentProc->pid;
+    KeDeviceObj* dev = KeFindDeviceByName("ps2kbd");
+    KeIoRequest* irp = MmAllocate(sizeof(KeIoRequest));
+    irp->Major = IO_READ;
+    irp->Buffer = &scancode;
+    irp->Length = 1;
+    while (1) {
+        printf("pid %d: get key...\r\n", id);
+        KeIoDispatch(dev, irp);
+        printf("pid %d: woke up and got key: 0x%x\r\n", id, scancode);
+    }
+}
+ somewhere in KernelBootstrapProc
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid1
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid2
+    ProcessCreate(test, gkInfo, SCHED_PRIV_KERNEL); // pid3
+*/
+
+// ext2 cat file
+kshell> cat
+enter path: initrd:/hi.txt
+hi guys!
+
+kshell> cat
+enter path: ext2_1:/hi.txt
+ahci: pre-issue CI=00000000 TFD=00000050
+ahci: pre-issue CI=00000000 TFD=00000050
+hi!
+
+
+kshell> 
+// ext2 extract partition from image
+dd if=osdev.img of=ext2.img bs=512 skip=32896 count=4194304
+for use with debugfs
+/* ext2 block alloc and free test
+also check with debugfs just incase
+    uint32_t Block1 = Ext2AllocBlock(Vol);
+    printf("ext2: alloc block %d\r\n", Block1);
+    // write sm bs into it
+    char Data[512] = "give me pennies i like pennies";
+    void* pBuf;
+    uint32_t Pages;
+    r = Ext2AhciWrite(Vol, (uint64_t)Block1 * Vol->BlockSize / 512, Vol->BlockSize, (void*)Data, &pBuf, &Pages);
+    void *rpBuf;
+    void *rvBuf;
+    uint32_t Pages2;
+    r = Ext2AhciRead(Vol, (uint64_t)Block1 * Vol->BlockSize / 512, Vol->BlockSize, &rvBuf, &rpBuf, &Pages2);
+    printf("ext2: read back: %s\r\n", (char*)rvBuf);
+    PmmFreePages(rpBuf, Pages2);
+    uint32_t Block2 = Ext2AllocBlock(Vol);
+    printf("ext2: new alloc block %d\r\n", Block2);
+    Ext2FreeBlock(Vol, Block1);
+    Ext2FreeBlock(Vol, Block2);
+    uint32_t Block3 = Ext2AllocBlock(Vol);
+    printf("ext2: allocated block %d after freeing (expect reuse of %d or %d)\r\n", Block3, Block1, Block2);*/
+should get smth like:
+ext2: alloc: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: alloc block 1
+ext2: read back: give me pennies i like pennies
+ext2: alloc: Bgdt.FreeBlk=32116 Sb.FreeBlk=515281
+ext2: new alloc block 2
+ext2: free: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: free: Bgdt.FreeBlk=32118 Sb.FreeBlk=515283
+ext2: alloc: Bgdt.FreeBlk=32117 Sb.FreeBlk=515282
+ext2: allocated block 1 after freeing (expect reuse of 1 or 2)
+and debugfs should return:
+ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testb 1" ext2.img
+debugfs 1.47.2 (1-Jan-2025)
+Block 1 marked in use
+
+/* ext2 inode alloc and free test
+    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc inode %d\r\n", Inode1);
+    uint32_t Inode2 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc new inode %d\r\n", Inode2);
+    Ext2FreeInode(Vol, Inode1, 0);
+    Ext2FreeInode(Vol, Inode2, 0);
+    uint32_t Inode3 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc another inode %d\r\n", Inode3);
+should get smth like:
+ext2: counted 2 entries in fs.
+ext2: alloc: Bgdt.FreeIno=8179 Sb.FreeIno=131059
+ext2: alloc inode 13
+ext2: alloc: Bgdt.FreeIno=8178 Sb.FreeIno=131058
+ext2: alloc new inode 14
+ext2: alloc: Bgdt.FreeIno=8177 Sb.FreeIno=131057
+ext2: alloc another inode 15
+and debugfs should return: 
+ah5k@DESKTOP-JL92OAJ:~/osdev$ debugfs -R "testi <15>" ext2.img
+debugfs 1.47.2 (1-Jan-2025)
+Inode 15 is marked in use*/
+
+// write an inode to disk
+    uint32_t Inode1 = Ext2AllocInode(Vol, 0);
+    printf("ext2: alloc inode %d\r\n", Inode1);
+    Ext2InoData* InodeData = MmAllocate(sizeof(Ext2InoData));
+    memset(InodeData, 0, sizeof(Ext2InoData));
+    InodeData->SizeLow = 16384;
+    r = Ext2WriteInode(Vol, Inode1, InodeData);
+    printf("ext2: written inode with size 16384\r\n");
+    printf("ext2: attempt to read that inode from disk.\r\n");
+    Ext2InoData* DiskIno = MmAllocate(sizeof(Ext2InoData));
+    r = Ext2ReadInode(Vol, Inode1, DiskIno);
+    printf("ext2: DiskIno->SizeLow=%d\r\n", DiskIno->SizeLow);
+    MmFree(InodeData);
+    MmFree(DiskIno);
+    ext2: counted 2 entries in fs.
+ext2: alloc: Bgdt.FreeIno=8179 Sb.FreeIno=131059
+ext2: alloc inode 13
+ext2: written inode with size 16384
+ext2: attempt to read that inode from disk.
+ext2: DiskIno->SizeLow=16384
+should get smth like above and also debugfs should be similar
+
+// add a fake entry with name 'yowassup' and mount it on host
+should get smth like
+ah5k@DESKTOP-JL92OAJ:~/osdev$ ./mountext2.sh 
+ah5k@DESKTOP-JL92OAJ:~/osdev$ ls
+base          compile_commands.json  edk2-ovmf    ext2.img  libs     link.ld   mlibcrebuild.sh  obj-x86_64  osdev.x86_64.elf  preinit.sh       readme.md     sysroot  unmountext2.sh
+bootimg.json  drivers                ext2file.sh  ext2root  LICENSE  Makefile  mountext2.sh     osdev.img   patches           produceimage.sh  snippets.txt  tools    user
+ah5k@DESKTOP-JL92OAJ:~/osdev$ cd ext2root
+ah5k@DESKTOP-JL92OAJ:~/osdev/ext2root$ ls
+ls: cannot access 'yowassup': No such file or directory
+hi.txt  lost+found  yowassup
+
+
+
+// ne2k reg trace
+
+ah5k@DESKTOP-JL92OAJ:~/osdev$ make run-x86_64-uefi "QARG=-trace ne2000\*"
+
+// YOO RTL8139 RECEIVES PACKETS
+kshell: cwd is initrd:/boot
+kshell> rtl8139: received packet.
+rtl8139: phys addr of rx @ 0x6481000 virt addr of rx @ 0xffff888006481000
+rtl8139: packet length 64
+rtl8139: FrameData @ 0xffff888006481004
+rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 04 
+rtl8139: received packet.
+rtl8139: phys addr of rx @ 0x6481044 virt addr of rx @ 0xffff888006481044
+rtl8139: packet length 64
+rtl8139: FrameData @ 0xffff888006481048
+rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 04 

@@ -1,6 +1,9 @@
 #include <net/net.h>
 #include <kedriver.h>
 #include <stddef.h>
+#include <mm/heap.h>
+#include <memory.h>
+#include <util/util.h>
 
 // list of netinterface structs
 static NetInterface* gNetInterfaceHead = NULL;
@@ -35,5 +38,26 @@ KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* B
     Irp.ReadBytes = 0;
     KSTATUS r = KeIoDispatch(Nic->Device, &Irp);
     if (BytesReadOut) *BytesReadOut = (uint16_t)Irp.ReadBytes;
+    return r;
+}
+
+KSTATUS NetArpReply(uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress) {
+    void* Buffer = MmAllocate(sizeof(NetEthFrameHdr) + sizeof(NetArpHdr));
+    NetEthFrameHdr* EthFrame = (NetEthFrameHdr*)Buffer;
+    memcpy((void*)EthFrame->DestMac, ToMacAddress, 6);
+    memcpy((void*)EthFrame->SrcMac, FromMacAddress, 6);
+    EthFrame->EtherType = UtilSwapEnd16(0x0806);
+    NetArpHdr* ArpHdr = (NetArpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
+    ArpHdr->Opcode = UtilSwapEnd16(2);
+    ArpHdr->HType = UtilSwapEnd16(1);
+    ArpHdr->PType = UtilSwapEnd16(0x0800);
+    ArpHdr->HwAddrLen = 6;
+    ArpHdr->PrAddrLen = 4;
+    memcpy((void*)ArpHdr->SrcHw, FromMacAddress, 6);
+    memcpy((void*)ArpHdr->DestHw, ToMacAddress, 6);
+    memcpy((void*)ArpHdr->SrcPr, FromIpAddress, 6);
+    memcpy((void*)ArpHdr->DestPr, ToIpAddress, 6);
+    KSTATUS r = NetWriteRaw(NetGetLinkedList(), Buffer, sizeof(NetEthFrameHdr) + sizeof(NetArpHdr));
+    MmFree(Buffer);
     return r;
 }

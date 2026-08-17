@@ -391,9 +391,7 @@ void KernelBootstrapProc() {
 
     KeInitalizeDrivers();
     printf("kernel: initalized drivers that have initalized.\r\n");
-    // test raw write
     printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
-    
     KeUtilShell();
     while(1) { __asm__("hlt"); }
 }

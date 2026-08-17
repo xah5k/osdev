@@ -479,7 +479,9 @@ void KeShlProcess(char* string) {
         NetInterface* Nic = NetGetLinkedList();
         while (Nic != NULL) {
             printf("%s: \r\n", Nic->Name);
-            printf("    MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", Nic->MacAddress[0], Nic->MacAddress[1], Nic->MacAddress[2], Nic->MacAddress[3], Nic->MacAddress[4], Nic->MacAddress[5]);
+            printf("    MAC Address: ");
+            UtilPrintMacAddr(Nic->MacAddress);
+            printf(" \r\n");
             printf("    Drvdev info: \r\n");
             printf("         name='%s' driver name='%s'\r\n", Nic->Device->Name, Nic->Device->Owner->Name);
             Nic = Nic->Next;
@@ -514,11 +516,26 @@ void KeShlProcess(char* string) {
                 return;
             }
             printf("read %d bytes.\r\n", BytesRead);
-            printf("dumping packet.\r\n");
-            for (int i = 0; i < BytesRead; i++) {
-                printf("%02X ", Buffer[i]);
+            NetEthFrameHdr* EthFrame = (NetEthFrameHdr*)Buffer;
+            printf("Packet from [");
+            UtilPrintMacAddr(EthFrame->SrcMac);
+            printf("] to [");
+            UtilPrintMacAddr(EthFrame->DestMac);
+            printf("]\r\n");
+            if (UtilSwapEnd16(EthFrame->EtherType) == 0x0806) {
+                // is arp packet
+                NetArpHdr* ArpHdr = (NetArpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
+                printf("Packet is ARP packet.\r\n");
+                if (UtilSwapEnd16(ArpHdr->Opcode) == 1) {
+                    printf("Opcode type is Request.\r\n");
+                } else if (UtilSwapEnd16(ArpHdr->Opcode) == 2) {
+                    printf("Opcode tye is Reply.\r\n");
+                }
+                printf("ARP Packet from [%d.%d.%d.%d] to [%d.%d.%d.%d]\r\n", ArpHdr->SrcPr[0], ArpHdr->SrcPr[1], ArpHdr->SrcPr[2], ArpHdr->SrcPr[3], ArpHdr->DestPr[0], ArpHdr->DestPr[1], ArpHdr->DestPr[2], ArpHdr->DestPr[3]);
+                // send a reply
+                KSTATUS r2 = NetArpReply(ArpHdr->SrcHw, Nic->MacAddress, ArpHdr->SrcPr, ArpHdr->DestPr);
+                printf("KSTATUS r2 0x%lx\r\n", r2);
             }
-            printf("\r\nend dump.\r\n");
             MmFree(Buffer);
         }
     }

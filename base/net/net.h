@@ -18,7 +18,26 @@ typedef struct NetInterface {
     struct NetInterface* Next;
 } NetInterface;
 
+typedef struct {
+    uint8_t DestMac[6];
+    uint8_t SrcMac[6];
+    uint16_t EtherType;
+} NetEthFrameHdr;
+
+typedef struct {
+    uint16_t HType;
+    uint16_t PType;
+    uint8_t HwAddrLen; // 6 = ethernet
+    uint8_t PrAddrLen; // 4 = ipv4
+    uint16_t Opcode;
+    uint8_t SrcHw[6]; // todo all of this src and dest assumes HwAddrLen being 6 and PrAddrLen being 4. if it isnt theres gonna be issues 
+    uint8_t SrcPr[4];
+    uint8_t DestHw[6];
+    uint8_t DestPr[4];
+} NetArpHdr;
+
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
 KSTATUS NetWriteRaw(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* BytesReadOut);
+KSTATUS NetArpReply(uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
