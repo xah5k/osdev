@@ -15,8 +15,8 @@ NetInterface* NetGetLinkedList() {
 KSTATUS NetRegisterNic(NetInterface* Nic) {
     Nic->Next = gNetInterfaceHead;
     gNetInterfaceHead = Nic; 
-    if (Nic->MacAddress && !KernelGetInformation()->net.Mac) {
-        printf("net: using nic mac as kernel default MAC.\r\n");
+    if (Nic->MacAddress) {
+        printf("net: overwriting current MAC with new NIC.\r\n");
         memcpy((void*)KernelGetInformation()->net.Mac, Nic->MacAddress, 6);
     }   
     return KSUCCESS;
@@ -66,7 +66,7 @@ KSTATUS NetArpReply(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAd
     return r;
 }
 
-KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* FromIpAddress) {
+KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress) {
     void* Buffer = MmAllocate(sizeof(NetEthFrameHdr) + sizeof(NetArpHdr));
     NetEthFrameHdr* EthFrame = (NetEthFrameHdr*)Buffer;
     memcpy((void*)EthFrame->DestMac, ToMacAddress, 6);
@@ -81,7 +81,7 @@ KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMac
     memcpy((void*)ArpHdr->SrcHw, FromMacAddress, 6);
     memcpy((void*)ArpHdr->DestHw, ToMacAddress, 6);
     memcpy((void*)ArpHdr->SrcPr, FromIpAddress, 6);
-    memset((void*)ArpHdr->DestPr, 0, 6);
+    memcpy((void*)ArpHdr->DestPr, ToIpAddress, 6);
     KSTATUS r = NetWriteRaw(Nic, Buffer, sizeof(NetEthFrameHdr) + sizeof(NetArpHdr));
     MmFree(Buffer);
     return r;

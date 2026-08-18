@@ -82,7 +82,6 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
     }
     // transmit packet success
     if (Status & (1 << 2)) {
-        KeDrvWrite("rtl8139: transmit packet success.\r\n");
         Rtl8139DriverSt* DrvSt = (Rtl8139DriverSt*)gNic->DriverState;
         for (int i = 0; i < 4; i++) {
             uint32_t PortStatus = inl(gNic->IoBase + 0x10 + (i * 4));

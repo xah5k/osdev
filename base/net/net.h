@@ -42,3 +42,4 @@ KSTATUS NetWriteRaw(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* BytesReadOut);
 KSTATUS NetArpReply(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
 KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length);
+KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);

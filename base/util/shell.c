@@ -122,6 +122,7 @@ void KeShlProcess(char* string) {
         printf("lsnic - list network cards and their relevant info.\r\n");
         printf("netread - waits until a packet comes and reads/dumps packet.\r\n");
         printf("getip - gets our current ip address.\r\n");
+        printf("arpreq - request a mac address from an ip address.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -528,6 +529,38 @@ void KeShlProcess(char* string) {
         }
     } else if (strcmp(string, "getip") == 0) {
         printf("Current IP Address: [%d.%d.%d.%d]", KernelGetInformation()->net.Ip[0], KernelGetInformation()->net.Ip[1], KernelGetInformation()->net.Ip[2], KernelGetInformation()->net.Ip[3]);
+    } else if (strcmp(string, "arpreq") == 0) {
+        printf("enter ip[0]: ");
+        char* ip0s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip0 = AsciiAsInt(ip0s);
+        printf("enter ip[1]: ");
+        char* ip1s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip1 = AsciiAsInt(ip1s);
+        printf("enter ip[2]: ");
+        char* ip2s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip2 = AsciiAsInt(ip2s);
+        printf("enter ip[3]: ");
+        char* ip3s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip3 = AsciiAsInt(ip3s);
+        uint8_t ip[4] = {ip0, ip1, ip2, ip3};
+        uint8_t* broadcast = MmAllocate(6);
+        memset(broadcast, 0xFF, 6);
+        printf("broadcast mac: ");
+        UtilPrintMacAddr(broadcast);
+        printf("\r\nself mac: ");
+        UtilPrintMacAddr(KernelGetInformation()->net.Mac);
+        printf("\r\n");
+        KSTATUS r = NetArpRequest(NetGetLinkedList(), broadcast, KernelGetInformation()->net.Mac, ip, KernelGetInformation()->net.Ip);
+        printf("KSTATUS 0x%lx\r\n", r);
+        MmFree(ip3s);
+        MmFree(ip2s);
+        MmFree(ip1s);
+        MmFree(ip0s);
+        MmFree(broadcast);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
