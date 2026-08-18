@@ -83,3 +83,16 @@ KSTATUS NetArpReply(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAd
 KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
 NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip);
+KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Sequence);
+typedef enum {
+    NET_CALLBACK_ICMP
+} NetCallbackType;
+
+typedef struct {
+    KSTATUS(*CallBack)(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp);
+    NetCallbackType Type;
+} NetCallback;
+
+
+KSTATUS NetRegisterCallback(uint16_t At, NetCallback* callback);
+KSTATUS NetDeregisterCalback(uint16_t At);

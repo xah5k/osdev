@@ -37,6 +37,10 @@ static void KeShlTestLs(const char* path) {
     printf("kernel: ls: total entries %d\r\n", idx);
 }
 
+static KSTATUS KeShlPingCallback(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp) {
+    printf("%d bytes from %d.%d.%d.%d ttl=%d\r\n", UtilSwapEnd16(Ipv4->Length), Ipv4->Sender[0], Ipv4->Sender[1], Ipv4->Sender[2], Ipv4->Sender[3], Ipv4->Ttl);
+    return KSUCCESS;
+}
 char* KeShlReadStr() {
     char* strbuf = MmAllocate(sizeof(char) * 1024);
     int index = 0;
@@ -123,6 +127,7 @@ void KeShlProcess(char* string) {
         printf("netread - waits until a packet comes and reads/dumps packet.\r\n");
         printf("getip - gets our current ip address.\r\n");
         printf("arpreq - request a mac address from an ip address.\r\n");
+        printf("ping - pings an ip address.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -564,6 +569,38 @@ void KeShlProcess(char* string) {
         MmFree(ip1s);
         MmFree(ip0s);
         MmFree(broadcast);
+    } else if (strcmp(string, "ping") == 0) {
+        printf("enter ip[0]: ");
+        char* ip0s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip0 = AsciiAsInt(ip0s);
+        printf("enter ip[1]: ");
+        char* ip1s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip1 = AsciiAsInt(ip1s);
+        printf("enter ip[2]: ");
+        char* ip2s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip2 = AsciiAsInt(ip2s);
+        printf("enter ip[3]: ");
+        char* ip3s = KeShlReadStr();
+        printf("\r\n");
+        uint8_t ip3 = AsciiAsInt(ip3s);
+        uint8_t ip[4] = {ip0, ip1, ip2, ip3};
+        printf("PING %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+        NetCallback callback;
+        callback.CallBack = KeShlPingCallback;
+        callback.Type = NET_CALLBACK_ICMP;
+        NetRegisterCallback(0, &callback);
+        for (uint16_t i = 0; i < 10; i++) {
+            KSTATUS r = NetIcmpEchoRequest(NetGetLinkedList(), ip, i);
+            printf("sent ping. seq=%d kstatus=0x%lx\r\n", i, r);
+        }
+        MmFree(ip3s);
+        MmFree(ip2s);
+        MmFree(ip1s);
+        MmFree(ip0s);
+        NetDeregisterCalback(0);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
