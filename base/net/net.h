@@ -23,6 +23,13 @@ typedef struct {
     uint16_t EtherType;
 } NetEthFrameHdr;
 
+// used in the kernel as an ARP table
+typedef struct NetArpEntry {
+    uint8_t Mac[6];
+    uint8_t Ip[4];
+    struct NetArpEntry* Next;
+} NetArpEntry;
+
 typedef struct {
     uint16_t HType;
     uint16_t PType;
@@ -35,6 +42,38 @@ typedef struct {
     uint8_t DestPr[4];
 } NetArpHdr;
 
+typedef struct {
+    uint8_t InternetHdrLength : 4;
+    uint8_t Version : 4;
+    uint8_t Ecn : 2;
+    uint8_t Dscp : 6;
+    uint16_t Length;
+    uint16_t Id;
+    uint8_t Flags : 3;
+    uint16_t FragmentOff : 13;
+    uint8_t Ttl;
+    uint8_t Protocol;
+    uint16_t HdrChecksum;
+    uint8_t Sender[4];
+    uint8_t Destination[4];
+    // options comes after but like no one uses them nowdays
+} __attribute__((packed)) NetIpv4Hdr;
+
+typedef struct {
+    uint8_t Type;
+    uint8_t Code;
+    uint16_t Checksum;
+}  __attribute__((packed)) NetIcmpHdr;
+
+typedef struct {
+    uint16_t Id;
+    uint16_t Sequence;
+}  __attribute__((packed)) NetIcmpEchoHdr;
+
+// defines
+#define NET_ETHTYPE_ARP 0x0806
+#define NET_ETHTYPE_IPV4 0x0800
+#define NET_IPV4_PROTOCOL_ICMP 1
 
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
@@ -43,3 +82,4 @@ KSTATUS NetReadRaw(NetInterface* Nic, void* Buffer, uint16_t Length, uint16_t* B
 KSTATUS NetArpReply(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
 KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
+NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip);

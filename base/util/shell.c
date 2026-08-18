@@ -552,10 +552,13 @@ void KeShlProcess(char* string) {
         printf("broadcast mac: ");
         UtilPrintMacAddr(broadcast);
         printf("\r\nself mac: ");
-        UtilPrintMacAddr(KernelGetInformation()->net.Mac);
         printf("\r\n");
-        KSTATUS r = NetArpRequest(NetGetLinkedList(), broadcast, KernelGetInformation()->net.Mac, ip, KernelGetInformation()->net.Ip);
-        printf("KSTATUS 0x%lx\r\n", r);
+        NetArpEntry* Arp = NetArpTableResolve(&KernelGetInformation()->net.ArpHead, ip);
+        if (Arp != NULL) {
+            printf("resolved ip to mac [");
+            UtilPrintMacAddr(Arp->Mac);
+            printf("]\r\n");
+        }
         MmFree(ip3s);
         MmFree(ip2s);
         MmFree(ip1s);

@@ -9,7 +9,7 @@
 #endif
 
 #define ARCHS_X86_64 "x86-64"
-
+struct NetArpEntry;
 typedef struct {
     uint64_t ptr;
     uint32_t size;
@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
     uint8_t Mac[6];
     uint8_t Ip[4];
+    struct NetArpEntry* ArpHead;
 } KeNetInfo;
 
 typedef struct KernelInformation {

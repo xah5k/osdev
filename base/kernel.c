@@ -257,6 +257,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->net.Ip[1] = 168;
     kInfo->net.Ip[2] = 100;
     kInfo->net.Ip[3] = 1;
+    kInfo->net.ArpHead = NULL;
     KeParseConfig(kInfo);
     return kInfo;
 }
