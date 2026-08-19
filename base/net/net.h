@@ -30,6 +30,7 @@ typedef struct NetArpEntry {
     struct NetArpEntry* Next;
 } NetArpEntry;
 
+// ARP
 typedef struct {
     uint16_t HType;
     uint16_t PType;
@@ -42,6 +43,7 @@ typedef struct {
     uint8_t DestPr[4];
 } NetArpHdr;
 
+// IPv4
 typedef struct {
     uint8_t InternetHdrLength : 4;
     uint8_t Version : 4;
@@ -59,6 +61,7 @@ typedef struct {
     // options comes after but like no one uses them nowdays
 } __attribute__((packed)) NetIpv4Hdr;
 
+// ICMP
 typedef struct {
     uint8_t Type;
     uint8_t Code;
@@ -70,10 +73,20 @@ typedef struct {
     uint16_t Sequence;
 }  __attribute__((packed)) NetIcmpEchoHdr;
 
+// UDP
+typedef struct {
+    uint16_t SrcPort;
+    uint16_t DestPort;
+    uint16_t Length;
+    uint16_t Checksum;
+    // payload comes after
+} __attribute__((packed)) NetUdpHdr;
+
 // defines
 #define NET_ETHTYPE_ARP 0x0806
 #define NET_ETHTYPE_IPV4 0x0800
 #define NET_IPV4_PROTOCOL_ICMP 1
+#define NET_IPV4_PROTOCOL_UDP 17
 
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
@@ -85,11 +98,13 @@ KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMac
 NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip);
 KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Sequence);
 typedef enum {
-    NET_CALLBACK_ICMP
+    NET_CALLBACK_ICMP,
+    NET_CALLBACK_UDP
 } NetCallbackType;
 
 typedef struct {
-    KSTATUS(*CallBack)(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp);
+    uint16_t Port;
+    KSTATUS(*CallBack)(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp, NetUdpHdr* Udp);
     NetCallbackType Type;
 } NetCallback;
 

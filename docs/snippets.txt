@@ -293,3 +293,10 @@ rtl8139: first bytes: ff ff ff ff ff ff 66 33 0c 1e 7e d5 08 06 00 01 08 00 06 0
         KSTATUS r2 = NetArpReply(ArpHdr->SrcHw, Nic->MacAddress, ArpHdr->SrcPr, ArpHdr->DestPr);
         printf("KSTATUS r2 0x%lx\r\n", r2);
     }
+
+// setup tap
+ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip tuntap add dev tap0 mode tap user $(whoami)
+#[sudo] password for ah5k: 
+ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip link set tap0 up
+ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip addr add 192.168.100.2/24 dev tap0
+ah5k@DESKTOP-JL92OAJ:~/osdev$ 

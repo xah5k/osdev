@@ -219,7 +219,7 @@ KSTATUS NetIpv4Handle(NetEthFrameHdr* EthFrame, NetIpv4Hdr* Ipv4) {
                 NetIcmpEchoHdr* EchoHdr = (NetIcmpEchoHdr*)((uint64_t)IcmpHdr + sizeof(NetIcmpHdr));
                 for (int i = 0; i < 256; i++) {
                     if (gNetCallbacks[i].CallBack && gNetCallbacks[i].Type == NET_CALLBACK_ICMP) {
-                        gNetCallbacks[i].CallBack(EthFrame, Ipv4, EchoHdr, IcmpHdr);
+                        gNetCallbacks[i].CallBack(EthFrame, Ipv4, EchoHdr, IcmpHdr, NULL);
                     }
                 }
                 return KSUCCESS;
@@ -229,6 +229,22 @@ KSTATUS NetIpv4Handle(NetEthFrameHdr* EthFrame, NetIpv4Hdr* Ipv4) {
                 NetIcmpEchoHdr* EchoHdr = (NetIcmpEchoHdr*)((uint64_t)IcmpHdr + sizeof(NetIcmpHdr));
                 KSTATUS r = NetIcmpEchoReply(NetGetLinkedList(), Ipv4->Sender, EchoHdr, UtilSwapEnd16(Ipv4->Length), (void*)((uint64_t)EchoHdr + sizeof(NetIcmpEchoHdr)));
                 return r;
+            }
+            break;
+        }
+        case NET_IPV4_PROTOCOL_UDP: {
+            NetUdpHdr* UdpHdr = (NetUdpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr) + sizeof(NetIpv4Hdr));
+            uint16_t SrcPort = UtilSwapEnd16(UdpHdr->SrcPort);
+            uint16_t DestPort = UtilSwapEnd16(UdpHdr->DestPort);
+            uint16_t Length = UtilSwapEnd16(UdpHdr->Length);
+            #ifdef _NET_DEBUG
+            printf("net: udp: UDP packet from %d.%d.%d.%d:%d -> %d.%d.%d.%d:%d\r\n", Ipv4->Sender[0], Ipv4->Sender[1], Ipv4->Sender[2], Ipv4->Sender[3], SrcPort, Ipv4->Destination[0], Ipv4->Destination[1], Ipv4->Destination[2], Ipv4->Destination[3], DestPort);
+            printf("net: udp: Length %d\r\n", Length);
+            #endif
+            for (int i = 0; i < 256; i++) {
+                if (gNetCallbacks[i].CallBack && gNetCallbacks[i].Type == NET_CALLBACK_UDP && gNetCallbacks[i].Port == DestPort) {
+                    gNetCallbacks[i].CallBack(EthFrame, Ipv4, NULL, NULL, UdpHdr);
+                }
             }
             break;
         }
@@ -313,16 +329,18 @@ KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length) {
         }
         return KSUCCESS;
     } else if (UtilSwapEnd16(EthFrame->EtherType) == NET_ETHTYPE_IPV4) {
-        // printf("net: Packet is IP packet.\r\n");
         NetIpv4Hdr* Ipv4Hdr = (NetIpv4Hdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
-        // printf("net: IP version: %d\r\n", Ipv4Hdr->Version);
-        // printf("net: IHL %d\r\n", Ipv4Hdr->InternetHdrLength);
-        // printf("net: Total packet size: %d\r\n", UtilSwapEnd16(Ipv4Hdr->Length));
-        // printf("net: TTL: %d\r\n", Ipv4Hdr->Ttl);
-        // printf("net: Protocol number: %d\r\n", Ipv4Hdr->Protocol);
-        // printf("net: [%d.%d.%d.%d] -> [%d.%d.%d.%d]\r\n", Ipv4Hdr->Sender[0], Ipv4Hdr->Sender[1], Ipv4Hdr->Sender[2], Ipv4Hdr->Sender[3], Ipv4Hdr->Destination[0], Ipv4Hdr->Destination[1], Ipv4Hdr->Destination[2], Ipv4Hdr->Destination[3]);
+        #ifdef _NET_DEBUG
+        printf("net: Packet is IP packet.\r\n");
+        printf("net: IP version: %d\r\n", Ipv4Hdr->Version);
+        printf("net: IHL %d\r\n", Ipv4Hdr->InternetHdrLength);
+        printf("net: Total packet size: %d\r\n", UtilSwapEnd16(Ipv4Hdr->Length));
+        printf("net: TTL: %d\r\n", Ipv4Hdr->Ttl);
+        printf("net: Protocol number: %d\r\n", Ipv4Hdr->Protocol);
+        printf("net: [%d.%d.%d.%d] -> [%d.%d.%d.%d]\r\n", Ipv4Hdr->Sender[0], Ipv4Hdr->Sender[1], Ipv4Hdr->Sender[2], Ipv4Hdr->Sender[3], Ipv4Hdr->Destination[0], Ipv4Hdr->Destination[1], Ipv4Hdr->Destination[2], Ipv4Hdr->Destination[3]);
+        #endif
         KSTATUS r = NetIpv4Handle(EthFrame, Ipv4Hdr);
-        // printf("net: NetIpv4Handle KSTATUS 0x%lx\r\n", r);
+        //printf("net: NetIpv4Handle KSTATUS 0x%lx\r\n", r);
     }
     // note we dont free the buffer mainly cuz the proper NetRead call might still be using it
     // so we should let that free it

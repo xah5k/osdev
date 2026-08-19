@@ -37,8 +37,20 @@ static void KeShlTestLs(const char* path) {
     printf("kernel: ls: total entries %d\r\n", idx);
 }
 
-static KSTATUS KeShlPingCallback(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp) {
+static KSTATUS KeShlPingCallback(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* Echo, NetIcmpHdr* Icmp, NetUdpHdr* nouse) {
     printf("%d bytes from %d.%d.%d.%d ttl=%d\r\n", UtilSwapEnd16(Ipv4->Length), Ipv4->Sender[0], Ipv4->Sender[1], Ipv4->Sender[2], Ipv4->Sender[3], Ipv4->Ttl);
+    return KSUCCESS;
+}
+
+static int KeShlListen = 0;
+static KSTATUS KeShlListenCallback(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* nouse0, NetIcmpHdr* nouse1, NetUdpHdr* Udp) {
+    printf("from %d.%d.%d.%d:%d\r\n", Ipv4->Sender[0], Ipv4->Sender[1], Ipv4->Sender[2], Ipv4->Sender[3], Udp->SrcPort);
+    uint8_t* payload = (uint8_t*)((uint64_t)Udp + sizeof(NetUdpHdr));
+    for (int i = 0; i < UtilSwapEnd16(Udp->Length); i++) {
+        _putchar(payload[i]);
+    }
+    printf("\r\n");
+    KeShlListen = 1;
     return KSUCCESS;
 }
 char* KeShlReadStr() {
@@ -128,6 +140,7 @@ void KeShlProcess(char* string) {
         printf("getip - gets our current ip address.\r\n");
         printf("arpreq - request a mac address from an ip address.\r\n");
         printf("ping - pings an ip address.\r\n");
+        printf("udplisten - listens on a port for a udp packet.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -601,6 +614,19 @@ void KeShlProcess(char* string) {
         MmFree(ip1s);
         MmFree(ip0s);
         NetDeregisterCalback(0);
+    } else if (strcmp(string, "udplisten") == 0) {
+        printf("enter port [0-65535]: ");
+        char* ports = KeShlReadStr();
+        printf("\r\n");
+        uint16_t port = AsciiAsInt(ports);
+        MmFree(ports);
+        NetCallback callback;
+        callback.Port = port;
+        callback.Type = NET_CALLBACK_UDP;
+        callback.CallBack = KeShlListenCallback;
+        NetRegisterCallback(1, &callback);
+        while (!KeShlListen);
+        NetDeregisterCalback(1);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
