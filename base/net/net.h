@@ -97,6 +97,8 @@ KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length);
 KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMacAddress, uint8_t* ToIpAddress, uint8_t* FromIpAddress);
 NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip);
 KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Sequence);
+KSTATUS NetUdpSend(NetInterface* Nic, uint8_t* ToIpAddress, void* Payload, uint16_t Length, uint16_t SrcPort, uint16_t DestPort);
+
 typedef enum {
     NET_CALLBACK_ICMP,
     NET_CALLBACK_UDP

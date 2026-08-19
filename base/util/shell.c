@@ -141,6 +141,7 @@ void KeShlProcess(char* string) {
         printf("arpreq - request a mac address from an ip address.\r\n");
         printf("ping - pings an ip address.\r\n");
         printf("udplisten - listens on a port for a udp packet.\r\n");
+        printf("udptest - tests sending.\r\n");
     } else if (strcmp(string, "ls") == 0) {
         printf("enter path: ");
         char* s = KeShlReadStr();
@@ -627,6 +628,14 @@ void KeShlProcess(char* string) {
         NetRegisterCallback(1, &callback);
         while (!KeShlListen);
         NetDeregisterCalback(1);
+    } else if (strcmp(string, "udptest") == 0) {
+        uint8_t* buf = MmAllocate(13);
+        strlcpy(buf, "Hello world from ah5kos!", 13);
+        uint8_t ipaddr[4] = {192, 168, 100, 2}; // ip of host on tap
+        uint16_t port = 25565; // only port i could think of, prob bcz of minecraft
+        KSTATUS r = NetUdpSend(NetGetLinkedList(), ipaddr, buf, 13, 1234, port); // from us:1234 -> 192.168.100.2:25565
+        printf("KSTATUS of UdpSend 0x%lx\r\n", r);
+        MmFree(buf);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

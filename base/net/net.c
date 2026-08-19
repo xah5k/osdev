@@ -210,6 +210,44 @@ KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Seq
     return r;
 }
 
+KSTATUS NetUdpSend(NetInterface* Nic, uint8_t* ToIpAddress, void* Payload, uint16_t Length, uint16_t SrcPort, uint16_t DestPort) {
+    NetArpEntry* Entry = NetArpTableResolve(&KernelGetInformation()->net.ArpHead, ToIpAddress);
+    if (!Entry) return KINVALID;
+    uint32_t UdpPacketLen = sizeof(NetUdpHdr) + Length;
+    uint32_t FrameLen = sizeof(NetEthFrameHdr) + sizeof(NetIpv4Hdr) + UdpPacketLen;
+    void* Buffer = MmAllocate(FrameLen);
+    memset((void*)Buffer, 0, FrameLen);
+    NetEthFrameHdr* EthFrame = (NetEthFrameHdr*)Buffer;
+    memcpy((void*)EthFrame->DestMac, Entry->Mac, 6);
+    memcpy((void*)EthFrame->SrcMac, KernelGetInformation()->net.Mac, 6);
+    EthFrame->EtherType = UtilSwapEnd16(0x0800);
+    // todo make a function for creating ipv4 packets cuz like im copying and pasting this shi now
+    NetIpv4Hdr* Ipv4Hdr = (NetIpv4Hdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr));
+    Ipv4Hdr->Version = 4;
+    Ipv4Hdr->InternetHdrLength = 5;
+    Ipv4Hdr->Dscp = 0;
+    Ipv4Hdr->Ecn = 0;
+    Ipv4Hdr->Length = UtilSwapEnd16(sizeof(NetIpv4Hdr) + UdpPacketLen);
+    Ipv4Hdr->Id = 0;
+    Ipv4Hdr->Flags = 0;
+    Ipv4Hdr->FragmentOff = 0;
+    Ipv4Hdr->Ttl = 64;
+    Ipv4Hdr->Protocol = NET_IPV4_PROTOCOL_UDP;
+    memcpy((void*)Ipv4Hdr->Sender, KernelGetInformation()->net.Ip, 4);
+    memcpy((void*)Ipv4Hdr->Destination, ToIpAddress, 4);
+    Ipv4Hdr->HdrChecksum = 0;
+    Ipv4Hdr->HdrChecksum = (NetChecksum((void*)Ipv4Hdr, Ipv4Hdr->InternetHdrLength * 4));
+    NetUdpHdr* UdpHdr = (NetUdpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr) + sizeof(NetIpv4Hdr));
+    UdpHdr->SrcPort = UtilSwapEnd16(SrcPort);
+    UdpHdr->DestPort = UtilSwapEnd16(DestPort);
+    UdpHdr->Checksum = 0;
+    UdpHdr->Length = UtilSwapEnd16(UdpPacketLen);
+    void* OPayload = (void*)((uint64_t)UdpHdr + sizeof(UdpHdr));
+    memcpy((void*)OPayload, Payload, Length);
+    KSTATUS r = NetWriteRaw(Nic, Buffer, FrameLen);
+    MmFree(Buffer);
+    return r;
+}
 
 KSTATUS NetIpv4Handle(NetEthFrameHdr* EthFrame, NetIpv4Hdr* Ipv4) {
     switch (Ipv4->Protocol) {
