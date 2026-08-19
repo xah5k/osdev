@@ -8,7 +8,6 @@
 #include <memory.h>
 #include "fs/vfs.h"
 #include "sched/process.h"
-#include "serial.h"
 #include <util/spinlock.h>
 #include <kernel.h>
 #include <exeldr/ldrelf.h>
@@ -30,9 +29,6 @@
 void KernelBootstrapProc();
 void KernelApplicationProc();
 
-extern uint64_t PmmTotalPhysicalMem;
-
-pagetable* kpml4; 
 static KernelInformation* gkInfo;
 Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
 
@@ -40,16 +36,10 @@ extern BOOTBOOT bootboot;               // see bootboot.h
 extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
 extern uint8_t fb;                      // linear framebuffer mapped
 
-extern uint8_t _kernel_start;
-extern uint8_t _kernel_end;
-
-//uint8_t kstack[16384];
-
 void _putchar(char character) {
-    WritecSerial(0x3f8, character);
+    HalPutChar(character);
     FbPutc(character);
 }
-
 
 const char* BugcheckTable[4] = {
     "UNREGISTERED_INTERRUPT",
@@ -57,9 +47,6 @@ const char* BugcheckTable[4] = {
     "KERNEL_CORE_COMP_FAIL",
     "KERNEL_ACPI_FIRMWARE_FATAL"
 };
-
-/* printf("kernel: killing user task..\r\n");
-        KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);*/
 
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
@@ -154,73 +141,11 @@ KernelInformation* KernelGetInformation() {
 }
 KE_EXPORT_SYMBOL(KernelGetInformation);
 
-void KeSetupMmu() {
-    kpml4 = PmmAllocate();
-    memset(kpml4, 0, PAGE_SIZE);
 
-    // map every usable page
-    for (uint64_t i = 0; i < PmmTotalPhysicalMem; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, i + MMU_PHYS_OFFSET, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-        // tmp identity map
-        MmuMapPage(kpml4, i, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    } 
-
-    // physical address of kernel
-    uint64_t kphys = MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe02000);
-    uint64_t ksize = (uint64_t)&_kernel_end - (uint64_t)&_kernel_start;
-    // map kernel
-    for (uint64_t i = 0; i < ksize; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, 0xffffffffffe02000 + i, kphys + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-    // map framebuffer
-    for (uint64_t i = 0; i < bootboot.fb_size; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, 0xfffffffffc000000 + i, bootboot.fb_ptr + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-    // map bootboot struct
-    MmuMapPage(kpml4, 0xffffffffffe00000, MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe00000), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-
-    // map initrd
-    for (uint64_t i = bootboot.initrd_ptr; i < bootboot.initrd_size; i+=PAGE_SIZE) {
-        //printf("paging: initrd: mapped phys(0x%lx) to virt(0x%lx)\r\n", i, (i + gMmuVOffset));
-        MmuMapPage(kpml4, (i + MMU_PHYS_OFFSET), (i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-
-    // map kernel info struct
-    for (uint64_t i = (uint64_t)gkInfo; i < sizeof(KernelInformation); i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, (i + MMU_PHYS_OFFSET), i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-    // map stack
-    #ifdef __x86_64__
-    MmuMapPage(kpml4, _x86_64_get_stack(), MmuGetPhys(_x86_64_get_pml4(), _x86_64_get_stack()), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    //_x86_64_set_stack(_x86_64_get_stack() + MMU_PHYS_OFFSET);
-    #endif
-
-    // map pml4 itself
-    #ifdef __x86_64__
-    MmuMapPage(kpml4, (virtaddr)((uint64_t)kpml4 + MMU_PHYS_OFFSET), (physaddr)kpml4, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    #endif
-
-    // switch
-    #ifdef __x86_64__
-    _x86_64_load_pml4((uint64_t)kpml4);
-    #endif
-    
-    // change offset (where physical memory is located in virtual address space)
-    gMmuVOffset = MMU_PHYS_OFFSET;
-}
-
-void KeRmvIdentityMap() {
-    kpml4[0] = 0;
-    #ifdef __x86_64__
-    _x86_64_load_pml4((uint64_t)kpml4);
-    #endif
-}
 KSTATUS KeMmInitalize() {
-    return VmmInitalize() && MmHeapInitalize();
+    KSUCCESS(VmmInitalize());
+    KSUCCESS(MmHeapInitalize());
+    return KSUCCESS;
 }
 
 
@@ -269,21 +194,16 @@ extern uint64_t PmmLargestFreeMemorySize;
 static void KeInitalizeDrivers() {
     int count = 0;
     const char** list = KeDrvBuildDriverList(&count);
-    printf("kernel: %d drivers found in initrd.\r\n", count);
     for (int i = 0; i < count; i++) {
         if (list[i]) {
             int handle = OsOpen(list[i], 0);
             if (handle < 0)  { 
-                printf("kernel: failed to acquire handle for driver file. (returned %d)\r\n", handle);
-                printf("attempted to do OsOpen(\"%s\", 0)", list[i]);
                 continue;
             } else {
-                printf("kernel: acquired handle with number %d for driver.\r\n", handle);
                 int sz = OsGetFileSize(handle);
                 void* buf = MmAllocate(sz);
                 if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
                 int read = OsRead(handle, buf, sz);
-                printf("kernel: read %d into buffer.\r\n", read);
                 KeDriverObj* driver = NULL;
                 KSTATUS result = LdrElfDriverExec(buf, &driver);
                 MmFree(buf);
@@ -296,19 +216,16 @@ static void KeInitalizeDrivers() {
                     printf("kernel: failed to get driver object.\r\n");
                     continue;
                 }
-                printf("kernel: driver object @ 0x%lx\r\n", driver);
                 if (!driver->Initalize) {
                     printf("kernel: error: driver load fail. no initalize func???\r\n");
                 }
                 KSTATUS init = driver->Initalize(driver);
-                printf("kernel: driver return KSTATUS %d\r\n", init);
                 if (init != KSUCCESS) {
                     printf("kernel: warn: driver load fail. discarding.\r\n");
                     MmFree(driver);
                     continue;
                 }
                 KeDrvRegisterDriver(driver);
-                printf("kernel: registered driver.\r\n");
             }
         }
     }
@@ -347,57 +264,32 @@ void KeInitalizeDiskParts() {
 }
 
 void KernelBootstrapProc() {
-    // initalize serial console (bootboot in theory should've already done this for us)
-    InitSerialConsole(0x3f8);
-
     // setup pmm
     PmmInitalize(&bootboot);
-    printf("kernel: finished initalizing pmm.\r\n");
-
     // create kernel information structure
     gkInfo = KeCreateKinfo();
     KATTEMPT(gkInfo);
-
     // setup paging
-    KeSetupMmu();
-    MmuMapPage(kpml4, (virtaddr)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET), (physaddr)gkInfo->fb, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    KSUCCESS(HalSetupMmu(gkInfo));
+    MmuMapPage(HalGetPageTable(), (virtaddr)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET), (physaddr)gkInfo->fb, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     gkInfo = (KernelInformation*)((uint64_t)gkInfo + MMU_PHYS_OFFSET);
     gkInfo->fb = (Framebuffer*)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET);
     gkInfo->rsdt = (void*)((uint64_t)bootboot.arch.x86_64.acpi_ptr + gMmuVOffset);
-    printf("kernel: finished initalizing new page tables.\r\n");
-    
     // setup higher memory management
     KeMmInitalize();
-    printf("kernel: initalized higher mm.\r\n");
-
     // setup sched structures
     SchedInitalize(gkInfo);
-    printf("kernel: initalized scheduler structures.\r\n");
-
     #ifdef __x86_64__
 	HalInitalize(gkInfo);    
-    printf("kernel: initalized hal for arch x86-64!\r\n");
-    printf("kernel: tss base from info. gkInfo->tss=0x%lx\r\n", gkInfo->tss);
     #endif
     KeInitalizeDiskParts();
-    printf("kernel: scanned disks for partitions and initalized filesystems.\r\n");
-    
     KeRegisterSyscalls();
-    printf("kernel: registered syscalls.\r\n");
-    
     gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
     TarInitalizeVfs(gkInfo->initrd);
-    printf("kernel: initalized tarfs\r\n");
     KeFbAsConsole();
-    printf("kernel: initalized fb console\r\n");
-    // think its a good time to unmap identity mappings
     PmmAdjustBitmapPtr();
-    KeRmvIdentityMap();
-    printf("kernel: removed identity mapping from before.\r\n");
-
+    KSUCCESS(HalRmvIdentityMap());
     KeInitalizeDrivers();
-    printf("kernel: initalized drivers that have initalized.\r\n");
-    printf("kernel: most kernel-side initalization has finished. creating new thread for kernel shell...\r\n");
     KeUtilShell();
     while(1) { __asm__("hlt"); }
 }

@@ -1,6 +1,5 @@
 
 #include "kernel.h"
-#include "serial.h"
 #include <stddef.h>
 #include <stdint.h>
 #ifdef __x86_64__
@@ -58,6 +57,7 @@ KSTATUS VmmInitalize() {
     VmmInternalHead->free = 1;
     VmmInternalHead->next = NULL;
     VmmInternalHead->prev = NULL;
+    return KSUCCESS;
 }
 
 VmmInternalBlock* VmmInternalFindGap(uint64_t size) {

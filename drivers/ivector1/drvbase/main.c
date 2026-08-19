@@ -13,6 +13,5 @@ void IntVector1Handler(CpuInterruptArgs* r) {
 
 KSTATUS DriverEntry(KeDriverObj* Self) {
     CpuRegisterHandler(1, (irqhandler)IntVector1Handler);
-    KeDrvWrite("ivector1: registered handler.\r\n");
     return KSUCCESS;
 }

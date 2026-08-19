@@ -209,10 +209,7 @@ KSTATUS AhciPortWrite(KeAhciPort* Port, uint64_t Sector, uint32_t SectorCount, c
 }
 
 KSTATUS DriverEntry(KeDriverObj* Self) {
-    KeDrvWriteFmt("ahci: DriverEntry.\r\n");
-    KeDrvWriteFmt("ahci: gPciBase = 0x%lx\r\n", gPciBase);
     gAhciAbar = (AhciHbaMemory*)(((PciDeviceHeaderTy0*)gPciBase)->BAR5 & ~0xFULL);
-    KeDrvWriteFmt("ahci: gAhciAbar = 0x%lx\r\n", gAhciAbar);
     MmuMapPage((pagetable*)_x86_64_get_pml4(), (virtaddr)P2V(gAhciAbar), (physaddr)gAhciAbar, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_PCD | MMU_PAGE_BIT_PWT);;
     gAhciAbar = (AhciHbaMemory*)((uint64_t)gAhciAbar + gMmuVOffset);
     AhciProbePorts();

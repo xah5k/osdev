@@ -57,7 +57,6 @@ typedef struct ProcessCtrlBlk {
 } ProcessCtrlBlk;
 
 typedef struct ThreadCtrlBlk {
-#ifdef __x86_64__
     uint64_t KernelRsp;
     uint64_t KernelStackBase; // vaddr
     uint64_t UserRsp;
@@ -72,13 +71,17 @@ typedef struct ThreadCtrlBlk {
     uint64_t SigBlockedSet;
     char** UserArgv;
     int UserArgc;
+    #ifdef __x86_64__
     uint64_t FsBase;
     uint64_t GsBase;
+    #else
+    uint64_t Rsv0;
+    uint64_t Rsv1;
+    #endif
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
     CpuInterruptArgs* LastIframe;
-#endif
 } ThreadCtrlBlk;
 
 ThreadCtrlBlk* ThrGetCurrent();

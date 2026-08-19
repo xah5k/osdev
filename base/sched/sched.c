@@ -12,6 +12,9 @@
 #include <memory.h>
 #include <sched/process.h>
 #include <kedriver.h>
+#ifdef __x86_64__
+#include <arch/x86_64/hal.h>
+#endif
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;
@@ -27,7 +30,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
     memcpy((void*)KernelProc->name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
     memcpy((void*)KernelProc->cwd, (void*)"initrd:/boot", 13);
-    KernelProc->pml4 = (virtaddr*)_x86_64_get_pml4();
+    KernelProc->pml4 = (virtaddr*)HalGetPageTable();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
     KernelProc->pid = 0;
     KernelProc->nextfh = 3; // process.c
@@ -40,7 +43,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
     KernelThread->tid = 0;
     KernelThread->state = SCHED_THREAD_RUNNING;
-    KernelThread->KernelRsp = _x86_64_get_stack();
+    KernelThread->KernelRsp = HalGetStack();
     KernelThread->privilege = SCHED_PRIV_KERNEL;
 
     // create idle thread
@@ -115,7 +118,7 @@ void Schedule() {
         }
 
         if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
-            _x86_64_load_pml4(NextThr->ParentProc->cr3);
+            HalSwPageTable(NextThr->ParentProc->cr3);
         }
 
         asm volatile("cli");
@@ -124,7 +127,7 @@ void Schedule() {
         CpuWriteMsr(0xC0000100, NextThr->FsBase);
         CpuWriteMsr(0xC0000102, NextThr->GsBase);
         SpnLckReleaseRfl(&SchedSpinlock, r);
-        _x86_64_ctxswitch(&OldThr->KernelRsp, NextThr->KernelRsp);
+        HalContextSw(&OldThr->KernelRsp, NextThr->KernelRsp);
         #endif
     }
     if (DeathThread != NULL) {

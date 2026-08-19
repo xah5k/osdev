@@ -34,7 +34,7 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function, uint64_t Base, uint
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(FuncAddress);
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
-    printf("pci: new device: %lx:%lx\r\n", PciDevHdr->VendorID, PciDevHdr->DeviceID);
+    // printf("pci: new device: %lx:%lx\r\n", PciDevHdr->VendorID, PciDevHdr->DeviceID);
     KePciDeviceHdr* LinkedListType = MmAllocate(sizeof(KePciDeviceHdr));
     LinkedListType->Bus = Bus;
     LinkedListType->Dev = Dev;
@@ -82,7 +82,7 @@ void PciEnumBus(uint64_t Base, uint64_t Bus) {
 }
 void PciEnumerate(AcpiMcfgTable* mcfg) {
     uint64_t Entries = ((mcfg->header.Length) - sizeof(AcpiMcfgTable)) / sizeof(PciConfigSpBaStruct);
-    printf("pci: entries=%d\r\n", Entries);
+    // printf("pci: entries=%d\r\n", Entries);
     for (uint64_t i = 0; i < Entries; i++) {
         PciConfigSpBaStruct* DeviceConfig = (PciConfigSpBaStruct*)(((uint64_t)mcfg->Ecm) + (16 * i));
         for (uint64_t Bus = DeviceConfig->StartBus; Bus < DeviceConfig->EndBus; Bus++) {

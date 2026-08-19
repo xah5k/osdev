@@ -95,7 +95,6 @@ const char** KeDrvBuildDriverList(int* countOut) {
         const char* ext = KeDrvGetFileExt(dirent.Name);
         if (ext && strcmpl(ext, "sys", 4) == 0) {
             count++;
-            printf("kernel: kedriver: new count of %d drivers.\r\n", count);
         }
         idx++;
         result = OsReadDir(handle, &dirent, idx);
@@ -113,7 +112,6 @@ const char** KeDrvBuildDriverList(int* countOut) {
             Paths[i] = MmAllocate(len);
             memcpy(Paths[i], dirent.Path, len);
             i++;
-            printf("kernel: kedriver: filled entry %d with driver '%s' \r\n", i, dirent.Path);
         }
         idx++;
         result = OsReadDir(handle, &dirent, idx);

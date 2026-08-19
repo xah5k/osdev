@@ -15,10 +15,10 @@ KSTATUS PtableEnumerate(void* Lba1) {
         printf("ptable: invalid signature for header.\r\n");
         return KINVALID;
     }
-    printf("ptable: guid part table at lba %d\r\n", Hdr->MyLba);
-    printf("ptable: guid part table alt lba %d\r\n", Hdr->AltLba);
-    printf("ptable: guid part table part entry lba %d\r\n", Hdr->PartitionEntryLba);
-    printf("ptable: guid part table part entry size %d\r\n", Hdr->PartitionEntrySz);
+    // printf("ptable: guid part table at lba %d\r\n", Hdr->MyLba);
+    // printf("ptable: guid part table alt lba %d\r\n", Hdr->AltLba);
+    // printf("ptable: guid part table part entry lba %d\r\n", Hdr->PartitionEntryLba);
+    // printf("ptable: guid part table part entry size %d\r\n", Hdr->PartitionEntrySz);
     uint32_t PartEntrySz = Hdr->PartitionEntrySz;
     uint32_t ByteCount = (Hdr->PartitionNumber * PartEntrySz);
 
@@ -37,9 +37,9 @@ KSTATUS PtableEnumerate(void* Lba1) {
     for (uint32_t i = 0; i < Hdr->PartitionNumber; i++) {
         GptPartEnt* Entry = (GptPartEnt*)base;
         if (memcmp((void*)Entry->PartitionTypeGuid, gZeroGuid, 16) == 0) continue;
-        printf("ptable: partition %d: name=", i);
+        // printf("ptable: partition %d: name=", i);
         UtilPrintW(Entry->PartitionName, 36);
-        printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
+        // printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
         if (i == 1 && gInitPart1 == 0 && KernelGetInformation()->DriverExt2Load) {
             Ext2SbInit(Entry->StartLba, i);
             gInitPart1 = 1;

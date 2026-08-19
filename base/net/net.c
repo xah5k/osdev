@@ -31,7 +31,6 @@ KSTATUS NetRegisterNic(NetInterface* Nic) {
     Nic->Next = gNetInterfaceHead;
     gNetInterfaceHead = Nic; 
     if (Nic->MacAddress) {
-        printf("net: overwriting current MAC with new NIC.\r\n");
         memcpy((void*)KernelGetInformation()->net.Mac, Nic->MacAddress, 6);
     }   
     return KSUCCESS;

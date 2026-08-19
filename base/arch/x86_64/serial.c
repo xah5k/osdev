@@ -1,7 +1,5 @@
 #include "serial.h"
-#if __ARCH__ == x86_64
-#include "arch/x86_64/ports.h"
-#endif
+#include "ports.h"
 #include <kedriver.h>
 void InitSerialConsole(uint16_t port) {
     outb(port + 1, 0x00);

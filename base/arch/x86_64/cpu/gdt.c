@@ -42,6 +42,5 @@ void CpuInitalizeGdt(struct KernelInformation* kinfo) {
     Gdtr.limit = (uint16_t)sizeof(Entries)-1;
     Gdtr.base = (uint64_t)&Entries;
     kinfo->tss = Tss;
-    printf("gdt: tss base 0x%lx\r\n", Tss);
     _x86_64_load_gdt((uint64_t)&Gdtr);
 }

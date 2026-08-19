@@ -68,7 +68,6 @@ void CpuCalibrateLapicTimer() {
     gCpuLapicTicksPer10ms = 0xFFFFFFFF - (uint64_t)lapic_current;
     gCpuLapicTicksPerMs = gCpuLapicTicksPer10ms / 10;
     asm ("sti");
-    printf("lapic: timer ticks %d times per 10ms\r\n", gCpuLapicTicksPer10ms);
 }
 // initalize and calibrate it
 void CpuInitalizeLapicTimer(uint64_t ivector) {

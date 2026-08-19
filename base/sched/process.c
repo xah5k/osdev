@@ -12,6 +12,9 @@
 #include <sched/ipc/signal.h>
 #include <external/posix/signal.h>
 #include <sched/ipc/signaltrampoline.h>
+#ifdef __x86_64__
+#include <arch/x86_64/hal.h>
+#endif
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
@@ -474,19 +477,18 @@ void ThreadEntry() {
     if (entry) {
         switch (CurrentThread->privilege) {
             case SCHED_PRIV_KERNEL: {
-                printf("process: execute kernel mode process entry @ 0x%lx\r\n", entry);
                 entry();
                 break;
             }
             case SCHED_PRIV_USER: {
                 asm volatile ("cli");
-                _x86_64_usjmp((uint64_t)entry, CurrentThread->UserRsp, (uint64_t)CurrentThread->UserArgv, (uint64_t)CurrentThread->UserArgc);
+                HalUserJump((uint64_t)entry, CurrentThread->UserRsp, (uint64_t)CurrentThread->UserArgv, (uint64_t)CurrentThread->UserArgc);
                 break;
             }
         }
     }
     KE_SYSCALL_CALL_ARG1(SysExit, 0);
-    while (1) {asm("hlt");}
+    KSUCCESS(KFAIL);
 }
 
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb) {
