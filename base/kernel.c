@@ -289,6 +289,9 @@ void KernelBootstrapProc() {
     KeFbAsConsole();
     PmmAdjustBitmapPtr();
     KSUCCESS(HalRmvIdentityMap());
+    // also add the mapping for 255.255.255.255
+    uint8_t b[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    NetArpTableAdd(&gkInfo->net.ArpHead, b, b);
     KeInitalizeDrivers();
     KeUtilShell();
     while(1) { __asm__("hlt"); }

@@ -98,6 +98,7 @@ KSTATUS NetArpRequest(NetInterface* Nic, uint8_t* ToMacAddress, uint8_t* FromMac
 NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip);
 KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Sequence);
 KSTATUS NetUdpSend(NetInterface* Nic, uint8_t* ToIpAddress, void* Payload, uint16_t Length, uint16_t SrcPort, uint16_t DestPort);
+KSTATUS NetArpTableAdd(NetArpEntry** Table, uint8_t* Mac, uint8_t* Ip);
 
 typedef enum {
     NET_CALLBACK_ICMP,

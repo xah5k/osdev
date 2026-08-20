@@ -566,12 +566,6 @@ void KeShlProcess(char* string) {
         printf("\r\n");
         uint8_t ip3 = AsciiAsInt(ip3s);
         uint8_t ip[4] = {ip0, ip1, ip2, ip3};
-        uint8_t* broadcast = MmAllocate(6);
-        memset(broadcast, 0xFF, 6);
-        printf("broadcast mac: ");
-        UtilPrintMacAddr(broadcast);
-        printf("\r\nself mac: ");
-        printf("\r\n");
         NetArpEntry* Arp = NetArpTableResolve(&KernelGetInformation()->net.ArpHead, ip);
         if (Arp != NULL) {
             printf("resolved ip to mac [");
@@ -582,7 +576,6 @@ void KeShlProcess(char* string) {
         MmFree(ip2s);
         MmFree(ip1s);
         MmFree(ip0s);
-        MmFree(broadcast);
     } else if (strcmp(string, "ping") == 0) {
         printf("enter ip[0]: ");
         char* ip0s = KeShlReadStr();
