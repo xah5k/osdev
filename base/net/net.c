@@ -249,6 +249,36 @@ KSTATUS NetUdpSend(NetInterface* Nic, uint8_t* ToIpAddress, void* Payload, uint1
     return r;
 }
 
+KSTATUS NetDhcpDiscover(NetInterface* Nic) {
+    uint8_t* Buffer = MmAllocate(sizeof(NetDhcpHdr) + 9);
+    NetDhcpHdr* DhcpHdr = (NetDhcpHdr*)Buffer;
+    memset((void*)DhcpHdr, 0x00, sizeof(NetDhcpHdr));
+    DhcpHdr->Opcode = 0x01;
+    DhcpHdr->HType = 0x01;
+    DhcpHdr->HLen = 0x06;
+    DhcpHdr->XId = UtilSwapEnd32(0x3903F326); // todo: properly randomize (or well at boot store it in like kinfo or smth and use it) instead of using wikipedia example id
+    memcpy((void*)DhcpHdr->ChHwAddr, KernelGetInformation()->net.Mac, 6);
+    DhcpHdr->MagicCookie = UtilSwapEnd32(0x63825363);
+    NetDhcpOption* Opt1 = MmAllocate(sizeof(NetDhcpOption) + sizeof(uint8_t));
+    Opt1->Type = 53; // DHCPDISCOVER
+    Opt1->Length = 0x01;
+    *(uint8_t*)((uint64_t)Opt1 + sizeof(NetDhcpOption)) = 0x01;
+    NetDhcpOption* Opt2 = MmAllocate(sizeof(NetDhcpOption) + 4);
+    Opt2->Type = 55; // DHCPDISCOVER
+    Opt2->Length = 0x03;
+    *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption)) = 0x01;
+    *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption) + 1) = 0x03;
+    *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption) + 2) = 0x06;
+    *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption) + 3) = 0xFF;
+    memcpy((void*)DhcpHdr->Options, Opt1, sizeof(NetDhcpOption) + sizeof(uint8_t));
+    memcpy((void*)((uint64_t)DhcpHdr->Options + sizeof(NetDhcpOption) + sizeof(uint8_t)), Opt2, sizeof(NetDhcpOption) + 4);
+    MmFree(Opt1);
+    MmFree(Opt2);
+    uint8_t broadcast[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    KSTATUS r = NetUdpSend(Nic, broadcast, Buffer, sizeof(NetDhcpHdr) + 9, 68, 67);
+    return r;
+}
+
 KSTATUS NetIpv4Handle(NetEthFrameHdr* EthFrame, NetIpv4Hdr* Ipv4) {
     switch (Ipv4->Protocol) {
         case NET_IPV4_PROTOCOL_ICMP: {
