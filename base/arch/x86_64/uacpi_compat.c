@@ -18,6 +18,7 @@
 #include <util/util.h>
 // basically implements (or stubs) things that uACPI needs
 extern uint64_t gCpuLapicTicksPerMs;
+extern uint64_t gCpuLapicTicksPer10ms;
 extern uint64_t PmmTotalFreePhysRam;
 
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp_address) {

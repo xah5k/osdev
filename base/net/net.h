@@ -119,6 +119,7 @@ typedef struct {
 #define NET_DHCP_OPTION_GET8(opt) *(uint8_t*)((uint64_t)opt + sizeof(NetDhcpOption))
 #define NET_DHCP_OPTION_GET(opt, type) *(type*)((uint64_t)opt + sizeof(NetDhcpOption))
 #define NET_DHCP_OPTION_GETOFF(opt, type, offset) *(type*)((uint64_t)opt + sizeof(NetDhcpOption) + offset)
+#define NET_DHCP_OPTION_GETPTR(opt) (uint8_t*)((uint64_t)opt + sizeof(NetDhcpOption))
 
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();

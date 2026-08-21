@@ -20,6 +20,10 @@ typedef struct {
 typedef struct {
     uint8_t Mac[6];
     uint8_t Ip[4];
+    uint8_t RouterIp[4];
+    uint8_t DnsIp[4];
+    uint32_t IpLease;
+    uint32_t SubnetMask; // not using uint8_t[4] cuz im actually gonna use it as a mask
     uint32_t DhcpXid;
     struct NetArpEntry* ArpHead;
 } KeNetInfo;

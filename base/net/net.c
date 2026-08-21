@@ -309,19 +309,20 @@ KSTATUS NetDhcpRequest(NetInterface* Nic, uint8_t* DhcpServerIp, uint8_t* DhcpRe
     memcpy((void*)((uint64_t)DhcpHdr->Options + sizeof(NetDhcpOption) + sizeof(uint8_t) + sizeof(NetDhcpOption) + 4), Opt3, sizeof(NetDhcpOption) + 5);
     MmFree(Opt1);
     MmFree(Opt2);
-    MmFree(Opt2);
+    MmFree(Opt3);
     uint8_t broadcast[4] = {0xFF, 0xFF, 0xFF, 0xFF};
     KSTATUS r = NetUdpSend(Nic, broadcast, Buffer, sizeof(NetDhcpHdr) + 9, 68, 67);
     MmFree(Buffer);
     return r;
 }
+
 static KSTATUS NetDhcpListener(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* nouse0, NetIcmpHdr* nouse1, NetUdpHdr* Udp) {
     NetDhcpHdr* DhcpHdr = (void*)((uint64_t)Udp + sizeof(NetUdpHdr));
     // check if its actually for us
     if (UtilSwapEnd32(DhcpHdr->XId) == KernelGetInformation()->net.DhcpXid) {
-        printf("net: dhcp: packet is for us.\r\n");
-        printf("net: dhcp: offered ip: %d.%d.%d.%d\r\n", DhcpHdr->YiAddr[0], DhcpHdr->YiAddr[1], DhcpHdr->YiAddr[2], DhcpHdr->YiAddr[3]);
-        printf("net: dhcp: dhcp serverip: %d.%d.%d.%d\r\n", DhcpHdr->SiAddr[0], DhcpHdr->SiAddr[1], DhcpHdr->SiAddr[2], DhcpHdr->SiAddr[3]);
+        // printf("net: dhcp: packet is for us.\r\n");
+        // printf("net: dhcp: offered ip: %d.%d.%d.%d\r\n", DhcpHdr->YiAddr[0], DhcpHdr->YiAddr[1], DhcpHdr->YiAddr[2], DhcpHdr->YiAddr[3]);
+        // printf("net: dhcp: dhcp serverip: %d.%d.%d.%d\r\n", DhcpHdr->SiAddr[0], DhcpHdr->SiAddr[1], DhcpHdr->SiAddr[2], DhcpHdr->SiAddr[3]);
         NetDhcpOption* Opt1 = (NetDhcpOption*)DhcpHdr->Options;
         NetDhcpOption* DhcpMsgType = NULL;
         NetDhcpOption* DhcpSubnetMsk = NULL;
@@ -362,17 +363,16 @@ static KSTATUS NetDhcpListener(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmp
             printf("net: dhcp: didn't find required option.\r\n");
             return KINVALID;
         }
-        if (NET_DHCP_OPTION_GET8(DhcpMsgType) != 0x2) { // DHCPOFFER
-            printf("net: dhcp: not DHCPOFFER.\r\n");
-            printf("net: dhcp: type=%d\r\n", NET_DHCP_OPTION_GET8(DhcpMsgType));
-            return KINVALID;
+        if (NET_DHCP_OPTION_GET8(DhcpMsgType) == 0x2) { // DHCPOFFER
+            KSUCCESS(NetDhcpRequest(NetGetLinkedList(), DhcpHdr->SiAddr, DhcpHdr->YiAddr));
         }
-        printf("net: dhcp: router ip: %d.%d.%d.%d\r\n", NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 0), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 1), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 2), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 3));
-        // dns
-        for (int i = 0; i < DhcpDnsServers->Length; i+= 4) {
-            printf("net: dhcp: found dns server: %d.%d.%d.%d\r\n", NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 0+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 1+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 2+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 3+i));
+        if (NET_DHCP_OPTION_GET8(DhcpMsgType) == 0x5) { // DHCPACK
+            memcpy((void*)KernelGetInformation()->net.Ip, DhcpHdr->YiAddr, 4);
+            memcpy((void*)KernelGetInformation()->net.RouterIp, NET_DHCP_OPTION_GETPTR(DhcpRouterIp), 4);
+            memcpy((void*)KernelGetInformation()->net.DnsIp, NET_DHCP_OPTION_GETPTR(DhcpDnsServers), 4);
+            KernelGetInformation()->net.IpLease = NET_DHCP_OPTION_GET(DhcpAddressTime, uint32_t);
+            KernelGetInformation()->net.SubnetMask = NET_DHCP_OPTION_GET(DhcpSubnetMsk, uint32_t);
         }
-        KSUCCESS(NetDhcpRequest(NetGetLinkedList(), DhcpHdr->SiAddr, DhcpHdr->YiAddr));
     }   
 
     return KSUCCESS;
@@ -445,20 +445,40 @@ KSTATUS NetArpTableAdd(NetArpEntry** Table, uint8_t* Mac, uint8_t* Ip) {
 
 NetArpEntry* NetArpTableResolve(NetArpEntry** Table, uint8_t* Ip) {
     NetArpEntry* Current = *Table;
+    uint8_t* TargetIp = Ip;
+    uint32_t IpU32 = ((uint32_t)Ip[0] << 24) | 
+                  ((uint32_t)Ip[1] << 16) | 
+                  ((uint32_t)Ip[2] << 8) | 
+                  ((uint32_t)Ip[3]);
+    if (IpU32 == 0xFFFFFFFF) {
+        static NetArpEntry e;
+        uint8_t Broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        memcpy((void*)e.Mac, Broadcast, 6);
+        memcpy((void*)e.Ip, Broadcast, 4);
+        e.Next = NULL;
+        return &e;
+    }
+    uint32_t KIpU32 = ((uint32_t)KernelGetInformation()->net.Ip[0] << 24) | 
+                  ((uint32_t)KernelGetInformation()->net.Ip[1] << 16) | 
+                  ((uint32_t)KernelGetInformation()->net.Ip[2] << 8) | 
+                  ((uint32_t)KernelGetInformation()->net.Ip[3]);
+    if ((IpU32 & KernelGetInformation()->net.SubnetMask) != (KIpU32 & KernelGetInformation()->net.SubnetMask)) {
+        TargetIp = KernelGetInformation()->net.RouterIp;
+    }
     while (Current != NULL) {
-        if (memcmp((void*)Current->Ip, Ip, 4) == 0) {
+        if (memcmp((void*)Current->Ip, TargetIp, 4) == 0) {
             return Current;
         }
         Current = Current->Next;
     }
     uint8_t Broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    KSTATUS r = NetArpRequest(NetGetLinkedList(), Broadcast, KernelGetInformation()->net.Mac, Ip, KernelGetInformation()->net.Ip);
+    KSTATUS r = NetArpRequest(NetGetLinkedList(), Broadcast, KernelGetInformation()->net.Mac, TargetIp, KernelGetInformation()->net.Ip);
     if (r == KSUCCESS) {
         int Timeout = 0;
         NetArpEntry* NTable = KernelGetInformation()->net.ArpHead;
         NetArpEntry* Current2 = NTable;
         while (Current2 != NULL && Timeout < 1000000) {
-            if (memcmp((void*)Current2->Ip, Ip, 4) == 0) return Current2;
+            if (memcmp((void*)Current2->Ip, TargetIp, 4) == 0) return Current2;
             Current2 = Current2->Next;
         }
         printf("net: resolve: timeout reached!\r\n");

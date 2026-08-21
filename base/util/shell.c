@@ -18,7 +18,7 @@
 #include <mm/pmm.h>
 #include <disk/ptable.h>
 #include <net/net.h>
-
+#include <uacpi/kernel_api.h>
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -547,7 +547,8 @@ void KeShlProcess(char* string) {
             MmFree(Buffer);
         }
     } else if (strcmp(string, "getip") == 0) {
-        printf("Current IP Address: [%d.%d.%d.%d]", KernelGetInformation()->net.Ip[0], KernelGetInformation()->net.Ip[1], KernelGetInformation()->net.Ip[2], KernelGetInformation()->net.Ip[3]);
+        printf("Current IP Address: [%d.%d.%d.%d]\r\n", KernelGetInformation()->net.Ip[0], KernelGetInformation()->net.Ip[1], KernelGetInformation()->net.Ip[2], KernelGetInformation()->net.Ip[3]);
+        printf("Router IP Address: [%d.%d.%d.%d]\r\n", KernelGetInformation()->net.RouterIp[0], KernelGetInformation()->net.RouterIp[1], KernelGetInformation()->net.RouterIp[2], KernelGetInformation()->net.RouterIp[3]);
     } else if (strcmp(string, "arpreq") == 0) {
         printf("enter ip[0]: ");
         char* ip0s = KeShlReadStr();
@@ -602,6 +603,7 @@ void KeShlProcess(char* string) {
         for (uint16_t i = 0; i < 10; i++) {
             KSTATUS r = NetIcmpEchoRequest(NetGetLinkedList(), ip, i);
             printf("sent ping. seq=%d kstatus=0x%lx\r\n", i, r);
+            uacpi_kernel_sleep(1000); // using uacpi api for this is mad work
         }
         MmFree(ip3s);
         MmFree(ip2s);
