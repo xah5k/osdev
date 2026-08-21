@@ -13,7 +13,7 @@ buggy os
 * IPv4 protocol
 * ICMP protocol (only echo packet)
 * UDP protocol (basic implementation)
-  
+* DHCP protocol (basic impl)  
 
 # things i still want to add:
 * job control (probably going to delay adding this)
@@ -27,8 +27,4 @@ buggy os
 * ```external/printf.[c][h]``` - Made by mpaland and is licensed under the MIT license.
 * ```external/posix/*``` - Also taken from stdlib and is licensed as GNU LGPL.
 * ```external/utsname.h``` - Same as above.
-* ```external/uACPI`` - Licensed under the MIT license was made by Daniil Tatianin
-  
-# other:
-i still don't really know if i should port lwIP instead of tryna implement rest of the layers
-cuz DHCP is a huge state machine with bunch of things that could go wrong.
+* ```external/uACPI``` - Licensed under the MIT license was made by Daniil Tatianin
