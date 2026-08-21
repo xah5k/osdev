@@ -182,6 +182,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->net.Ip[1] = 168;
     kInfo->net.Ip[2] = 100;
     kInfo->net.Ip[3] = 1;
+    kInfo->net.DhcpXid = 0x3903F326;
     kInfo->net.ArpHead = NULL;
     KeParseConfig(kInfo);
     return kInfo;
@@ -289,13 +290,11 @@ void KernelBootstrapProc() {
     KeFbAsConsole();
     PmmAdjustBitmapPtr();
     KSUCCESS(HalRmvIdentityMap());
-    // also add the mapping for 255.255.255.255
+    KeInitalizeDrivers();
+    // network related
     uint8_t b[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     NetArpTableAdd(&gkInfo->net.ArpHead, b, b);
-    KeInitalizeDrivers();
-    printf("kernel: doing dhcp discovery.\r\n");
-    KSTATUS r = NetDhcpDiscover(NetGetLinkedList());
-    printf("kernel: KSTATUS 0x%lx\r\n", r);
+    KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
     KeUtilShell();
     while(1) { __asm__("hlt"); }
 }

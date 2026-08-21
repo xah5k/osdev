@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
     uint8_t Mac[6];
     uint8_t Ip[4];
+    uint32_t DhcpXid;
     struct NetArpEntry* ArpHead;
 } KeNetInfo;
 

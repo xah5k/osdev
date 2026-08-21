@@ -256,15 +256,15 @@ KSTATUS NetDhcpDiscover(NetInterface* Nic) {
     DhcpHdr->Opcode = 0x01;
     DhcpHdr->HType = 0x01;
     DhcpHdr->HLen = 0x06;
-    DhcpHdr->XId = UtilSwapEnd32(0x3903F326); // todo: properly randomize (or well at boot store it in like kinfo or smth and use it) instead of using wikipedia example id
+    DhcpHdr->XId = UtilSwapEnd32(KernelGetInformation()->net.DhcpXid); // todo: properly randomize (or well at boot store it in like kinfo or smth and use it) instead of using wikipedia example id
     memcpy((void*)DhcpHdr->ChHwAddr, KernelGetInformation()->net.Mac, 6);
     DhcpHdr->MagicCookie = UtilSwapEnd32(0x63825363);
     NetDhcpOption* Opt1 = MmAllocate(sizeof(NetDhcpOption) + sizeof(uint8_t));
-    Opt1->Type = 53; // DHCPDISCOVER
+    Opt1->Type = 53;
     Opt1->Length = 0x01;
-    *(uint8_t*)((uint64_t)Opt1 + sizeof(NetDhcpOption)) = 0x01;
+    *(uint8_t*)((uint64_t)Opt1 + sizeof(NetDhcpOption)) = 0x01; // DHCPDISCOVER
     NetDhcpOption* Opt2 = MmAllocate(sizeof(NetDhcpOption) + 4);
-    Opt2->Type = 55; // DHCPDISCOVER
+    Opt2->Type = 55;
     Opt2->Length = 0x03;
     *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption)) = 0x01;
     *(uint8_t*)((uint64_t)Opt2 + sizeof(NetDhcpOption) + 1) = 0x03;
@@ -276,6 +276,117 @@ KSTATUS NetDhcpDiscover(NetInterface* Nic) {
     MmFree(Opt2);
     uint8_t broadcast[4] = {0xFF, 0xFF, 0xFF, 0xFF};
     KSTATUS r = NetUdpSend(Nic, broadcast, Buffer, sizeof(NetDhcpHdr) + 9, 68, 67);
+    MmFree(Buffer);
+    return r;
+}
+
+KSTATUS NetDhcpRequest(NetInterface* Nic, uint8_t* DhcpServerIp, uint8_t* DhcpReqIp) {
+    uint8_t* Buffer = MmAllocate(sizeof(NetDhcpHdr) + 19);
+    NetDhcpHdr* DhcpHdr = (NetDhcpHdr*)Buffer;
+    memset((void*)DhcpHdr, 0x00, sizeof(NetDhcpHdr));
+    DhcpHdr->Opcode = 0x01;
+    DhcpHdr->HType = 0x01;
+    DhcpHdr->HLen = 0x06;
+    DhcpHdr->XId = UtilSwapEnd32(KernelGetInformation()->net.DhcpXid); // todo: properly randomize (or well at boot store it in like kinfo or smth and use it) instead of using wikipedia example id
+    memcpy((void*)DhcpHdr->ChHwAddr, KernelGetInformation()->net.Mac, 6);
+    memcpy((void*)DhcpHdr->SiAddr, DhcpServerIp, 4);
+    DhcpHdr->MagicCookie = UtilSwapEnd32(0x63825363);
+    NetDhcpOption* Opt1 = MmAllocate(sizeof(NetDhcpOption) + sizeof(uint8_t));
+    Opt1->Type = 53;
+    Opt1->Length = 0x01;
+    *(uint8_t*)((uint64_t)Opt1 + sizeof(NetDhcpOption)) = 0x03; // DHCPREQUEST
+    NetDhcpOption* Opt2 = MmAllocate(sizeof(NetDhcpOption) + 4);
+    Opt2->Type = 50; // requested ip address
+    Opt2->Length = 0x04;
+    memcpy((void*)((uint64_t)Opt2 + sizeof(NetDhcpOption)), DhcpReqIp, 4);
+    NetDhcpOption* Opt3 = MmAllocate(sizeof(NetDhcpOption) + 4);
+    Opt3->Type = 54; // dhcp server ip
+    Opt3->Length = 0x05;
+    memcpy((void*)((uint64_t)Opt3 + sizeof(NetDhcpOption)), DhcpServerIp, 4);
+    NET_DHCP_OPTION_GETOFF(Opt3, uint8_t, 4) = 0xFF;
+    memcpy((void*)DhcpHdr->Options, Opt1, sizeof(NetDhcpOption) + sizeof(uint8_t));
+    memcpy((void*)((uint64_t)DhcpHdr->Options + sizeof(NetDhcpOption) + sizeof(uint8_t)), Opt2, sizeof(NetDhcpOption) + 4);
+    memcpy((void*)((uint64_t)DhcpHdr->Options + sizeof(NetDhcpOption) + sizeof(uint8_t) + sizeof(NetDhcpOption) + 4), Opt3, sizeof(NetDhcpOption) + 5);
+    MmFree(Opt1);
+    MmFree(Opt2);
+    MmFree(Opt2);
+    uint8_t broadcast[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    KSTATUS r = NetUdpSend(Nic, broadcast, Buffer, sizeof(NetDhcpHdr) + 9, 68, 67);
+    MmFree(Buffer);
+    return r;
+}
+static KSTATUS NetDhcpListener(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, NetIcmpEchoHdr* nouse0, NetIcmpHdr* nouse1, NetUdpHdr* Udp) {
+    NetDhcpHdr* DhcpHdr = (void*)((uint64_t)Udp + sizeof(NetUdpHdr));
+    // check if its actually for us
+    if (UtilSwapEnd32(DhcpHdr->XId) == KernelGetInformation()->net.DhcpXid) {
+        printf("net: dhcp: packet is for us.\r\n");
+        printf("net: dhcp: offered ip: %d.%d.%d.%d\r\n", DhcpHdr->YiAddr[0], DhcpHdr->YiAddr[1], DhcpHdr->YiAddr[2], DhcpHdr->YiAddr[3]);
+        printf("net: dhcp: dhcp serverip: %d.%d.%d.%d\r\n", DhcpHdr->SiAddr[0], DhcpHdr->SiAddr[1], DhcpHdr->SiAddr[2], DhcpHdr->SiAddr[3]);
+        NetDhcpOption* Opt1 = (NetDhcpOption*)DhcpHdr->Options;
+        NetDhcpOption* DhcpMsgType = NULL;
+        NetDhcpOption* DhcpSubnetMsk = NULL;
+        NetDhcpOption* DhcpRouterIp = NULL;
+        NetDhcpOption* DhcpAddressTime = NULL;
+        NetDhcpOption* DhcpDnsServers = NULL;
+        while (Opt1->Type != 0xFF) {
+            switch (Opt1->Type) {
+                case 53: {
+                    DhcpMsgType = Opt1;
+                    break;
+                }
+                case 1: {
+                    DhcpSubnetMsk = Opt1;
+                    break;
+                }
+                case 3: {
+                    DhcpRouterIp = Opt1;
+                    break;
+                }
+                case 51: {
+                    DhcpAddressTime = Opt1;
+                    break;
+                }
+                case 6: {
+                    DhcpDnsServers = Opt1;
+                    break;
+                }
+                default: {
+                    printf("net: dhcp: not parsing type %d.\r\n", Opt1->Type);
+                    break;
+                }
+            }
+            Opt1 = (NetDhcpOption*)((uint64_t)Opt1 + sizeof(NetDhcpOption) + Opt1->Length);
+        }
+        // printf("net: dhcp: DhcpMsgType=0x%lx DhcpSubnetMsk=0x%lx DhcpRouterIp=0x%lx DhcpAddressTime=0x%lx DhcpDnsServers=0x%lx\r\n", DhcpMsgType, DhcpSubnetMsk, DhcpRouterIp, DhcpAddressTime, DhcpDnsServers);
+        if (!DhcpMsgType || !DhcpRouterIp || !DhcpDnsServers || !DhcpAddressTime) {
+            printf("net: dhcp: didn't find required option.\r\n");
+            return KINVALID;
+        }
+        if (NET_DHCP_OPTION_GET8(DhcpMsgType) != 0x2) { // DHCPOFFER
+            printf("net: dhcp: not DHCPOFFER.\r\n");
+            printf("net: dhcp: type=%d\r\n", NET_DHCP_OPTION_GET8(DhcpMsgType));
+            return KINVALID;
+        }
+        printf("net: dhcp: router ip: %d.%d.%d.%d\r\n", NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 0), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 1), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 2), NET_DHCP_OPTION_GETOFF(DhcpRouterIp, uint8_t, 3));
+        // dns
+        for (int i = 0; i < DhcpDnsServers->Length; i+= 4) {
+            printf("net: dhcp: found dns server: %d.%d.%d.%d\r\n", NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 0+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 1+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 2+i), NET_DHCP_OPTION_GETOFF(DhcpDnsServers, uint8_t, 3+i));
+        }
+        KSUCCESS(NetDhcpRequest(NetGetLinkedList(), DhcpHdr->SiAddr, DhcpHdr->YiAddr));
+    }   
+
+    return KSUCCESS;
+}
+
+KSTATUS NetDhcpConfigure(NetInterface* Nic) {
+    printf("net: dhcp: registered callback.\r\n");
+    NetCallback callback;
+    callback.Port = 68;
+    callback.Type = NET_CALLBACK_UDP;
+    callback.CallBack = NetDhcpListener;
+    KSTATUS r = NetRegisterCallback(255, &callback);
+    printf("net: dhcp: broadcasting DHCPDISCOVER.\r\n");
+    r = NetDhcpDiscover(Nic);
     return r;
 }
 

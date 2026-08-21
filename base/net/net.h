@@ -100,10 +100,10 @@ typedef struct {
     uint32_t XId;
     uint16_t Secs;
     uint16_t Flags;
-    uint32_t CiAddr; // client ip
-    uint32_t YiAddr; // your ip
-    uint32_t SiAddr; // server addr
-    uint32_t GiAddr; // gateway address
+    uint8_t CiAddr[4]; // client ip
+    uint8_t YiAddr[4]; // your ip
+    uint8_t SiAddr[4]; // server addr
+    uint8_t GiAddr[4]; // gateway address
     uint8_t ChHwAddr[16]; // client hardware address
     uint8_t LegacyBootp[192];
     uint32_t MagicCookie;
@@ -115,7 +115,11 @@ typedef struct {
 #define NET_ETHTYPE_IPV4 0x0800
 #define NET_IPV4_PROTOCOL_ICMP 1
 #define NET_IPV4_PROTOCOL_UDP 17
-#define _NET_DEBUG 1
+
+#define NET_DHCP_OPTION_GET8(opt) *(uint8_t*)((uint64_t)opt + sizeof(NetDhcpOption))
+#define NET_DHCP_OPTION_GET(opt, type) *(type*)((uint64_t)opt + sizeof(NetDhcpOption))
+#define NET_DHCP_OPTION_GETOFF(opt, type, offset) *(type*)((uint64_t)opt + sizeof(NetDhcpOption) + offset)
+
 KSTATUS NetRegisterNic(NetInterface* Nic);
 NetInterface* NetGetLinkedList();
 KSTATUS NetWriteRaw(NetInterface* Nic, void* Buffer, uint16_t Length);
@@ -128,6 +132,8 @@ KSTATUS NetIcmpEchoRequest(NetInterface* Nic, uint8_t* ToIpAddress, uint16_t Seq
 KSTATUS NetUdpSend(NetInterface* Nic, uint8_t* ToIpAddress, void* Payload, uint16_t Length, uint16_t SrcPort, uint16_t DestPort);
 KSTATUS NetArpTableAdd(NetArpEntry** Table, uint8_t* Mac, uint8_t* Ip);
 KSTATUS NetDhcpDiscover(NetInterface* Nic);
+KSTATUS NetDhcpConfigure(NetInterface* Nic);
+
 typedef enum {
     NET_CALLBACK_ICMP,
     NET_CALLBACK_UDP
