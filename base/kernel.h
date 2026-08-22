@@ -29,7 +29,7 @@ typedef struct {
 } KeNetInfo;
 
 typedef struct KernelInformation {
-    BOOTBOOT* bootinfo;
+    AcpiRsdpTable* rsdp;
     AcpiRsdtTable* rsdt;
     void* initrd; // pointer to initrd
     Framebuffer* fb; // pointer to fb

@@ -137,10 +137,10 @@ void TarInitalizeVfs(void* archive) {
         int filesize = oct2bin((unsigned char*)current->Size, 11);
         gTarFsEntries[i].Size = filesize;
         gTarFsEntries[i].DrivePtr = gTarVfsDrive;
-        //printf("fs: tar: file path in original entry: %s\r\n", current->Filename);
+        // printf("fs: tar: file path in original entry: %s\r\n", current->Filename);
         int datablocks = (filesize + 511) / 512;
         current += (datablocks+1);
-        //printf("fs: tar: populated vfs file entry @ 0x%lx with path %s and type 0x%x\r\n", &gTarFsEntries[i], gTarFsEntries[i].Path, gTarFsEntries[i].Type);
+        // printf("fs: tar: populated vfs file entry @ 0x%lx with path %s and type 0x%x\r\n", &gTarFsEntries[i], gTarFsEntries[i].Path, gTarFsEntries[i].Type);
 
     }
     VfsAddDriveToList(gTarVfsDrive);

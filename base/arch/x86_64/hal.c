@@ -40,66 +40,54 @@ KSTATUS HalPutChar(char c) {
 }
 static pagetable* kpml4;
 extern uint64_t PmmTotalPhysicalMem;
+extern uint64_t PmmHighestAddr;
 extern uint8_t _kernel_start;
 extern uint8_t _kernel_end;
-extern BOOTBOOT bootboot;
-
+extern uint64_t kstack_bottom;
+extern uint64_t kstack_top;
 KSTATUS HalSetupMmu(KernelInformation* gkInfo) {
     kpml4 = PmmAllocate();
-    memset(kpml4, 0, PAGE_SIZE);
+    memset((void*)((uint64_t)kpml4 + gMmuVOffset), 0, PAGE_SIZE);
 
     // map every usable page
-    for (uint64_t i = 0; i < PmmTotalPhysicalMem; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, i + MMU_PHYS_OFFSET, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    for (uint64_t i = 0; i < PmmHighestAddr; i+=PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(kpml4), i + gMmuVOffset, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
         // tmp identity map
-        MmuMapPage(kpml4, i, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+        MmuMapPage((pagetable*)P2V(kpml4), i, i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     } 
 
+    // map kernel info struct
+    for (uint64_t i = (uint64_t)V2P(gkInfo); i < sizeof(KernelInformation); i+=PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(kpml4), (i + gMmuVOffset), i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    }
     // physical address of kernel
     uint64_t kphys = MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe02000);
     uint64_t ksize = (uint64_t)&_kernel_end - (uint64_t)&_kernel_start;
     // map kernel
     for (uint64_t i = 0; i < ksize; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, 0xffffffffffe02000 + i, kphys + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+        MmuMapPage((pagetable*)P2V(kpml4), 0xffffffffffe02000 + i, kphys + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     }
-
-    // map framebuffer
-    for (uint64_t i = 0; i < bootboot.fb_size; i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, 0xfffffffffc000000 + i, bootboot.fb_ptr + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-    // map bootboot struct
-    MmuMapPage(kpml4, 0xffffffffffe00000, MmuGetPhys(_x86_64_get_pml4(), 0xffffffffffe00000), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-
-    // map initrd
-    for (uint64_t i = bootboot.initrd_ptr; i < bootboot.initrd_size; i+=PAGE_SIZE) {
-        //printf("paging: initrd: mapped phys(0x%lx) to virt(0x%lx)\r\n", i, (i + gMmuVOffset));
-        MmuMapPage(kpml4, (i + MMU_PHYS_OFFSET), (i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
-
-    // map kernel info struct
-    for (uint64_t i = (uint64_t)gkInfo; i < sizeof(KernelInformation); i+=PAGE_SIZE) {
-        MmuMapPage(kpml4, (i + MMU_PHYS_OFFSET), i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    }
-
     // map stack
-    MmuMapPage(kpml4, _x86_64_get_stack(), MmuGetPhys(_x86_64_get_pml4(), _x86_64_get_stack()), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    //_x86_64_set_stack(_x86_64_get_stack() + MMU_PHYS_OFFSET);
-
+    for (uint64_t i = (uint64_t)&kstack_bottom; i < (uint64_t)&kstack_top; i+=PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(kpml4), i, MmuGetPhys(_x86_64_get_pml4(), i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    }
+    // map fb
+    for (uint64_t i = 0; i < gkInfo->fb->size; i++) {
+        MmuMapPage((pagetable*)P2V(kpml4), (i + gkInfo->fb->ptr), V2P(gkInfo->fb->ptr + i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    }
+    //_x86_64_set_stack(_x86_64_get_stack() + gMmuVOffset);
     // map pml4 itself
-    MmuMapPage(kpml4, (virtaddr)((uint64_t)kpml4 + MMU_PHYS_OFFSET), (physaddr)kpml4, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-
+    MmuMapPage((pagetable*)P2V(kpml4), (virtaddr)((uint64_t)kpml4 + gMmuVOffset), (physaddr)kpml4, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     // switch
     _x86_64_load_pml4((uint64_t)kpml4);
-    
     // change offset (where physical memory is located in virtual address space)
-    gMmuVOffset = MMU_PHYS_OFFSET;
+    //gMmuVOffset = gMmuVOffset;
     return KSUCCESS;
 }
 
 KSTATUS HalRmvIdentityMap() {
-    kpml4[0] = 0;
+    pagetable* vpml4 = (pagetable*)P2V(kpml4);
+    vpml4[0] = 0;
     _x86_64_load_pml4((uint64_t)kpml4);
     return KSUCCESS;
 }

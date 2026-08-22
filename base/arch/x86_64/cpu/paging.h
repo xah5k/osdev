@@ -20,7 +20,7 @@
 #define MMU_PAGE_BIT_D_DIRTY (1<<6)
 
 // virtual address of a phys address = (MMU_PHYS_OFFSET + physaddr)
-#define MMU_PHYS_OFFSET 0xffff888000000000
+#define MMU_PHYS_OFFSET gMmuVOffset
 
 #define P2V(x) (((uint64_t)x) + gMmuVOffset)
 #define V2P(x) (((uint64_t)x) - gMmuVOffset)

@@ -96,7 +96,6 @@ void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc) {
             int pages = (current->p_memsz + offset + 4095) / 4096;
             void* block = PmmAllocatePages(pages);
             for (int p = 0; p < pages; p++) {
-                // lwk i should seperate the _x86_64_get_pml4 into like a ArchGetPageTable() that returns a virtual address
                 MmuMapPage((pagetable*)((uint64_t)proc->cr3 + gMmuVOffset), (virtaddr)vaddr + (p*PAGE_SIZE), (physaddr)block + (p*PAGE_SIZE),  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
             }
             void* kdest = (void*)((uint64_t)block + gMmuVOffset + offset);

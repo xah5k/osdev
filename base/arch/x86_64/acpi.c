@@ -74,22 +74,25 @@ KSTATUS AcpiResolvePciGsi() {
         uint32_t Device = (e->address >> 16) & 0xFFFF;
         uacpi_namespace_node* link_node = e->source;
         uacpi_resources *resources;
-
-        ret = uacpi_get_current_resources(link_node, &resources);
-        if (uacpi_unlikely_error(ret)) {
-            printf("acpi: fail: failed to get  resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
-            return KFAIL;
-        }
         uint64_t gsi;
-        ret = uacpi_for_each_resource(resources, AcpiRsrcLoop, &gsi);
-        uacpi_free_resources(resources);
-        if (uacpi_unlikely_error(ret)) {
-            printf("acpi: fail: failed to interate through resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
-            return KFAIL;
-        }
-        if (gsi == UINT64_MAX) {
-            printf("acpi: warn: gsi was populated as UINT64_MAX!! (AcpiRsrcLoop didn't find IRQ number!)\r\n");
-            continue; // continue here cuz it might js be the device doesn't have have an actual IRQ
+        if (e->source == UACPI_NULL) {
+            gsi = e->index;    
+        } else {
+            ret = uacpi_get_current_resources(link_node, &resources);
+            if (uacpi_unlikely_error(ret)) {
+                printf("acpi: warn: failed to get resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
+                continue;
+            }
+            ret = uacpi_for_each_resource(resources, AcpiRsrcLoop, &gsi);
+            uacpi_free_resources(resources);
+            if (uacpi_unlikely_error(ret)) {
+                printf("acpi: warn: failed to interate through resources list. error message: \"%s\"\r\n", uacpi_status_to_string(ret));
+                continue;
+            }
+            if (gsi == UINT64_MAX) {
+                printf("acpi: warn: gsi was populated as UINT64_MAX!! (AcpiRsrcLoop didn't find IRQ number!)\r\n");
+                continue; // continue here cuz it might js be the device doesn't have have an actual IRQ
+            }
         }
         KePciGsiResolv* Resolv = MmAllocate(sizeof(KePciGsiResolv));
         Resolv->Bus = 0; // todo

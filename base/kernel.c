@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <memory.h>
-#include <external/bootboot.h>
+#include <external/limine.h>
 #include <printfwrapper.h>
 #include <mm/pmm.h>
 #include <mm/vmm.h>
@@ -26,15 +26,56 @@
 #include <disk/ahci.h>
 #include <disk/ptable.h>
 #include <net/net.h>
+
+// limine request stuff
+__attribute__((used, section(".limine_requests")))
+static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(6);
+// framebuffer
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_framebuffer_request framebuffer_request = {
+    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
+    .revision = 0
+};
+
+// memory map
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_memmap_request memmap_request = {
+    .id = LIMINE_MEMMAP_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST_ID,
+    .revision = 0
+};
+
+// acpi
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_rsdp_request rsdp_request = {
+    .id = LIMINE_RSDP_REQUEST_ID,
+    .revision = 0
+};
+
+// initrd
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_module_request module_request = {
+    .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests_start")))
+static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
+
+__attribute__((used, section(".limine_requests_end")))
+static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
+
+
 void KernelBootstrapProc();
 void KernelApplicationProc();
 
 static KernelInformation* gkInfo;
 Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
-
-extern BOOTBOOT bootboot;               // see bootboot.h
-extern unsigned char environment[4096]; // configuration, UTF-8 text key=value pairs
-extern uint8_t fb;                      // linear framebuffer mapped
 
 void _putchar(char character) {
     HalPutChar(character);
@@ -60,7 +101,7 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
                 __asm__("cli; hlt");
             }
         } else {
-            printf("kernel: fault (intvec=%d)", registers->intnum);
+            printf("kernel: fault (intvec=%d rip=0x%lx)", registers->intnum, registers->rip);
             printf("kernel: killing user task..\r\n");
             KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
             return;
@@ -150,33 +191,24 @@ KSTATUS KeMmInitalize() {
 
 
 static void KeParseConfig(KernelInformation* kinfo) {
-    // messy code
-    for (int i = 0; i < 4096; i++) {
-        if (KFORWARD(environment, i, 0) == 'd' && KFORWARD(environment, i, 1) == 'r' && KFORWARD(environment, i, 2) == 'v') {
-            if (KFORWARD(environment, i, 4) == 'e' && KFORWARD(environment, i, 5) == 'x' && KFORWARD(environment, i, 6) == 't') {
-                int val = KFORWARD(environment, i, 9) - '0';
-                kinfo->DriverExt2Load = val;
-            }
-        }
-    }
-    printf("\r\n");
+    kinfo->DriverExt2Load = 1;
+    return;
 }
+
 static KernelInformation* KeCreateKinfo() {
-    KernelInformation* kInfo = PmmAllocate();
-    kInfo->bootinfo = &bootboot;
-    kInfo->initrd = (void*)(bootboot.initrd_ptr);
-    kInfo->fb = (Framebuffer*)PmmAllocate();
+    KernelInformation* kInfo = (KernelInformation*)P2V(PmmAllocate());
+    KATTEMPT(kInfo);
+    kInfo->initrd = NULL;
+    kInfo->fb = (Framebuffer*)P2V(PmmAllocate());
     KATTEMPT(kInfo->fb);
-    kInfo->fb->ptr = bootboot.fb_ptr;
-    kInfo->fb->size = bootboot.fb_size;
-    kInfo->fb->width = bootboot.fb_width;
-    kInfo->fb->height = bootboot.fb_height;
-    kInfo->fb->scanline = bootboot.fb_scanline;
-    if (bootboot.arch.x86_64.efi_ptr) {
-        kInfo->FwType = 1;
-    } else {
-        kInfo->FwType = 0;
-    }
+    KATTEMPT(framebuffer_request.response);
+    KATTEMPT(framebuffer_request.response->framebuffer_count > 0);
+    kInfo->fb->ptr = (uint64_t)framebuffer_request.response->framebuffers[0]->address;
+    kInfo->fb->size = framebuffer_request.response->framebuffers[0]->height * framebuffer_request.response->framebuffers[0]->pitch;
+    kInfo->fb->width = framebuffer_request.response->framebuffers[0]->width;
+    kInfo->fb->height = framebuffer_request.response->framebuffers[0]->height;
+    kInfo->fb->scanline = framebuffer_request.response->framebuffers[0]->pitch;
+    kInfo->FwType = 1;
     memset((void*)&kInfo->net, 0, sizeof(KeNetInfo));
     kInfo->net.Ip[0] = 192;
     kInfo->net.Ip[1] = 168;
@@ -185,7 +217,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->net.DhcpXid = 0x3903F326;
     kInfo->net.ArpHead = NULL;
     KeParseConfig(kInfo);
-    return kInfo;
+    return (KernelInformation*)(kInfo);
 }
 
 extern uint64_t PmmLargestFreeMemorySize;
@@ -199,6 +231,8 @@ static void KeInitalizeDrivers() {
         if (list[i]) {
             int handle = OsOpen(list[i], 0);
             if (handle < 0)  { 
+                printf("kernel: failed to acquire handle for driver file. (returned %d)\r\n", handle);
+                printf("attempted to do OsOpen(\"%s\", 0)", list[i]);
                 continue;
             } else {
                 int sz = OsGetFileSize(handle);
@@ -221,6 +255,7 @@ static void KeInitalizeDrivers() {
                     printf("kernel: error: driver load fail. no initalize func???\r\n");
                 }
                 KSTATUS init = driver->Initalize(driver);
+                printf("kernel: driver return KSTATUS %d\r\n", init);
                 if (init != KSUCCESS) {
                     printf("kernel: warn: driver load fail. discarding.\r\n");
                     MmFree(driver);
@@ -233,7 +268,6 @@ static void KeInitalizeDrivers() {
 }
 
 void KeFbAsConsole() {
-    gkInfo->fb->ptr = P2V(gkInfo->fb->ptr);
     int h = OsOpen("initrd:/boot/font.psf", 0);
     int sz = OsGetFileSize(h);
     const char* buf = MmAllocate(sz);
@@ -265,17 +299,20 @@ void KeInitalizeDiskParts() {
 }
 
 void KernelBootstrapProc() {
+    if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == 0) {
+        while(1) { __asm__("cli; hlt"); }
+    }
     // setup pmm
-    PmmInitalize(&bootboot);
+    KSUCCESS(PmmInitalize(memmap_request.response, hhdm_request.response->offset));
+    gMmuVOffset = hhdm_request.response->offset;
     // create kernel information structure
     gkInfo = KeCreateKinfo();
     KATTEMPT(gkInfo);
-    // setup paging
     KSUCCESS(HalSetupMmu(gkInfo));
-    MmuMapPage(HalGetPageTable(), (virtaddr)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET), (physaddr)gkInfo->fb, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
-    gkInfo = (KernelInformation*)((uint64_t)gkInfo + MMU_PHYS_OFFSET);
-    gkInfo->fb = (Framebuffer*)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET);
-    gkInfo->rsdt = (void*)((uint64_t)bootboot.arch.x86_64.acpi_ptr + gMmuVOffset);
+    MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)((uint64_t)gkInfo->fb + MMU_PHYS_OFFSET), (physaddr)gkInfo->fb, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    KATTEMPT(rsdp_request.response);
+    gkInfo->rsdp = (AcpiRsdpTable*)rsdp_request.response->address;
+    gkInfo->rsdt = (AcpiRsdtTable*)(P2V(gkInfo->rsdp->Rsdt));
     // setup higher memory management
     KeMmInitalize();
     // setup sched structures
@@ -285,16 +322,24 @@ void KernelBootstrapProc() {
     #endif
     KeInitalizeDiskParts();
     KeRegisterSyscalls();
-    gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
+    // gkInfo->initrd = (void*)(bootboot.initrd_ptr + MMU_PHYS_OFFSET);
+    KATTEMPT(module_request.response);
+    KATTEMPT(module_request.response->module_count > 0);
+    struct limine_file *initrd_file = module_request.response->modules[0];
+    void *InitrdPtr = initrd_file->address;
+    gkInfo->initrd = InitrdPtr;
     TarInitalizeVfs(gkInfo->initrd);
     KeFbAsConsole();
-    PmmAdjustBitmapPtr();
     KSUCCESS(HalRmvIdentityMap());
     KeInitalizeDrivers();
     // network related
     uint8_t b[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     NetArpTableAdd(&gkInfo->net.ArpHead, b, b);
-    KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
+    if (!NetGetLinkedList()) {
+        printf("kernel: skipping dhcp configuration, no NIC found.\r\n");
+    } else {
+        KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
+    }
     KeUtilShell();
     while(1) { __asm__("hlt"); }
 }

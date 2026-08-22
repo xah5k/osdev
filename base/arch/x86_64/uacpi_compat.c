@@ -22,21 +22,8 @@ extern uint64_t gCpuLapicTicksPer10ms;
 extern uint64_t PmmTotalFreePhysRam;
 
 uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *out_rsdp_address) {
-    // fake a rsdp cuz bootboot only hands us rsdt
-    AcpiRsdpTable* gFakeRsdpPhys = PmmAllocatePages(UTIL_DIV_RUP(sizeof(AcpiRsdpTable), MMU_PAGE_SIZE));
-    KATTEMPT(gFakeRsdpPhys);
-    AcpiRsdpTable* gFakeRsdp = (AcpiRsdpTable*)P2V(gFakeRsdpPhys);
-    memset(gFakeRsdp, 0, sizeof(AcpiRsdpTable));
-    memcpy(gFakeRsdp->Signature, "RSD PTR ", 8);
-    uint64_t Rsdt = V2P(KernelGetInformation()->rsdt);
-    if (KernelGetInformation()->FwType) {
-        gFakeRsdp->Revision = 2;
-        gFakeRsdp->Xsdt = Rsdt;
-    } else {
-        gFakeRsdp->Revision = 0;
-        gFakeRsdp->Rsdt = (uint32_t)Rsdt;
-    }
-    *out_rsdp_address = (uacpi_phys_addr)gFakeRsdpPhys;
+    KATTEMPT(KernelGetInformation()->rsdp);
+    *out_rsdp_address = (uacpi_phys_addr)V2P(KernelGetInformation()->rsdp);
     return UACPI_STATUS_OK;
 }
 

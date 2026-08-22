@@ -1,4 +1,5 @@
 #include <arch/x86_64/pci/pci.h>
+#include <arch/x86_64/hal.h>
 #include <arch/x86_64/cpu/paging.h>
 #include <printfwrapper.h>
 #include <mm/heap.h>
@@ -30,7 +31,7 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function, uint64_t Base, uint
     uint64_t Offset = Function << 12;
     uint64_t FuncAddress = DevAddress + Offset;
     // map address otherwise mmu will go oh shittings
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)FuncAddress, (virtaddr)P2V(FuncAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
+    MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)P2V(FuncAddress), (physaddr)FuncAddress,  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(FuncAddress);
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
@@ -59,7 +60,7 @@ void PciEnumDev(uint64_t BusAddress, uint64_t Device, uint64_t Base, uint64_t Bu
     uint64_t Offset = Device << 15;
     uint64_t DeviceAddress = BusAddress + Offset;
     // map address otherwise mmu will go oh shittings
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)DeviceAddress, (virtaddr)P2V(DeviceAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
+    MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)P2V(DeviceAddress), (physaddr)DeviceAddress,  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(DeviceAddress);
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
@@ -72,8 +73,7 @@ void PciEnumBus(uint64_t Base, uint64_t Bus) {
     uint64_t Offset = Bus << 20;
     uint64_t BusAddress = Base + Offset;
     // map address otherwise mmu will go oh shittings
-    // note: we still in identity mapped so we dont need to convert pml4
-    MmuMapPage((pagetable*)_x86_64_get_pml4(), (physaddr)BusAddress, (virtaddr)P2V(BusAddress), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_PCD);
+    MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)P2V(BusAddress), (physaddr)BusAddress, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_PCD);
     PciDeviceHeader* PciDevHdr = (PciDeviceHeader*)P2V(BusAddress);
     if (PciDevHdr->DeviceID == 0 || PciDevHdr->DeviceID == 0xFFFF) return;
     for (uint64_t Dev = 0; Dev < 32; Dev++) {

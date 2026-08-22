@@ -1,8 +1,7 @@
 #include "pmm.h"
 #include <printfwrapper.h>
-#include "external/bootboot.h"
 #include <util/spinlock.h>
-
+#include <external/limine.h>
 #ifdef __x86_64__
 #include <arch/x86_64/cpu/paging.h>
 #endif
@@ -20,56 +19,52 @@ uint64_t PmmTotalFreePhysRam = 0;
 static uint64_t* PmmInternalBitmap;
 static uint64_t PmmInternalBitmapSz = 0;
 static uint64_t PmmTotalPages = 0;
-static uint64_t PmmHighestAddr = 0x0;
+uint64_t PmmHighestAddr = 0x0;
 //#define PMM_DEBUG
 
-KSTATUS PmmInitalize(BOOTBOOT* b) {
-    uint64_t MMapEntries = (b->size - 128) / 16;
-    MMapEnt* entry = &b->mmap;
+KSTATUS PmmInitalize(struct limine_memmap_response* resp, uint64_t hhdm) {
     uint64_t TopAddress = 0;
-    // so basically we find the largest free memory chunk
-    for (uint64_t i = 0; i < MMapEntries; i++, entry++) {
-        if (MMapEnt_IsFree(entry)) {
-            if (MMapEnt_Size(entry) > PmmLargestFreeMemorySize) {
-                // found one
-                PmmLargestFreeMemorySize = MMapEnt_Size(entry);
-                PmmLargestFreeMemoryPtr = (void*)MMapEnt_Ptr(entry);
-                #ifdef PMM_DEBUG
-                printf("pmm: dbg: found new largest free memory chunk. size=%d ptr=0x%lx\r\n", PmmLargestFreeMemorySize, PmmLargestFreeMemoryPtr);
-                #endif
+    for (int i = 0; i < resp->entry_count; i++) {
+        struct limine_memmap_entry* e = resp->entries[i];
+        if (e->type == LIMINE_MEMMAP_USABLE) {
+            if (e->length > PmmLargestFreeMemorySize) {
+                PmmLargestFreeMemoryPtr = (void*)e->base;
+                PmmLargestFreeMemorySize = e->length;
+                // printf("pmm: debug: found new largest memory. ptr=0x%lx sz=%lu\r\n", PmmLargestFreeMemoryPtr, PmmLargestFreeMemorySize);
             }
-            PmmTotalFreePhysRam += MMapEnt_Size(entry);
+            PmmTotalFreePhysRam += e->length;
+            PmmTotalPhysicalMem += e->length;
+
+            TopAddress = ((uint64_t)e->base + e->length);
+            if (TopAddress > PmmHighestAddr) {
+                PmmHighestAddr = TopAddress;
+            }
         }
-        TopAddress = MMapEnt_Ptr(entry) + MMapEnt_Size(entry);
-        if (TopAddress > PmmHighestAddr) {
-            PmmHighestAddr = TopAddress;
-        }
-        PmmTotalPhysicalMem += MMapEnt_Size(entry);
     }
     uint64_t BitmapSize = ((PmmHighestAddr / PAGE_SIZE) + 7) / 8;
-
+    // printf("pmm: highest=0x%lx bitmapsize=%lu largestfree=%lu\r\n", PmmHighestAddr, BitmapSize, PmmLargestFreeMemorySize);
     if (BitmapSize > PmmLargestFreeMemorySize) {
         return KOOMERR;
     }
-    PmmInternalBitmap = PmmLargestFreeMemoryPtr;
+    PmmInternalBitmap = PmmLargestFreeMemoryPtr + hhdm;
     memset((void*)PmmInternalBitmap, 0xFF, BitmapSize);
 
-    entry = &b->mmap;
-    for (uint64_t x = 0; x < MMapEntries; x++, entry++) {
-        if (MMapEnt_IsFree(entry)) {
-            uint64_t BasePage = MMapEnt_Ptr(entry) / PAGE_SIZE;
-            for (uint64_t i = BasePage; i < (BasePage + (MMapEnt_Size(entry) / PAGE_SIZE)); i++) {
+    for (uint64_t x = 0; x < resp->entry_count; x++) {
+        struct limine_memmap_entry* e = resp->entries[x];
+        if (e->type == LIMINE_MEMMAP_USABLE) {
+            uint64_t BasePage = e->base / PAGE_SIZE;
+            for (uint64_t i = BasePage; i < (BasePage + (e->length / PAGE_SIZE)); i++) {
                 uint64_t ArrayIdx = i >> 6;
                 uint64_t BitPos =  i & 63;
                 PmmInternalBitmap[ArrayIdx] &= ~(1ULL << BitPos);
             }
         }
     }
-    uint64_t BitmapStartPage = (uint64_t)PmmInternalBitmap / PAGE_SIZE;
+    uint64_t BitmapStartPage = (uint64_t)PmmLargestFreeMemoryPtr / PAGE_SIZE;
     for (uint64_t i = BitmapStartPage; i < (BitmapStartPage + (BitmapSize / PAGE_SIZE)); i++) {
         uint64_t ArrayIdx = i >> 6;
         uint64_t BitPos =  i & 63;
-        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos);
+        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos); // gpfs and then triple fualts here
     }
     PmmInternalBitmapSz = BitmapSize;
     PmmTotalPages = (PmmLargestFreeMemorySize) / PAGE_SIZE;

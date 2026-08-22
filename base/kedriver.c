@@ -85,7 +85,7 @@ static const char *KeDrvGetFileExt(const char *filename) {
 }
 
 const char** KeDrvBuildDriverList(int* countOut) {
-    const char* path = "initrd:/drivers";
+    const char* path = "initrd:/drivers/";
     VfsDirEntry dirent;
     int handle = OsOpen(path, 0);
     int idx = 0;

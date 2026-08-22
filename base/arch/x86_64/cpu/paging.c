@@ -42,26 +42,25 @@ KE_EXPORT_SYMBOL(MmuMapPage);
 
 physaddr MmuGetPhys(uint64_t pml4p, virtaddr virt) {
     uint64_t cr3 = pml4p;
-    
-    uint64_t* pml4 = (uint64_t*)((cr3 & ~0xFFF) + gMmuVOffset);
+    uint64_t* pml4 = (uint64_t*)((cr3 & MMU_PAGE_ADDR_MASK) + gMmuVOffset);
     uint64_t pml4e = pml4[(virt >> 39) & 0x1FF];
     if (!(pml4e & 1)) return 0;
 
-    uint64_t* pdpt = (uint64_t*)((pml4e & ~0xFFF) + gMmuVOffset);
+    uint64_t* pdpt = (uint64_t*)((pml4e & MMU_PAGE_ADDR_MASK) + gMmuVOffset);
     uint64_t pdpte = pdpt[(virt >> 30) & 0x1FF];
     if (!(pdpte & 1)) return 0;
-    if (pdpte & 0x80) return (pdpte & ~0x3FFFFFFF) + (virt & 0x3FFFFFFF); 
+    if (pdpte & 0x80) return (pdpte & MMU_PAGE_ADDR_MASK & ~0x3FFFFFFFULL) + (virt & 0x3FFFFFFF);
 
-    uint64_t* pd = (uint64_t*)((pdpte & ~0xFFF) + gMmuVOffset);
+    uint64_t* pd = (uint64_t*)((pdpte & MMU_PAGE_ADDR_MASK) + gMmuVOffset);
     uint64_t pde = pd[(virt >> 21) & 0x1FF];
     if (!(pde & 1)) return 0;
-    if (pde & 0x80) return (pde & ~0x1FFFFF) + (virt & 0x1FFFFF); 
+    if (pde & 0x80) return (pde & MMU_PAGE_ADDR_MASK & ~0x1FFFFFULL) + (virt & 0x1FFFFF);
 
-    uint64_t* pt = (uint64_t*)((pde & ~0xFFF) + gMmuVOffset);
+    uint64_t* pt = (uint64_t*)((pde & MMU_PAGE_ADDR_MASK) + gMmuVOffset);
     uint64_t pte = pt[(virt >> 12) & 0x1FF];
     if (!(pte & 1)) return 0;
 
-    return (pte & ~0xFFF) + (virt & 0xFFF);
+    return (pte & MMU_PAGE_ADDR_MASK) + (virt & 0xFFF);
 }
 KE_EXPORT_SYMBOL(MmuGetPhys);
 

@@ -45,6 +45,7 @@ void FbTextInitalize(void* sfn, void* fb) {
     printf("fb: screen %dx%d\r\n", g_fb_info->width, g_fb_info->height);
     printf("fb: fb ptr @ 0x%lx\r\n", g_fb_info->ptr);
     printf("fb: fb scanline %d\r\n", g_fb_info->scanline);
+    memset((void*)g_fb_info->ptr, 0xFF, g_fb_info->scanline * 100);
     if (font->fontMode == 0x01) glyphcount = 512; else glyphcount = 256;
 }
 KE_EXPORT_SYMBOL(FbTextInitalize);
