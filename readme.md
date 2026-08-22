@@ -1,6 +1,11 @@
-buggy os
+# ah5kos
+basically a kernel ive made with a buggy userspace
+currently i've been using bootboot as my boot loader
+but it has shown issues (unable to find ACPI on vmware/real hardware)
+and is also apparently abandoned? (might need to check this)
+so i'm not really sure whether to use limine.
 
-# implemented things:
+# implemented things
 * x86_64 arch specific (interrupts, apic, ioapic, rtc clock)
 * proper driver interface (though most drivers are in the kernel for now)
 * very basic read only tarfs just for reading off initrd
@@ -15,13 +20,13 @@ buggy os
 * UDP protocol (basic implementation)
 * DHCP protocol (basic impl)  
 
-# things i still want to add:
+# things i still want to add
 * job control (probably going to delay adding this)
 * port an actual shell (like busybox ash or bash even) with some coreutils
 * port doom (cuz why not)
 * gui of some sort (?? probably too unrealistic)
 
-# external projects used:
+# external projects used
 * ```external/bootboot.h``` - Made by bzt and is licensed under the MIT license.
 * ```external/elf.h``` - Taken from standard library and is licensed as GNU LGPL
 * ```external/printf.[c][h]``` - Made by mpaland and is licensed under the MIT license.
