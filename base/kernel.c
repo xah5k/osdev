@@ -11,10 +11,6 @@
 #include <util/spinlock.h>
 #include <kernel.h>
 #include <exeldr/ldrelf.h>
-#ifdef __x86_64__
-#include <arch/x86_64/cpu/cpu.h>
-#include <arch/x86_64/cpu/paging.h>
-#endif
 #include <hal/init.h>
 #include <hal/dbgout.h>
 #include <fs/tar.h>
@@ -93,16 +89,16 @@ const char* BugcheckTable[4] = {
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
         printf("kernel: bugcheck in usermode.\r\n");
-        if (registers->intnum == 14) {
+        if (HAL_GET_INUM(registers) == 14) {
             printf("kernel: page fault.\r\n");
             uint64_t faultaddr;
-            asm volatile("mov %%cr2, %0" : "=r"(faultaddr));
-            printf("fault address = 0x%lx rip = 0x%lx err = 0x%lx\r\n", faultaddr, registers->rip, registers->errcode);
+            HAL_GET_CR2(faultaddr);
+            printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
             while (1) {
-                __asm__("cli; hlt");
+                HAL_HALT();
             }
         } else {
-            printf("kernel: fault (intvec=%d rip=0x%lx)", registers->intnum, registers->rip);
+            printf("kernel: fault (intvec=%d ip=0x%lx)", HAL_GET_INUM(registers), HAL_GET_IP(registers));
             printf("kernel: killing user task..\r\n");
             KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
             return;
@@ -111,28 +107,13 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     printf("kernel: unrecoverable bugcheck\r\n");
     printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
     if (registers) {
-        printf("kernel: interrupt frame dump: \r\n");
-        printf("   InterruptVector: %d   ErrorCode: 0x%lx\r\n", registers->intnum, registers->errcode);
-        printf("   rip: 0x%016lx            cs: 0x%016lx\r\n", registers->rip, registers->cs);
-        printf("   rfl: 0x%016lx         rsp: 0x%016lx\r\n", registers->rflags, registers->rsp);
-
-        printf("   r15: 0x%016lx            r14: 0x%016lx\r\n", registers->r15, registers->r14);
-        printf("   r13: 0x%016lx            r12: 0x%016lx\r\n", registers->r13, registers->r12);
-        printf("   r11: 0x%016lx            r10: 0x%016lx\r\n", registers->r11, registers->r10);
-        printf("   r9: 0x%016lx             r8: 0x%016lx\r\n", registers->r9, registers->r8);
-        printf("   rdi: 0x%016lx            rsi: 0x%016lx\r\n", registers->rdi, registers->rsi);
-        printf("   rdx: 0x%016lx            rcx: 0x%016lx\r\n", registers->rdx, registers->rcx);
-        printf("   rbx: 0x%016lx            rax: 0x%016lx\r\n", registers->rbx, registers->rax);
-        printf("   rbp: 0x%016lx            ss: 0x%016lx\r\n", registers->rbp, registers->ss);
-        printf("kernel: end dump\r\n");
+        HalDumpRegisters(registers);
     } else {
         printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
     }
     if (ThrGetCurrent()->privilege == SCHED_PRIV_KERNEL) {
         printf("kernel: halting\r\n");
-        while (1) {
-            asm ("cli; hlt");
-        }
+        HAL_HALT();
     }
 }
 KE_EXPORT_SYMBOL(KdBugcheck);
@@ -141,20 +122,7 @@ void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char*
     printf("kernel: unrecoverable bugcheck\r\n");
     printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
     if (registers) {
-        printf("kernel: interrupt frame dump: \r\n");
-        printf("   InterruptVector: %d   ErrorCode: 0x%lx\r\n", registers->intnum, registers->errcode);
-        printf("   rip: 0x%016lx            cs: 0x%016lx\r\n", registers->rip, registers->cs);
-        printf("   rfl: 0x%016lx         rsp: 0x%016lx\r\n", registers->rflags, registers->rsp);
-
-        printf("   r15: 0x%016lx            r14: 0x%016lx\r\n", registers->r15, registers->r14);
-        printf("   r13: 0x%016lx            r12: 0x%016lx\r\n", registers->r13, registers->r12);
-        printf("   r11: 0x%016lx            r10: 0x%016lx\r\n", registers->r11, registers->r10);
-        printf("   r9: 0x%016lx             r8: 0x%016lx\r\n", registers->r9, registers->r8);
-        printf("   rdi: 0x%016lx            rsi: 0x%016lx\r\n", registers->rdi, registers->rsi);
-        printf("   rdx: 0x%016lx            rcx: 0x%016lx\r\n", registers->rdx, registers->rcx);
-        printf("   rbx: 0x%016lx            rax: 0x%016lx\r\n", registers->rbx, registers->rax);
-        printf("   rbp: 0x%016lx            ss: 0x%016lx\r\n", registers->rbp, registers->ss);
-        printf("kernel: end dump\r\n");
+        HalDumpRegisters(registers);
     } else {
         printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
     }
@@ -163,7 +131,7 @@ void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char*
     }
     printf("kernel: halting\r\n");
     while (1) {
-        asm ("cli; hlt");
+        HAL_HALT();
     }
 }
 KE_EXPORT_SYMBOL(KdBugcheck2);
@@ -301,7 +269,7 @@ void KeInitalizeDiskParts() {
 
 void KernelBootstrapProc() {
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == 0) {
-        while(1) { __asm__("cli; hlt"); }
+        HAL_HALT();
     }
     // setup pmm
     KSUCCESS(PmmInitalize(memmap_request.response, hhdm_request.response->offset));
@@ -342,9 +310,9 @@ void KernelBootstrapProc() {
         KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
     }
     KeUtilShell();
-    while(1) { __asm__("hlt"); }
+    HAL_HALT_WITHINT();
 }
 
 void KernelApplicationProc() {
-    while(1) { __asm__("cli; hlt"); }
+    while(1) {HAL_HALT(); }
 }

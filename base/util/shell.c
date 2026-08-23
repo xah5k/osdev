@@ -10,10 +10,7 @@
 #include <sched/process.h>
 #include <external/posix/stat.h>
 #include <external/posix/signal.h>
-#ifdef __x86_64__
-#include <arch/x86_64/pci/pci.h>
-#include <arch/x86_64/cpu/ioapic.h>
-#endif
+#include <hal/pci.h>
 #include <disk/ahci.h>
 #include <mm/pmm.h>
 #include <disk/ptable.h>
@@ -508,13 +505,7 @@ void KeShlProcess(char* string) {
             Nic = Nic->Next;
         }
     } else if (strcmp(string, "ioapiclgirq") == 0) {
-        printf("enter irq num: ");
-        char* irqs = KeShlReadStr();
-        printf("\r\n");
-        int irq = AsciiAsInt(irqs);
-        MmFree(irqs);
-        uint32_t gsi = CpuIoApicTranslateIrq(irq);
-        printf("translated to gsi %d\r\n", gsi);
+        // ...
     } else if (strcmp(string, "shutdown") == 0) {
         KSTATUS r = AcpiSystemShutdown();
         if (r != KSUCCESS) {

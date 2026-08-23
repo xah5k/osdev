@@ -58,7 +58,7 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     }
     ThreadCtrlBlk* self = ThrGetCurrent();
     ProcFreeInnerPML4((pagetable*)target->cr3); // frees all except pml4 root
-    asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3" ::: "rax", "memory"); // prevent caching
+    HalReloadCr3(); // prevent caching
     Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
     LdrElfMapPhdr(PHdr, Elf, target);
     target->SbrkBase = PS_USER_BRK_BASE;

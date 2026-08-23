@@ -1,5 +1,5 @@
 #pragma once
-#include <arch/x86_64/pci/pci.h>
+#include <hal/pci.h>
 #include <kedriver.h>
 typedef enum {
     AHCI_TYPE_NONE,

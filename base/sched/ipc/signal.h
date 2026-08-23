@@ -1,6 +1,6 @@
 #pragma once
 #include <kernel.h>
-#include <arch/x86_64/cpu/cpu.h>
+#include <hal/hal.h>
 #define KE_SIGLIST_MAX 128
 // ignore
 #define KE_SIGLIST_ADDR_DEFAULTIGN 0
@@ -14,13 +14,6 @@ typedef struct {
     uint64_t Mask;
 } KeSignalHdlObj;
 
-typedef struct {
-    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
-    uint64_t rdi, rsi, rdx, rcx, rbx, rax, rbp;
-    uint64_t rip, rflags, rsp;
-    uint64_t SigBlockedSet;
-    uint64_t SigNum;
-} __attribute__((packed)) KeSignalUserFrame;
 struct ThreadCtrlBlk;
 #define KE_SIGNAL_DEF_TERMINATE 0
 #define KE_SIGNAL_DEF_COREDUMP 1 // treat as same as terminate

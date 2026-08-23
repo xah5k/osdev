@@ -1,17 +1,12 @@
 #include <arch/x86_64/pci/pci.h>
 #include "hal/hal.h"
+#include "hal/pci.h"
 #include "hal/mmu.h"
 #include <arch/x86_64/cpu/paging.h>
 #include <printfwrapper.h>
 #include <mm/heap.h>
 #include <kedriver.h>
 #include <disk/ahci.h>
-KePciDeviceHdr* gPciDevListHead = NULL;
-
-KePciDeviceHdr* PciGetLinkedList() {
-    return gPciDevListHead;
-}
-KE_EXPORT_SYMBOL(PciGetLinkedList);
 
 uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset) {
     volatile uint32_t* p = PCI_ECAM(base, bus, dev, func, offset & ~0x3);
@@ -37,14 +32,7 @@ void PciEnumFunction(uint64_t DevAddress, uint64_t Function, uint64_t Base, uint
     if (PciDevHdr->DeviceID == 0) return;
     if (PciDevHdr->DeviceID == 0xFFFF) return;
     // printf("pci: new device: %lx:%lx\r\n", PciDevHdr->VendorID, PciDevHdr->DeviceID);
-    KePciDeviceHdr* LinkedListType = MmAllocate(sizeof(KePciDeviceHdr));
-    LinkedListType->Bus = Bus;
-    LinkedListType->Dev = Dev;
-    LinkedListType->Func = Function;
-    LinkedListType->EcamBase = Base;
-    LinkedListType->Header = PciDevHdr;
-    LinkedListType->Next = gPciDevListHead;
-    gPciDevListHead = LinkedListType;
+    PciAddDevice(Bus, Dev, Function, Base, PciDevHdr);
     // directly initalize ahci for now
     if (PciDevHdr->Class == 0x01 && PciDevHdr->Subclass == 0x06 && PciDevHdr->ProgIf == 0x01) {
         KeDriverObj* Ahci = AhciInitalize(PciDevHdr);

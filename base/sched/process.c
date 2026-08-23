@@ -331,7 +331,7 @@ void ThreadEntry() {
         MmFree(DeathThread);
         DeathThread = NULL; 
     }
-    asm volatile ("sti");
+    HAL_INT_ON();
     //printf("sched: wrapper: entering thread(tid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;
     if (entry) {
@@ -341,7 +341,7 @@ void ThreadEntry() {
                 break;
             }
             case SCHED_PRIV_USER: {
-                asm volatile ("cli");
+                HAL_INT_OFF();
                 HalUserJump((uint64_t)entry, CurrentThread->UserRsp, (uint64_t)CurrentThread->UserArgv, (uint64_t)CurrentThread->UserArgc);
                 break;
             }

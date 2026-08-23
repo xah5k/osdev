@@ -1,6 +1,6 @@
 #include <kernel.h>
 #include <kedriver.h>
-#include <arch/x86_64/pci/pci.h>
+#include <hal/pci.h>
 #include <arch/x86_64/cpu/lapic.h>
 #include <arch/x86_64/cpu/ioapic.h>
 #include <arch/x86_64/acpi.h>

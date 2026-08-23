@@ -1,6 +1,5 @@
 #include <ksyscall.h>
 #ifdef __x86_64__
-#include <arch/x86_64/archsyscall.h>
 #include <arch/x86_64/cpu/lapic.h>
 #endif
 #include <sched/process.h>
@@ -19,6 +18,7 @@
 #include <external/posix/ioctl.h>
 #include <sched/ipc/signal.h>
 #include <external/posix/signal.h>
+#include <hal/archsyscall.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -34,6 +34,7 @@ static void UserAcEnd() {
         asm volatile ("clac");
     }
 }
+
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     // handle exit
     CurrentThread->exitcode = exitcode;

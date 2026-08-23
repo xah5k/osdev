@@ -22,7 +22,7 @@ ThreadCtrlBlk* DeathThread;
 ThreadCtrlBlk* IdleThreadPtr;
 static KernelInformation* gkinfoPtr;
 void SchedIdleThread() {
-    while (1) asm("sti; hlt");
+    HAL_HALT_WITHINT();
 }
 
 void SchedInitalize(KernelInformation* kinfo) {
@@ -120,14 +120,10 @@ void Schedule() {
             HalSwPageTable(NextThr->ParentProc->cr3);
         }
 
-        asm volatile("cli");
-        #ifdef __x86_64__
-        gkinfoPtr->tss->rsp0 = NextThr->KernelRsp;
-        CpuWriteMsr(0xC0000100, NextThr->FsBase);
-        CpuWriteMsr(0xC0000102, NextThr->GsBase);
+        HAL_INT_OFF();
+        HalContextSwPrep(NextThr);
         SpnLckReleaseRfl(&SchedSpinlock, r);
         HalContextSw(&OldThr->KernelRsp, NextThr->KernelRsp);
-        #endif
     }
     if (DeathThread != NULL) {
         if (DeathThread->KernelStackBase) {
@@ -169,7 +165,7 @@ void Schedule() {
         MmFree(DeathThread);
         DeathThread = NULL; 
     }
-    asm volatile("sti");
+    HAL_INT_ON();
 }
 
 void SchedYield() {

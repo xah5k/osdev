@@ -13,6 +13,7 @@
 #include <arch/x86_64/uacpi_compat.h>
 #include "../serial.h"
 #include <mm/pmm.h>
+#include <sched/process.h>
 
 KSTATUS HalInitalize(KernelInformation* kinfo) {
     CpuInitalizeGdt((struct KernelInformation*)kinfo);
@@ -108,4 +109,30 @@ void HalContextSw(uint64_t* old, uint64_t new) {
 
 void HalSwPageTable(uint64_t new) {
     _x86_64_load_pml4(new);
+}
+void HalDumpRegisters(CpuInterruptArgs* registers) {
+    printf("hal: interrupt frame dump: \r\n");
+    printf("   InterruptVector: %d   ErrorCode: 0x%lx\r\n", registers->intnum, registers->errcode);
+    printf("   rip: 0x%016lx            cs: 0x%016lx\r\n", registers->rip, registers->cs);
+    printf("   rfl: 0x%016lx         rsp: 0x%016lx\r\n", registers->rflags, registers->rsp);
+
+    printf("   r15: 0x%016lx            r14: 0x%016lx\r\n", registers->r15, registers->r14);
+    printf("   r13: 0x%016lx            r12: 0x%016lx\r\n", registers->r13, registers->r12);
+    printf("   r11: 0x%016lx            r10: 0x%016lx\r\n", registers->r11, registers->r10);
+    printf("   r9: 0x%016lx             r8: 0x%016lx\r\n", registers->r9, registers->r8);
+    printf("   rdi: 0x%016lx            rsi: 0x%016lx\r\n", registers->rdi, registers->rsi);
+    printf("   rdx: 0x%016lx            rcx: 0x%016lx\r\n", registers->rdx, registers->rcx);
+    printf("   rbx: 0x%016lx            rax: 0x%016lx\r\n", registers->rbx, registers->rax);
+    printf("   rbp: 0x%016lx            ss: 0x%016lx\r\n", registers->rbp, registers->ss);
+    printf("hal: end dump\r\n");
+}
+
+void HalReloadCr3() {
+    asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3" ::: "rax", "memory");
+}
+
+void HalContextSwPrep(struct ThreadCtrlBlk* NextThr) {
+    KernelGetInformation()->tss->rsp0 = NextThr->KernelRsp;
+    CpuWriteMsr(0xC0000100, NextThr->FsBase);
+    CpuWriteMsr(0xC0000102, NextThr->GsBase);
 }

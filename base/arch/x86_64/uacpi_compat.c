@@ -1,6 +1,5 @@
 #include <uacpi/kernel_api.h>
 #include <kernel.h>
-#include "pci/pci.h"
 #include "cpu/paging.h"
 #include "cpu/lapic.h"
 #include "cpu/idt.h"
@@ -16,6 +15,7 @@
 #include <uacpi/event.h>
 #include <mm/pmm.h>
 #include <util/util.h>
+#include <hal/pci.h>
 // basically implements (or stubs) things that uACPI needs
 extern uint64_t gCpuLapicTicksPerMs;
 extern uint64_t gCpuLapicTicksPer10ms;
