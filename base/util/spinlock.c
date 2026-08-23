@@ -1,4 +1,3 @@
-#include "arch/x86_64/cpu/cpu.h"
 #include <stdatomic.h>
 #include <util/spinlock.h>
 #include <kedriver.h>

@@ -1,4 +1,3 @@
-#include <arch/x86_64/hal.h>
 #include <mm/heap.h>
 #include <arch/x86_64/cpu/lapic.h>
 #include <arch/x86_64/cpu/ioapic.h>
@@ -12,7 +11,7 @@
 #include <arch/x86_64/acpi.h>
 #include <arch/x86_64/pci/pci.h>
 #include <arch/x86_64/uacpi_compat.h>
-#include "serial.h"
+#include "../serial.h"
 #include <mm/pmm.h>
 
 KSTATUS HalInitalize(KernelInformation* kinfo) {

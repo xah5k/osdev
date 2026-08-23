@@ -14,8 +14,9 @@
 #ifdef __x86_64__
 #include <arch/x86_64/cpu/cpu.h>
 #include <arch/x86_64/cpu/paging.h>
-#include "arch/x86_64/hal.h"
 #endif
+#include <hal/init.h>
+#include <hal/dbgout.h>
 #include <fs/tar.h>
 #include <sched/sched.h>
 #include <kedriver.h>

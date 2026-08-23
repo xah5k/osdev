@@ -5,6 +5,7 @@
 #include <disk/ahci.h>
 #include <mm/pmm.h>
 #include <fs/ext2.h>
+#include <hal/mmu.h>
 
 const uint8_t gZeroGuid[16] = {0};
 static int gInitPart1 = 0;

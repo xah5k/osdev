@@ -1,5 +1,6 @@
 #include <arch/x86_64/pci/pci.h>
-#include <arch/x86_64/hal.h>
+#include "hal/hal.h"
+#include "hal/mmu.h"
 #include <arch/x86_64/cpu/paging.h>
 #include <printfwrapper.h>
 #include <mm/heap.h>

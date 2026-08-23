@@ -3,8 +3,7 @@
 #include <stddef.h>
 #include <memory.h>
 #include <mm/pmm.h>
-
-
+#include <hal/mmu.h>
 
 
 static PciDeviceHeader* gPciBase;

@@ -2,9 +2,7 @@
 #include "kernel.h"
 #include <stddef.h>
 #include <stdint.h>
-#ifdef __x86_64__
-#include <arch/x86_64/cpu/paging.h>
-#endif
+#include <hal/mmu.h>
 #include <mm/vmm.h>
 #include <mm/pmm.h>
 #include <memory.h>

@@ -1,11 +1,10 @@
 #pragma  once
-#ifdef __x86_64__
-#include <arch/x86_64/cpu/paging.h>
-#endif
+#include <hal/mmu.h>
 #include <kernel.h>
 #include <fs/vfs.h>
 #include <ttyobj.h>
 #include <sched/ipc/signal.h>
+
 #define PS_USER_STACK_PAGES 4
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
@@ -90,16 +89,11 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc,
 ProcessCtrlBlk* ProcessNew(char* name);
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
 uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptArgs* frame);
-void ThreadMapUserStack(ThreadCtrlBlk* Tcb);
 void ThreadPushTail(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail, ThreadCtrlBlk* Tcb);
 ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail);
-uint64_t* ProcNewPML4();
-void ThreadWake(ThreadCtrlBlk* Tcb) ;
+void ThreadWake(ThreadCtrlBlk* Tcb);
 void ThreadEntry();
 void ProcListRunning(KernelInformation* kinfo);
 void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);
-void ProcFreePML4(pagetable* pml4p);
-void ProcFreeInnerPML4(pagetable* pml4p);
 void ThrCheckSignals(CpuInterruptArgs* OldCtx);
-void ThreadCreateUserStack(ThreadCtrlBlk* Tcb, void* entry, const char** argv, int argc, const char** envp, int envc);

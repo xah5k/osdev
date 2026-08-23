@@ -1,5 +1,3 @@
-#include "arch/x86_64/cpu/cpu.h"
-#include "arch/x86_64/cpu/paging.h"
 #include "fs/vfs.h"
 #include "kernel.h"
 #include "mm/heap.h"
@@ -12,9 +10,10 @@
 #include <memory.h>
 #include <sched/process.h>
 #include <kedriver.h>
-#ifdef __x86_64__
-#include <arch/x86_64/hal.h>
-#endif
+#include <hal/hal.h>
+#include <hal/mmu.h>
+#include <hal/ps.h>
+
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;

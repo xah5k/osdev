@@ -2,9 +2,7 @@
 #include <printfwrapper.h>
 #include <util/spinlock.h>
 #include <external/limine.h>
-#ifdef __x86_64__
-#include <arch/x86_64/cpu/paging.h>
-#endif
+#include <hal/mmu.h>
 #include <kernel.h>
 #include <memory.h>
 #include <kedriver.h>

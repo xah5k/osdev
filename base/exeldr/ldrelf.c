@@ -8,6 +8,8 @@
 #include <kedriver.h>
 #include <util/util.h>
 #include <util/spinlock.h>
+#include <hal/ps.h>
+
 static Spinlock LdrLock = {ATOMIC_FLAG_INIT};
 
 KSTATUS LdrElfValidate(Elf64_Ehdr* Elf);

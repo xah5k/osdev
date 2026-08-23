@@ -5,6 +5,7 @@
 #include <mm/heap.h>
 #include <memory.h>
 #include <util/util.h>
+#include <hal/mmu.h>
 
 static uint64_t gCurrFileIdx = 0; // used by ext2createvfstable to keep track of where its at
 static KeExt2Volume* gVolume; // todo: cuz we're not tarfs we should be able to mount multiple volumes and this kinda makes it hard to do

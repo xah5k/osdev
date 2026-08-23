@@ -2,12 +2,10 @@
 #include <stdint.h>
 #include <external/bootboot.h>
 #ifdef __x86_64__
-#include <arch/x86_64/cpu/paging.h>
 #include <arch/x86_64/cpu/cpu.h>
 #include <arch/x86_64/cpu/gdt.h>
-#include <arch/x86_64/acpi.h>
 #endif
-
+#include <hal/acpi.h>
 #define ARCHS_X86_64 "x86-64"
 struct NetArpEntry;
 typedef struct {
