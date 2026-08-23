@@ -2,6 +2,7 @@
 #include <kedriver.h>
 #include <memory.h>
 #include <printfwrapper.h>
+#include <fb.h>
 
 int oct2bin(unsigned char *str, int size) {
     int n = 0;
@@ -104,4 +105,22 @@ KE_EXPORT_SYMBOL(UtilSwapEnd32);
 
 void UtilPrintMacAddr(uint8_t* macaddr) {
     printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", macaddr[0], macaddr[1], macaddr[2], macaddr[3], macaddr[4], macaddr[5], macaddr[6]);
+}
+
+
+
+void UtilPrintFmtAt(const char* message, int x, int y, ...) {
+    va_list va;
+    va_start(va, message);
+    char buffer[1024];
+    memset((void*)buffer, 0, 1024);
+    vsnprintf(buffer, 1024, message, va);
+    va_end(va);
+    int conX = x;
+    int conY = y;
+    for (int i = 0; i < 1024; i++) {
+        if (buffer[i] == 0) break;
+        FbPutcAt(buffer[i], conX, conY, 0xFFFFFFFF, 0x00000000);
+        conX += 8;
+    }
 }

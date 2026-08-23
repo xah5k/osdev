@@ -14,8 +14,12 @@
 #include "../serial.h"
 #include <mm/pmm.h>
 #include <sched/process.h>
+#include <kedriver.h>
 
 KSTATUS HalInitalize(KernelInformation* kinfo) {
+    KeDriverObj* driver = MmAllocate(sizeof(KeDriverObj));
+    memcpy(driver->Name, "hal-amd64", 10);
+    KeDrvRegisterDriver(driver);
     CpuInitalizeGdt((struct KernelInformation*)kinfo);
     CpuInitalizeIdt();
     asm ("sti");

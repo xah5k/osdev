@@ -23,6 +23,7 @@
 #include <disk/ahci.h>
 #include <disk/ptable.h>
 #include <net/net.h>
+#include <mouse.h>
 
 // limine request stuff
 __attribute__((used, section(".limine_requests")))
@@ -309,6 +310,9 @@ void KernelBootstrapProc() {
     } else {
         KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
     }
+    ThreadCtrlBlk* thr = ThreadNew((void*)KeDevMouseProcess, SCHED_PRIV_KERNEL, (const char**)0, 0, 0, 0);
+    ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
+    ThreadAdd(thr);
     KeUtilShell();
     HAL_HALT_WITHINT();
 }

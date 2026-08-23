@@ -443,6 +443,7 @@ void KeShlProcess(char* string) {
         MmFree(newcontent);
     } else if (strcmp(string, "lsdrvdev") == 0) {
         KeListDevices();
+        KeListDrivers();
     } else if (strcmp(string, "getwalltime") == 0) {
         printf("enter device name: ");
         char* devname = KeShlReadStr();

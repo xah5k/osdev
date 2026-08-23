@@ -39,6 +39,7 @@ static int KbdBufferRm(uint8_t* out_scancode) {
 }
 
 char KbdReadCode() {
+    // while (!(inb(0x64) & 1));
 	return inb(0x60);
 }
 
@@ -88,7 +89,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     entry |= 0x21;
 
     CpuIoApicSetRedirEntry(CpuIoApicTranslateIrq(1), entry);
-    CpuRegisterHandler(33, KbdInterruptHandler);
+    CpuRegisterHandler(0x21, KbdInterruptHandler);
     
     // create device object
     KeDeviceObj* device = MmAllocate(sizeof(KeDeviceObj));

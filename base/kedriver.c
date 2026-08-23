@@ -53,6 +53,13 @@ void KeListDevices() {
     }
 }
 
+void KeListDrivers() {
+    KeDriverObj* d = gDriverListHead;
+    while (d != NULL) {
+        printf("kedriver: driver: name='%s'\r\n", d->Name);
+        d = d->Next;
+    }
+}
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq) {
     if (!device || !ioreq) return KINVALID;
     KSTATUS (*handler)(struct KeDeviceObj*, struct KeIoRequest*) = device->Dispatch[ioreq->Major];

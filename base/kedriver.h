@@ -1,5 +1,6 @@
 #pragma once
 #include <kernel.h>
+#include <util/util.h>
 struct KeDeviceObj;
 struct KeIoRequest;
 typedef struct {
@@ -50,6 +51,14 @@ typedef struct {
     uint8_t Month;
     uint8_t Year; // short hand as in 0-99
 } KeDevClockWallTime;
+
+typedef struct {
+    Point RawPos;
+    int LeftClickPress;
+    int RightClickPress;
+    int MiddleClickPress;
+} KeDevMousePacket;
+
 #define KE_WALLTIME_HWSPEC_OFF 16
 
 #define KE_EXPORT_SYMBOL(func) \
@@ -69,3 +78,4 @@ KeDeviceObj* KeFindDeviceByName(const char* name);
 void KeRegisterDevice(KeDeviceObj* dev);
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq);
 void KeListDevices() ;
+void KeListDrivers();
