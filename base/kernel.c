@@ -178,6 +178,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->fb->width = framebuffer_request.response->framebuffers[0]->width;
     kInfo->fb->height = framebuffer_request.response->framebuffers[0]->height;
     kInfo->fb->scanline = framebuffer_request.response->framebuffers[0]->pitch;
+    kInfo->fb->bpp = framebuffer_request.response->framebuffers[0]->bpp;
     kInfo->FwType = 1;
     memset((void*)&kInfo->net, 0, sizeof(KeNetInfo));
     kInfo->net.Ip[0] = 192;

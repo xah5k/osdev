@@ -1,6 +1,8 @@
 #include <mouse.h>
 #include <printfwrapper.h>
 #include <kedriver.h>
+#include <fb.h>
+#include <memory.h>
 static KeDevMousePacket* gPacket = NULL;
 void KeDevSetMousePck(KeDevMousePacket* packet) {
     gPacket = packet;
@@ -9,6 +11,7 @@ KE_EXPORT_SYMBOL(KeDevSetMousePck);
 KSTATUS KeDevMouseProcess() {
     KeDeviceObj* d = KeFindDeviceByName("ps2mouse");
     if (!d) return KINVALID;
+    Framebuffer* mouse = FbCreate(5, 5);
     while (1) { 
         d->Dispatch[IO_HWSPEC](NULL, NULL);    
         if (gPacket) {

@@ -14,6 +14,7 @@ typedef struct {
     uint32_t width;
     uint32_t height;
     uint32_t scanline;
+    uint64_t bpp;
 } Framebuffer;
 typedef struct {
     uint8_t Mac[6];

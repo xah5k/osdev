@@ -5,6 +5,7 @@
 #include <printfwrapper.h>
 #include <memory.h>
 #include <kedriver.h>
+#include <mm/heap.h>
 
 typedef struct {
     uint32_t magic;
@@ -105,4 +106,60 @@ void FbClear() {
     gFbConsoleX = 0;
     gFbConsoleY = 0;
     memset((void*)g_fb_info->ptr, 0, g_fb_info->size);
+}
+
+Framebuffer* FbCreate(uint32_t width, uint32_t height) {
+    Framebuffer* fbinfo = MmAllocate(sizeof(Framebuffer));
+    fbinfo->width = width;
+    fbinfo->height = height;
+    fbinfo->scanline = g_fb_info->scanline;
+    fbinfo->size = height * fbinfo->scanline;
+    fbinfo->ptr = (uint64_t)MmAllocate(fbinfo->size);
+    memset((void*)fbinfo->ptr, 0, fbinfo->size);
+    return fbinfo;
+}
+
+KSTATUS FbFree(Framebuffer* fb) {
+    if (!fb) return KINVALID;
+    if (fb->ptr == 0) return KINVALID;
+    MmFree((void*)fb->ptr);
+    MmFree(fb);
+    return KSUCCESS;
+}
+
+KSTATUS FbDraw(Framebuffer* destfb, Framebuffer* srcfb, int x, int y) {
+    if (x < 0 || y < 0) return KINVALID;
+    if (x + srcfb->width > destfb->width) return KINVALID;
+    if (y + srcfb->height > destfb->height) return KINVALID;
+
+    uint8_t* FbPtr = (uint8_t*)destfb->ptr + FBOFF(x, y, destfb);
+    uint8_t* FbSrcPtr = (uint8_t*)srcfb->ptr;
+    uint32_t RowBytes = srcfb->width * (destfb->bpp / 8);
+
+    for (uint32_t i = 0; i < srcfb->height; i++) {
+        memcpy(FbPtr, FbSrcPtr, RowBytes);
+        FbSrcPtr += srcfb->scanline;
+        FbPtr += destfb->scanline;
+    }
+    return KSUCCESS;
+}
+void FbPutcAtIn(Framebuffer* fb, char c, int x, int y, uint32_t fg_color, uint32_t bg_color) {
+    if (x + 8 > fb->width || y + g_fb_font->characterSize > fb->height) return;
+    
+    uint8_t char_index = (uint8_t)c; 
+    if (char_index >= glyphcount) return;
+
+    uint8_t* glyph = ((uint8_t*)g_fb_font) + 4 + (char_index * g_fb_font->characterSize);
+
+    for (int _y = 0; _y < g_fb_font->characterSize; _y++) {
+        uint32_t* fbrow = (uint32_t*)((uint8_t*)fb->ptr + (_y + y) * fb->scanline);
+
+        for (int _x = 0; _x < 8; _x++) {
+            if (glyph[_y] & (0x80 >> _x)) {
+                fbrow[x + _x] = fg_color;
+            } else {
+                fbrow[x + _x] = bg_color;
+            }
+        }
+    }
 }
