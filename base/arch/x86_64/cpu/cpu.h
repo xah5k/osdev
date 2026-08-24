@@ -10,6 +10,8 @@ typedef struct {
 
 typedef struct {
     uint8_t smap;
+    char VendorId[13];
+    char Brand[49];
 } CpuFeatures;
 
 extern uint64_t _x86_64_get_stack();

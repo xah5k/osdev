@@ -274,8 +274,10 @@ void KeShlProcess(char* string) {
         MmHeapDumpMap();
     } else if (strcmp(string, "cpufeats") == 0) {
         CpuFeatures* f = KernelGetInformation()->cpufeats;
-        printf("cpu features: \r\n");
-        printf("f->smap = %d\r\n", f->smap);
+        printf("cpu features/info: \r\n");
+        printf("smap = %d\r\n", f->smap);
+        printf("vendor = %s\r\n", f->VendorId);
+        printf("brand = %s\r\n", f->Brand);
     } else if (strcmp(string, "lspci") == 0) {
         KePciDeviceHdr* hdr = PciGetLinkedList();
         if (!hdr) {
