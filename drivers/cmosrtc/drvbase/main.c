@@ -90,7 +90,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     device->Owner = Self;
     device->Device = NULL;
     device->Next = NULL;
-    device->Dispatch[IO_HWSPEC + KE_WALLTIME_HWSPEC_OFF] = RtcHwSpecPopulate;
+    device->Dispatch[IO_READ] = RtcHwSpecPopulate;
     KeRegisterDevice(device);
     return KSUCCESS;
 }

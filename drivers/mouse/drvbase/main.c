@@ -18,6 +18,8 @@
 #define PS2XOVERFLW 0b01000000
 #define PS2YOVERFLW 0b10000000
 
+static KeDevMousePacket gMousePacket;
+
 static void MouseHandle(uint8_t Data);
 
 static void MouseWait() {
@@ -46,20 +48,19 @@ uint8_t MousePck[4];
 int MousePckReady = 0;
 static void MouseHandle(uint8_t Data) {
     switch (MouseCy) {
-        case 0: {
-            if (MousePckReady) break;
-            if ((Data & 0b00001000) == 0) break; // somethings gone wrong should always be 1
+        case 0:
+            if ((Data & 0b00001000) == 0) { // shis gone wrong
+                MouseCy = 0;
+                break;
+            }
             MousePck[0] = Data;
-            MouseCy++;
+            MouseCy = 1;
             break;
-        }
         case 1:
-            if (MousePckReady) break;
             MousePck[1] = Data;
-            MouseCy++;
+            MouseCy = 2;
             break;
         case 2:
-            if (MousePckReady) break;
             MousePck[2] = Data;
             MouseCy = 0;
             MousePckReady = 1;
@@ -67,38 +68,37 @@ static void MouseHandle(uint8_t Data) {
     }
 }
 
-static void MouseProcessPacket() {
-    if (!MousePckReady) return;
+static KeDevMousePacket* MouseProcessPacket() {
+    if (!MousePckReady) return NULL;
     MousePckReady = 0;
-    KeDevMousePacket* KeMousePck = MmAllocate(sizeof(KeDevMousePacket));
-    memset((void*)KeMousePck, 0, sizeof(KeDevMousePacket));
-    if (!KeMousePck) KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
+    memset((void*)&gMousePacket, 0, sizeof(KeDevMousePacket));
     int XNeg, YNeg, XOver, YOver;
     XNeg = (MousePck[0] & PS2XSIGN) ? 1 : 0;
     YNeg = (MousePck[0] & PS2YSIGN) ? 1 : 0;
     XOver = (MousePck[0] & PS2XOVERFLW) ? 1 : 0;
     YOver = (MousePck[0] & PS2YOVERFLW) ? 1 : 0; 
     if (!XNeg) {
-        KeMousePck->RawPos.x += MousePck[1];
-        if (XOver) KeMousePck->RawPos.x += 255;
+        gMousePacket.RawPos.x += MousePck[1];
+        if (XOver) gMousePacket.RawPos.x += 255;
     } else {
         MousePck[1] = 256 - MousePck[1];
-        KeMousePck->RawPos.x -= MousePck[1];
-        if (XOver) KeMousePck->RawPos.x -= 255;
+        gMousePacket.RawPos.x -= MousePck[1];
+        if (XOver) gMousePacket.RawPos.x -= 255;
     }
     if (!YNeg) {
-        KeMousePck->RawPos.y -= MousePck[2];
-        if (YOver) KeMousePck->RawPos.y -= 255;
+        gMousePacket.RawPos.y -= MousePck[2];
+        if (YOver) gMousePacket.RawPos.y -= 255;
     } else {
         MousePck[2] = 256 - MousePck[2];
-        KeMousePck->RawPos.y += MousePck[2];
-        if (YOver) KeMousePck->RawPos.y += 255;
+        gMousePacket.RawPos.y += MousePck[2];
+        if (YOver) gMousePacket.RawPos.y += 255;
     }
-    if (MousePck[0] & PS2LEFTBTN) KeMousePck->LeftClickPress = 1;
-    if (MousePck[0] & PS2RIGHTBTN) KeMousePck->RightClickPress = 1;
-    if (MousePck[0] & PS2MIDDLEBTN) KeMousePck->MiddleClickPress = 1;
-    KeDevSetMousePck(KeMousePck);
-    // KeDrvWriteFmt("rawmat %d, %d\r\n", KeMousePck->RawPos.x, KeMousePck->RawPos.y);
+    if (MousePck[0] & PS2LEFTBTN) gMousePacket.LeftClickPress = 1;
+    if (MousePck[0] & PS2RIGHTBTN) gMousePacket.RightClickPress = 1;
+    if (MousePck[0] & PS2MIDDLEBTN) gMousePacket.MiddleClickPress = 1;
+    KeDevSetMousePck(&gMousePacket);
+    // KeDrvWriteFmt("mouse driver raw process packet handler: dx,dy %d, %d\r\n", KeMousePck->RawPos.x, KeMousePck->RawPos.y);
+    return &gMousePacket;
 }
 
 static void MouseWritePort(uint8_t Value) {
@@ -115,6 +115,16 @@ static uint8_t MouseReadPort() {
 
 KSTATUS MouseHwSpec(KeDeviceObj* dev, KeIoRequest* irp) {
     MouseProcessPacket();
+    return KSUCCESS;
+}
+
+KSTATUS MouseRead(KeDeviceObj* dev, KeIoRequest* irp) {
+    KeDevMousePacket* pck = MouseProcessPacket();
+    if (!pck) return KRESEND;
+
+    if (irp->Length > sizeof(KeDevMousePacket)) irp->Length = sizeof(KeDevMousePacket);
+    memcpy((void*)irp->Buffer, pck, irp->Length);
+    irp->ReadBytes = irp->Length;
     return KSUCCESS;
 }
 
@@ -156,6 +166,7 @@ KSTATUS DriverEntry(KeDriverObj* Self) {
     device->Device = NULL;
     device->Next = NULL;
     device->Dispatch[IO_HWSPEC] = MouseHwSpec;
+    device->Dispatch[IO_READ] = MouseRead;
     KeRegisterDevice(device);
     KeDrvWrite("mouse: registered device as 'ps2mouse'\r\n");
     return KSUCCESS;

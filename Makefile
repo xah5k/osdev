@@ -45,7 +45,7 @@ obj-$(ARCH)/%.c.o: %.c
 	@echo " $<"
 obj-x86_64/%.asm.o: %.asm
 	@mkdir -p "$(dir $@)"
-	@nasm -f elf64 $< -o $@
+	@nasm -g -f elf64 $< -o $@
 	@echo " $<"
 
 clean:

@@ -59,8 +59,6 @@ typedef struct {
     int MiddleClickPress;
 } KeDevMousePacket;
 
-#define KE_WALLTIME_HWSPEC_OFF 16
-
 #define KE_EXPORT_SYMBOL(func) \
     static const char __export_name_##func[] = #func; \
     __attribute__((section(".kexports"), used)) \
@@ -79,3 +77,7 @@ void KeRegisterDevice(KeDeviceObj* dev);
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq);
 void KeListDevices() ;
 void KeListDrivers();
+uint64_t KeCountDevices();
+uint64_t KeCountDrivers();
+KeDeviceObj* KeDevGetLinkedList();
+KeDriverObj* KeDrvGetLinkedList();

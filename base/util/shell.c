@@ -458,7 +458,7 @@ void KeShlProcess(char* string) {
         }
         KeDevClockWallTime Walltime;
         KeIoRequest Irp;
-        Irp.Major = IO_HWSPEC + KE_WALLTIME_HWSPEC_OFF;
+        Irp.Major = IO_READ;
         Irp.Buffer = &Walltime;
         Irp.Length = sizeof(KeDevClockWallTime);
         Irp.ReadBytes = 0;

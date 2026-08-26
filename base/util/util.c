@@ -124,3 +124,4 @@ void UtilPrintFmtAt(const char* message, int x, int y, ...) {
         conX += 8;
     }
 }
+KE_EXPORT_SYMBOL(UtilPrintFmtAt);

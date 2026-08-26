@@ -45,6 +45,8 @@ KeDeviceObj* KeFindDeviceByName(const char* name) {
     return NULL;
 }
 
+KeDeviceObj* KeDevGetLinkedList() {return gDeviceListHead;}
+KeDriverObj* KeDrvGetLinkedList() {return gDriverListHead;}
 void KeListDevices() {
     KeDeviceObj* d = gDeviceListHead;
     while (d != NULL) {
@@ -59,6 +61,26 @@ void KeListDrivers() {
         printf("kedriver: driver: name='%s'\r\n", d->Name);
         d = d->Next;
     }
+}
+
+uint64_t KeCountDevices() {
+    uint64_t c = 0;
+    KeDeviceObj* d = gDeviceListHead;
+    while (d != NULL) {
+        c++;
+        d = d->Next;
+    }
+    return c;
+}
+
+uint64_t KeCountDrivers() {
+    uint64_t c = 0;
+    KeDriverObj* d = gDriverListHead;
+    while (d != NULL) {
+        c++;
+        d = d->Next;
+    }
+    return c;
 }
 KSTATUS KeIoDispatch(KeDeviceObj* device, KeIoRequest* ioreq) {
     if (!device || !ioreq) return KINVALID;

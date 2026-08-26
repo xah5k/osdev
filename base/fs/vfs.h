@@ -37,6 +37,7 @@ typedef struct {
 
 #define VFS_TYPE_FILE 0x1
 #define VFS_TYPE_DIRECTORY 0x2
+#define VFS_TYPE_OBJECT 0x3 
 
 typedef struct VfsFile {
     const char Path[VFS_MAX_ALLOWED_PATH]; // actual full path

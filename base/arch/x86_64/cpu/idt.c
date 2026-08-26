@@ -6,7 +6,8 @@
 #include <kedriver.h>
 #include <arch/x86_64/archsyscall.h>
 #define IDT_FLAG_PRESENT 0x80
-#define IDT_FLAG_GATE 0x0E
+#define IDT_FLAG_INT_GATE 0x0E
+#define IDT_FLAG_TRAP_GATE 0x0F
 #define IDT_FLAG_USER 0xE0
 
 #define OS_SYSCALL_VECTOR 0xFF
@@ -74,9 +75,9 @@ void CpuIdtSetEntry(CpuIdtEntry* table, uint8_t index, void* base, uint8_t flags
 
 void CpuInitalizeIdt() {
     for (int i = 0; i < 255; i++) {
-        CpuIdtSetEntry(idt, i, isr_stub_table[i], IDT_FLAG_PRESENT | IDT_FLAG_GATE);
+        CpuIdtSetEntry(idt, i, isr_stub_table[i], IDT_FLAG_PRESENT | IDT_FLAG_INT_GATE);
     }
-    CpuIdtSetEntry(idt, OS_SYSCALL_VECTOR, (void*)isr_syscall_stub, IDT_FLAG_PRESENT | IDT_FLAG_GATE | IDT_FLAG_USER);
+    CpuIdtSetEntry(idt, OS_SYSCALL_VECTOR, (void*)isr_syscall_stub, IDT_FLAG_PRESENT | IDT_FLAG_TRAP_GATE | IDT_FLAG_USER);
     idtr.limit = sizeof(idt)-1;
     idtr.base = (uint64_t)&idt;
     //printf("before\r\n");

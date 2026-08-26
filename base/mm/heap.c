@@ -67,7 +67,7 @@ MmHeapBlockHdr* MmInternalFindBlSz(uint64_t size) {
 
 void* MmAllocate(uint64_t size) {
     void* Result = NULL;
-    SpnLckAcquire(&MmInternalHeapLock);
+    uint64_t r = SpnLckAcquireRfl(&MmInternalHeapLock);
     uint64_t TotalSize = ((size + 15) & ~15) + sizeof(MmHeapBlockHdr);
     MmHeapBlockHdr* Block = MmInternalFindBlSz(TotalSize);
 
@@ -93,13 +93,13 @@ void* MmAllocate(uint64_t size) {
         Result = (void*)(NewUsedBlock + 1);
     }
     end:
-    SpnLckRelease(&MmInternalHeapLock);
+    SpnLckReleaseRfl(&MmInternalHeapLock, r);
     return Result;
 }
 KE_EXPORT_SYMBOL(MmAllocate);
 void MmFree(void* ptr) {
-    SpnLckAcquire(&MmInternalHeapLock);
-    if (!ptr) { SpnLckRelease(&MmInternalHeapLock); return; }
+    uint64_t r = SpnLckAcquireRfl(&MmInternalHeapLock);
+    if (!ptr) { SpnLckReleaseRfl(&MmInternalHeapLock, r); return; }
     MmHeapBlockHdr* Block = (MmHeapBlockHdr*)ptr - 1;
     Block->Status = MM_HEAP_FREE;
 
@@ -130,6 +130,6 @@ void MmFree(void* ptr) {
             Current->Next = Block->Next;
         }
     }
-    SpnLckRelease(&MmInternalHeapLock);
+    SpnLckReleaseRfl(&MmInternalHeapLock, r);
 }
 KE_EXPORT_SYMBOL(MmFree);

@@ -14,6 +14,7 @@
 #include <hal/init.h>
 #include <hal/dbgout.h>
 #include <fs/tar.h>
+#include <fs/krnlfs.h>
 #include <sched/sched.h>
 #include <kedriver.h>
 #include <util/util.h>
@@ -108,6 +109,12 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     printf("kernel: unrecoverable bugcheck\r\n");
     printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
     if (registers) {
+        if (HAL_GET_INUM(registers) == 14) {
+            printf("kernel: page fault.\r\n");
+            uint64_t faultaddr;
+            HAL_GET_CR2(faultaddr);
+            printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
+        }
         HalDumpRegisters(registers);
     } else {
         printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
@@ -303,6 +310,8 @@ void KernelBootstrapProc() {
     KeFbAsConsole();
     KSUCCESS(HalRmvIdentityMap());
     KeInitalizeDrivers();
+    KrnlFsInitalize();
+    printf("kernel: krnlfs: initalized.\r\n");
     // network related
     uint8_t b[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     NetArpTableAdd(&gkInfo->net.ArpHead, b, b);
@@ -311,9 +320,6 @@ void KernelBootstrapProc() {
     } else {
         KSUCCESS(NetDhcpConfigure(NetGetLinkedList()));
     }
-    ThreadCtrlBlk* thr = ThreadNew((void*)KeDevMouseProcess, SCHED_PRIV_KERNEL, (const char**)0, 0, 0, 0);
-    ProcAttachThread(ThrGetCurrent()->ParentProc, thr);
-    ThreadAdd(thr);
     KeUtilShell();
     HAL_HALT_WITHINT();
 }
