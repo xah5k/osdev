@@ -17,22 +17,11 @@ int main(int argc, const char* argv[]) {
             KeDevMousePacket* packet = malloc(sizeof(KeDevMousePacket));
             int c = read(h, packet, sizeof(KeDevMousePacket));
             if (c <= 0) {
+                free(packet);
                 continue;
             }
-            if (packet) {
-                printf("%s: mouse dx=%d dy=%d l=%d m=%d r=%d\r\n", argv[0], packet->RawPos.x, packet->RawPos.y, packet->LeftClickPress, packet->MiddleClickPress, packet->RightClickPress);
-            }
+            printf("%s: mouse dx=%d dy=%d l=%d m=%d r=%d\r\n", argv[0], packet->RawPos.x, packet->RawPos.y, packet->LeftClickPress, packet->MiddleClickPress, packet->RightClickPress);
             free(packet);
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            asm ("nop");
-            
         }
     }
     return 0;

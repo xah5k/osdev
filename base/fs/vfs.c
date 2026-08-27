@@ -201,6 +201,11 @@ int OsRead(int handle, void* buffer, size_t nbytes) {
     if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
         if (!proc->FileHandleTable[handle].Entry)  { KernelUnlockRsLck(); return -1; }
         VfsFile* f = proc->FileHandleTable[handle].Entry;
+        if (f->Type == VFS_TYPE_OBJECT) {
+            // skip the offset bs
+            KernelUnlockRsLck();
+            return VfsRead(f, buffer, nbytes, 0);
+        }
         uint64_t FileSize = f->Size;
         uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
 

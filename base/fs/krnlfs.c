@@ -30,6 +30,7 @@ int KrnlFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offse
         // printf("krnlfs: read on device returns KSTATUS 0x%lx\r\n", s);
         if (s != KSUCCESS) return -1;
         read = Irp.ReadBytes;
+        // printf("krnlfs: read=%d\r\n", read);
         return read;
     } else if (strcmpl(file->Path, "krnlfs:/Drivers/", 16) == 0) {
         char* DrvName = file->Path + 16;

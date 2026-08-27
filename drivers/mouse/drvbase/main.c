@@ -97,7 +97,7 @@ static KeDevMousePacket* MouseProcessPacket() {
     if (MousePck[0] & PS2RIGHTBTN) gMousePacket.RightClickPress = 1;
     if (MousePck[0] & PS2MIDDLEBTN) gMousePacket.MiddleClickPress = 1;
     KeDevSetMousePck(&gMousePacket);
-    // KeDrvWriteFmt("mouse driver raw process packet handler: dx,dy %d, %d\r\n", KeMousePck->RawPos.x, KeMousePck->RawPos.y);
+    // KeDrvWriteFmt("mouse driver raw process packet handler: dx,dy %d, %d\r\n", gMousePacket.RawPos.x, gMousePacket.RawPos.y);
     return &gMousePacket;
 }
 
@@ -115,7 +115,6 @@ static uint8_t MouseReadPort() {
 
 KSTATUS MouseHwSpec(KeDeviceObj* dev, KeIoRequest* irp) {
     MouseProcessPacket();
-    return KSUCCESS;
 }
 
 KSTATUS MouseRead(KeDeviceObj* dev, KeIoRequest* irp) {
@@ -125,6 +124,7 @@ KSTATUS MouseRead(KeDeviceObj* dev, KeIoRequest* irp) {
     if (irp->Length > sizeof(KeDevMousePacket)) irp->Length = sizeof(KeDevMousePacket);
     memcpy((void*)irp->Buffer, pck, irp->Length);
     irp->ReadBytes = irp->Length;
+    // KDBGC(KeDrvWriteFmt);
     return KSUCCESS;
 }
 
