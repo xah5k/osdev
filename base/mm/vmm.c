@@ -83,7 +83,7 @@ VmmInternalBlock* VmmInternalFindAddress(void* ptr) {
     return NULL; // couldn't find
 }
 
-void* VmmAllocate(uint64_t size) {
+void* VmmAllocateAt(uint64_t size, uint64_t cr3) {
     SpnLckAcquire(&VmmInternalLock);
     VmmInternalBlock* block = VmmInternalFindGap(size);
     if (!block) { SpnLckRelease(&VmmInternalLock); return NULL; } 
@@ -108,15 +108,20 @@ void* VmmAllocate(uint64_t size) {
     // map it
     for (uint64_t i = 0; i < size; i+=MMU_PAGE_SIZE) {
         physaddr f = (physaddr)PmmAllocate();
-        MmuMapPage((pagetable*)_x86_64_get_pml4(), i + block->start, f, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+        MmuMapPage((pagetable*)cr3, i + block->start, f, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
         memset((void*)(i + block->start), 0, MMU_PAGE_SIZE);
     }
     SpnLckRelease(&VmmInternalLock);
     return (void*)block->start;
 }
+
+void* VmmAllocate(uint64_t size) {
+    return VmmAllocateAt(size, _x86_64_get_pml4());
+}
+
 KE_EXPORT_SYMBOL(VmmAllocate);
 
-void VmmFree(void* ptr) {
+void VmmFreeAt(void* ptr, uint64_t cr3) {
     SpnLckAcquire(&VmmInternalLock);
     // find block with ptr
     VmmInternalBlock* block = VmmInternalFindAddress(ptr);
@@ -124,7 +129,7 @@ void VmmFree(void* ptr) {
     if (block->free == 1) { SpnLckRelease(&VmmInternalLock); return; }
     // unmap addresses
     for (uint64_t i = block->start; i < (block->start + block->size); i+=MMU_PAGE_SIZE) {
-        MmuUnmapPage((pagetable*)_x86_64_get_pml4(), i);
+        MmuUnmapPage((pagetable*)cr3, i);
     }
     // mark as free
     block->free = 1;
@@ -153,5 +158,9 @@ void VmmFree(void* ptr) {
         VmmFreeBlockHead = deadNode;
     }
     SpnLckRelease(&VmmInternalLock);
+}
+
+void VmmFree(void* ptr) {
+    VmmFreeAt(ptr, _x86_64_get_pml4());
 }
 KE_EXPORT_SYMBOL(VmmFree);

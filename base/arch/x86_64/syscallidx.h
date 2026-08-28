@@ -36,4 +36,8 @@ typedef enum {
     OS_MUNMAP,
     OS_SIGRETURN,
     OS_SIGREGISTER,
+    OS_FBCREATE,
+    OS_FBFREE,
+    OS_FBDRAW,
+    OS_FBGETINFO
 } KiSyscallIdx;

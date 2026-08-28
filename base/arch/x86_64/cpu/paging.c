@@ -24,6 +24,8 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
         pagetable* newpd = PmmAllocate();
         memset(((uint8_t*)newpd + gMmuVOffset), 0, MMU_PAGE_SIZE);
         pdpt[pdptidx] = (uint64_t)newpd | flags;
+    } else {
+        pdpt[pdptidx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
     }
 
     pagetable* pd = (pagetable*)(((uintptr_t)pdpt[pdptidx] & ~0xFFFULL) + gMmuVOffset);
@@ -32,6 +34,8 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
         pagetable* newpt = PmmAllocate();
         memset(((uint8_t*)newpt + gMmuVOffset), 0, MMU_PAGE_SIZE);
         pd[pdidx] = (uint64_t)newpt | flags;
+    } else {
+        pd[pdidx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
     }
 
     pagetable* pt = (pagetable*)(((uintptr_t)pd[pdidx] & ~0xFFFULL) + gMmuVOffset);

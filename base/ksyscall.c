@@ -19,6 +19,7 @@
 #include <sched/ipc/signal.h>
 #include <external/posix/signal.h>
 #include <hal/archsyscall.h>
+#include <fb.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -553,6 +554,38 @@ uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
     return -1;
 }
 
+uint64_t SysFbCreate(uint64_t width, uint64_t height, KE_SYSCALL_ARGS_UNUSED2) {
+    Framebuffer* fb = FbCreate((uint32_t)width, (uint32_t)height, P2V(ThrGetCurrent()->ParentProc->cr3));
+    if (!fb) {
+        return 0;
+    } else  { 
+        return (uint64_t)fb; 
+    }
+}
+
+uint64_t SysFbFree(uint64_t fbptr, KE_SYSCALL_ARGS_UNUSED1) {
+    Framebuffer* fb = (Framebuffer*)fbptr;
+    if (!fb) return (uint64_t)KFAIL;
+    return (uint64_t)FbFree(fb, P2V(ThrGetCurrent()->ParentProc->cr3));
+}
+
+uint64_t SysFbDraw(uint64_t destptr, uint64_t srcptr, uint64_t x, uint64_t y, KE_SYSCALL_ARGS_UNUSED4) {
+    Framebuffer* dest = (Framebuffer*)destptr;
+    Framebuffer* src = (Framebuffer*)srcptr;
+    if (!dest || !src) return (uint64_t)KFAIL;
+    return (uint64_t)FbDraw(dest, src, x, y);
+}
+
+uint64_t SysFbGetInfo(uint64_t outbuf, KE_SYSCALL_ARGS_UNUSED1) {
+    if (outbuf == 0) {
+        return KINVALID;
+    }
+    void* out = (void*)outbuf;
+    if (!KernelGetInformation()->fb) return KINVALID;
+    memcpy((void*)out, KernelGetInformation()->fb, sizeof(Framebuffer));
+    return KSUCCESS;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -587,6 +620,10 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_STERMINFO, SysSetTermAttr);
     KiRegisterSyscall(OS_MMAP, SysMmap);
     KiRegisterSyscall(OS_MUNMAP, SysMunmap);
+    KiRegisterSyscall(OS_FBCREATE, SysFbCreate);
+    KiRegisterSyscall(OS_FBDRAW, SysFbDraw);
+    KiRegisterSyscall(OS_FBFREE, SysFbFree);
+    KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();

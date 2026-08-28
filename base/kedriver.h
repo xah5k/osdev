@@ -59,6 +59,11 @@ typedef struct {
     int MiddleClickPress;
 } KeDevMousePacket;
 
+// wrapper
+typedef struct {
+    Framebuffer* fb;
+} KeDevFbInfo;
+
 #define KE_EXPORT_SYMBOL(func) \
     static const char __export_name_##func[] = #func; \
     __attribute__((section(".kexports"), used)) \

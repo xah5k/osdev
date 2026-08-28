@@ -6,6 +6,8 @@
 #include <memory.h>
 #include <kedriver.h>
 #include <mm/heap.h>
+#include <hal/mmu.h>
+#include <mm/pmm.h>
 
 typedef struct {
     uint32_t magic;
@@ -108,22 +110,38 @@ void FbClear() {
     memset((void*)g_fb_info->ptr, 0, g_fb_info->size);
 }
 
-Framebuffer* FbCreate(uint32_t width, uint32_t height) {
-    Framebuffer* fbinfo = MmAllocate(sizeof(Framebuffer));
+Framebuffer* FbCreate(uint32_t width, uint32_t height, uint64_t pml4) {
+    Framebuffer* fbinfo = (Framebuffer*)P2V(PmmAllocatePages(UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE)));
     fbinfo->width = width;
     fbinfo->height = height;
     fbinfo->scanline = g_fb_info->scanline;
     fbinfo->size = height * fbinfo->scanline;
-    fbinfo->ptr = (uint64_t)MmAllocate(fbinfo->size);
+    fbinfo->ptr = (uint64_t)P2V(PmmAllocatePages(UTIL_DIV_RUP(fbinfo->size, MMU_PAGE_SIZE)));
     memset((void*)fbinfo->ptr, 0, fbinfo->size);
+    for (int i = 0; i < UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE); i++) {
+        // printf("map 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
+        MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+    }
+    for (int i = 0; i < UTIL_DIV_RUP(fbinfo->size, MMU_PAGE_SIZE); i++) {
+        // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
+        MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+    }
     return fbinfo;
 }
 
-KSTATUS FbFree(Framebuffer* fb) {
+KSTATUS FbFree(Framebuffer* fb, uint64_t pml4) {
     if (!fb) return KINVALID;
     if (fb->ptr == 0) return KINVALID;
-    MmFree((void*)fb->ptr);
-    MmFree(fb);
+    PmmFreePages((void*)V2P(fb->ptr), UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE));
+    PmmFreePages((void*)V2P(fb), UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE));
+    for (int i = 0; i < UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE); i++) {
+        // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
+        MmuUnmapPage((pagetable*)pml4, (virtaddr)fb->ptr + (i * MMU_PAGE_SIZE));
+    }
+    for (int i = 0; i < UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE); i++) {
+        // printf("map 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
+        MmuUnmapPage((pagetable*)pml4, (virtaddr)fb + (i * MMU_PAGE_SIZE));
+    }
     return KSUCCESS;
 }
 
