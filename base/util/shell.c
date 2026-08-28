@@ -56,6 +56,7 @@ char* KeShlReadStr() {
     memset((void*)strbuf, 0, 1024);
     while (1) {
         char c = KbdTranslGetc();
+        if (c < 0 || c > 0x7F) continue;
         if (c != 0) {
             if (c == '\n') {
                 strbuf[index] = 0;
@@ -625,6 +626,13 @@ void KeShlProcess(char* string) {
         KSTATUS r = NetUdpSend(NetGetLinkedList(), ipaddr, buf, 13, 1234, port); // from us:1234 -> 192.168.100.2:25565
         printf("KSTATUS of UdpSend 0x%lx\r\n", r);
         MmFree(buf);
+    } else if (strcmp(string, "test") == 0) {
+        printf("enter key: ");
+        char c = KbdTranslGetc();
+        while (c == 0) {
+            c = KbdTranslGetc();
+        }
+        printf("\r\nc = 0x%x ('%c')\r\n", c, c);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);
