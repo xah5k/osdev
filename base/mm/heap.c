@@ -7,7 +7,7 @@
 #include <util/spinlock.h>
 #include <kedriver.h>
 
-#define MM_HEAP_SIZE 8192000 // 8MB
+#define MM_HEAP_SIZE 8192000*2 // 16MB
 #define MM_HEAP_MAGIC 0xDEFDEF
 #define MM_HEAP_FREE 0
 #define MM_HEAP_USED 1

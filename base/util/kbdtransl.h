@@ -1,6 +1,7 @@
 #pragma once
 
 typedef enum {
+    KEY_ESCAPE = 0xE0,
     KEY_F1 = 0xF0,
     KEY_F2,
     KEY_F3,

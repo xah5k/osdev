@@ -183,8 +183,8 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     new->SbrkCurrent = proc->SbrkCurrent;
     new->SbrkLimit = proc->SbrkLimit;
     new->Parent = proc;
-    new->MmapEntryHead = proc->MmapEntryHead; // lazy
-    new->MmapBumpNext = proc->MmapBumpNext;
+    new->MmapEntryHead = NULL;
+    new->MmapBumpNext = PS_USER_MMAPDEC_BASE;
     memcpy((void*)new->cwd, (void*)proc->cwd, strlen(proc->cwd)+1);
     memcpy((void*)new->FileHandleTable, proc->FileHandleTable, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     ThreadCtrlBlk* thr = MmAllocate(sizeof(ThreadCtrlBlk));
@@ -317,15 +317,6 @@ void ThreadEntry() {
             MmFree(DeathThread->ParentProc->FileHandleTable);
             ProcFreePML4(DeathThread->ParentProc->pml4);
             if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
-            if (DeathThread->ParentProc->MmapEntryHead) {
-                MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
-                MmapEntry* n;
-                while (c != NULL) {
-                    n = c->Next;
-                    MmFree(c);
-                    c = n;
-                }
-            }
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

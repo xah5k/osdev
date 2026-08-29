@@ -6,7 +6,7 @@ static int gStateCapsLock = 0;
 static int gStateCtrl = 0;
 
 static const char ScancodeToAsciiLower[] = {
-    0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
+    0,   KEY_ESCAPE,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\r',
     0,
     'a','s','d','f','g','h','j','k','l',';','\'','`',
@@ -29,7 +29,7 @@ static const char ScancodeToAsciiLower[] = {
 };
 
 static const char ScancodeToAsciiUpper[] = {
-    0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
+    0,   KEY_ESCAPE,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
     '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\r',
     0,
     'A','S','D','F','G','H','J','K','L',':','"','~',

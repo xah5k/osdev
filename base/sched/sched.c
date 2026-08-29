@@ -151,15 +151,6 @@ void Schedule() {
             MmFree(DeathThread->ParentProc->FileHandleTable);
             ProcFreePML4(DeathThread->ParentProc->pml4);
             if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
-            if (DeathThread->ParentProc->MmapEntryHead) {
-                MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
-                MmapEntry* n;
-                while (c != NULL) {
-                    n = c->Next;
-                    MmFree(c);
-                    c = n;
-                }
-            }
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);

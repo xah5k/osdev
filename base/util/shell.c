@@ -160,13 +160,13 @@ void KeShlProcess(char* string) {
         char* argcstr = KeShlReadStr();
         int argc = AsciiAsInt(argcstr);
         MmFree(argcstr);
-        char** argv = MmAllocate(argc+1 * sizeof(char*));
-        argv[0] = MmAllocate(strlen(s)+1 * sizeof(char));
+        char** argv = MmAllocate((argc + 1) * sizeof(char*));
+        argv[0] = MmAllocate((strlen(s) + 1) * sizeof(char));
         strlcpy(argv[0], s, strlen(s)+1);
         for (int i = 1; i < argc; i++) {
             printf("\r\nenter argv[%d]: ", i);
             char* str = KeShlReadStr();
-            argv[i] = MmAllocate(strlen(str)+1 * sizeof(char));
+            argv[i] = MmAllocate((strlen(str) + 1) * sizeof(char));
             memcpy((void*)argv[i], (const void*)str, strlen(str)+1);
         }
         argv[argc] = NULL;

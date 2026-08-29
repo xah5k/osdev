@@ -11,6 +11,7 @@ struct ThreadCtrlBlk;
 #define HAL_INT_OFF() __asm__ volatile ("cli");
 #define HAL_INT_ON() __asm__ volatile ("sti");
 #define HAL_GET_SP(r) r->rsp
+#define HAL_GET_BP(bpout) asm ("movq %%rbp,%0" : "=r"(bpout) ::)
 void HalUserJump(uint64_t entry, uint64_t usersp, uint64_t userargv, uint64_t userargc);
 uint64_t HalGetStack();
 void HalContextSw(uint64_t* old, uint64_t new);
@@ -44,3 +45,8 @@ typedef struct {
     in->rflags = out->rflags; \
     in->rsp = out->rsp; \
 } while (0);
+
+typedef struct HalStackFr {
+    struct HalStackFr* bp;
+    uint64_t ip;
+} HalStackFr;

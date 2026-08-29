@@ -27,4 +27,5 @@ _start:
     mov rsp, kstack_top
     mov rbp, rsp
     sub rsp, 8
+    xor rbp, rbp
     jmp KernelBootstrapProc

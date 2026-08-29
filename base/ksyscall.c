@@ -98,6 +98,15 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     c->ProcNext = NULL;
     c->GlobalNext = NULL;
     DeathThread = c;
+    if (DeathThread->ParentProc->MmapEntryHead) {
+        MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
+        MmapEntry* n;
+        while (c != NULL) {
+            n = c->Next;
+            MmFree(c);
+            c = n;
+        }
+    }
     SpnLckReleaseRfl(&SchedSpinlock, r);
     SchedYield();
     __builtin_unreachable();
@@ -124,6 +133,7 @@ uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, uint64_t envp
     if (handle <= -1) return -1;
     uint64_t size = OsGetFileSize(handle);
     void* buf = MmAllocate(size);
+    KATTEMPT(buf);
     OsRead(handle, buf, size);
     OsClose(handle);
     uint64_t pid = 0;

@@ -81,69 +81,6 @@ void _putchar(char character) {
     FbPutc(character);
 }
 
-const char* BugcheckTable[4] = {
-    "UNREGISTERED_INTERRUPT",
-    "INTENTIONAL_INVOCATION",
-    "KERNEL_CORE_COMP_FAIL",
-    "KERNEL_ACPI_FIRMWARE_FATAL"
-};
-
-void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
-    if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
-        printf("kernel: bugcheck in usermode.\r\n");
-        if (HAL_GET_INUM(registers) == 14) {
-            printf("kernel: page fault.\r\n");
-            uint64_t faultaddr;
-            HAL_GET_CR2(faultaddr);
-            printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
-            while (1) {
-                HAL_HALT();
-            }
-        } else {
-            printf("kernel: fault (intvec=%d ip=0x%lx)", HAL_GET_INUM(registers), HAL_GET_IP(registers));
-            printf("kernel: killing user task..\r\n");
-            KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
-            return;
-        }
-    }
-    printf("kernel: unrecoverable bugcheck\r\n");
-    printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
-    if (registers) {
-        if (HAL_GET_INUM(registers) == 14) {
-            printf("kernel: page fault.\r\n");
-            uint64_t faultaddr;
-            HAL_GET_CR2(faultaddr);
-            printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
-        }
-        HalDumpRegisters(registers);
-    } else {
-        printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
-    }
-    if (ThrGetCurrent()->privilege == SCHED_PRIV_KERNEL) {
-        printf("kernel: halting\r\n");
-        HAL_HALT();
-    }
-}
-KE_EXPORT_SYMBOL(KdBugcheck);
-
-void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char* filename) {
-    printf("kernel: unrecoverable bugcheck\r\n");
-    printf("kernel: bugcheck type: %s [0x%x]\r\n", BugcheckTable[code], code);
-    if (registers) {
-        HalDumpRegisters(registers);
-    } else {
-        printf("kernel: no interrupt frame provided (non interrupt?)\r\n");
-    }
-    if (line && filename) {
-        printf("kernel: file and line: %s:%d\r\n", filename, line);
-    }
-    printf("kernel: halting\r\n");
-    while (1) {
-        HAL_HALT();
-    }
-}
-KE_EXPORT_SYMBOL(KdBugcheck2);
-
 
 void KernelUnlockRsLck() {
     SpnLckRelease(&KernelResourceLock);
