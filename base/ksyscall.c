@@ -20,6 +20,7 @@
 #include <external/posix/signal.h>
 #include <hal/archsyscall.h>
 #include <fb.h>
+#include <uacpi/kernel_api.h>
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -596,6 +597,11 @@ uint64_t SysFbGetInfo(uint64_t outbuf, KE_SYSCALL_ARGS_UNUSED1) {
     return KSUCCESS;
 }
 
+uint64_t SysSleepMs(uint64_t ms, KE_SYSCALL_ARGS_UNUSED1) {
+    uacpi_kernel_sleep(ms); // using uacpi api for this is mad work
+    return ms;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -634,6 +640,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_FBDRAW, SysFbDraw);
     KiRegisterSyscall(OS_FBFREE, SysFbFree);
     KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
+    KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();

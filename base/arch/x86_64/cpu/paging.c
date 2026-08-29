@@ -17,6 +17,8 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
         pagetable* newpdpt = PmmAllocate();
         memset(((uint8_t*)newpdpt + gMmuVOffset), 0, MMU_PAGE_SIZE); // pmmallocate doesnt zero out the page frame it returns
         pml4[pml4idx] = (uint64_t)newpdpt | MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER;
+    } else {
+        pml4[pml4idx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
     }
     pagetable* pdpt = (pagetable*)(((uintptr_t)pml4[pml4idx] & ~0xFFFULL) + gMmuVOffset);
 
