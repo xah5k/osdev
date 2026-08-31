@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include "window.h"
 
 #define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
@@ -62,9 +63,16 @@ KSTATUS Dwm::HandleMouse(int handle) {
 }
 
 KSTATUS Dwm::Draw() {
+    for (Window* window : this->Windows) {
+        window->Draw();
+    }
     if (this->DrawFullBuffer) {
-        OsDrawFb(this->GlobalBuffer, this->FrontBuffer, 0, 0);
+        KSTATUS s = OsDrawFb(this->GlobalBuffer, this->FrontBuffer, 0, 0);
         this->DrawFullBuffer = false;
+    }
+    if (this->CursorPosX == this->OldCursorPosX && this->CursorPosY == this->OldCursorPosY) {
+        KSTATUS s = KSUCCESS;
+        return s;
     }
     KSTATUS s = OsDrawFbPart(this->GlobalBuffer, this->FrontBuffer, OldCursorPosX, OldCursorPosY, 5, 5);
     s = OsDrawFb(this->GlobalBuffer, this->CursorBuffer, this->CursorPosX, this->CursorPosY);
@@ -72,6 +80,8 @@ KSTATUS Dwm::Draw() {
     this->OldCursorPosY = this->CursorPosY;
     return s;
 }
+
+Dwm::Dwm() {}
 
 Dwm::Dwm(const char* MousePath) {
     this->GlobalBuffer = (Framebuffer*)malloc(sizeof(Framebuffer));
@@ -96,8 +106,18 @@ Dwm::Dwm(const char* MousePath) {
         this->Status = KINVALID;
         return;
     }
+    this->MouseDeviceHdl = h;
+}
+
+void Dwm::Start() {
+    if (this->MouseDeviceHdl == -1) {
+        fprintf(stderr, "dwm: cannot start! invalid mouse handle.\r\n");
+        this->Status = KINVALID;
+        return;
+    }
+    this->DrawFullBuffer = true;
     while (1) {
-        this->HandleMouse(h);
+        this->HandleMouse(MouseDeviceHdl);
         this->Draw();
     }
 }
@@ -108,6 +128,19 @@ Dwm::~Dwm() {
     s = OsFreeFb(this->FrontBuffer);
     this->Status = s; // idrc
 }
+KSTATUS Dwm::RegisterWindow(const Window* window) {
+    this->Windows.push_back((Window*)window);
+    return KSUCCESS;
+}
+
 KSTATUS Dwm::GetStatus() {
     return this->Status;
+}
+
+Framebuffer* Dwm::GetFrontBuffer() {
+    return this->FrontBuffer;
+}
+
+Framebuffer* Dwm::GetGlobalBuffer() {
+    return this->GlobalBuffer;
 }

@@ -122,10 +122,12 @@ Framebuffer* FbCreate(uint32_t width, uint32_t height, uint64_t pml4) {
     for (int i = 0; i < UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE); i++) {
         // printf("map 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_US_USER);
+        MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_US_USER);
     }
     for (int i = 0; i < UTIL_DIV_RUP(fbinfo->size, MMU_PAGE_SIZE); i++) {
         // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+        MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
     }
     return fbinfo;
 }
@@ -139,15 +141,18 @@ KSTATUS FbFree(Framebuffer* fb, uint64_t pml4) {
     for (int i = 0; i < UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE); i++) {
         // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuUnmapPage((pagetable*)pml4, (virtaddr)fb->ptr + (i * MMU_PAGE_SIZE));
+        MmuUnmapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fb->ptr + (i * MMU_PAGE_SIZE));
     }
     for (int i = 0; i < UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE); i++) {
         // printf("map 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuUnmapPage((pagetable*)pml4, (virtaddr)fb + (i * MMU_PAGE_SIZE));
+        MmuUnmapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fb + (i * MMU_PAGE_SIZE));
     }
     return KSUCCESS;
 }
 
 KSTATUS FbDraw(Framebuffer* destfb, Framebuffer* srcfb, int x, int y) {
+    if (!srcfb || !destfb) return KINVALID;
     if (x < 0 || y < 0) return KINVALID;
     if (x + srcfb->width > destfb->width) return KINVALID;
     if (y + srcfb->height > destfb->height) return KINVALID;

@@ -7,15 +7,15 @@ override CFILES := $(filter %.c,$(SRCFILES))
 override CXXFILES := $(filter %.cpp,$(SRCFILES))
 override OBJ := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.o) $(CXXFILES:.cpp=.cpp.o))
 CC=x86_64-ah5kos-gcc
-CFLAGS=-Wall -fno-exceptions -fno-rtti -g 
+CFLAGS=-Wall -g 
 CXX=x86_64-ah5kos-g++
-CPPFLAGS_CXX=-Wall -fno-exceptions -fno-rtti -g 
+CPPFLAGS_CXX=-Wall -g 
 
 all: $(OUT)
 
 $(OUT): $(OBJ)
 	@mkdir -p "$(dir $@)"
-	@$(CC) $(OBJ) -g -lm -o $@
+	@$(CXX) $(OBJ) -g -lm -o $@
 	@echo " $<"
 
 obj-$(ARCH)/%.c.o: %.c
