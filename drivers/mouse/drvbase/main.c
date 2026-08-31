@@ -40,6 +40,8 @@ void MouseInterruptHandler(CpuInterruptArgs* r) {
     if (status & 0x01) {
         uint8_t In = inb(0x60);
         MouseHandle(In);
+    } else if (status & 0x01) {
+        inb(0x60);
     }
     CpuLapicEoi();
 }

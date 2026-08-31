@@ -7,6 +7,8 @@
 // offset used for memory
 uint64_t gMmuVOffset = 0;
 KE_EXPORT_SYMBOL(gMmuVOffset);
+#define MMU_INTERMEDIATE_FLAGS (MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER)
+// otherwise PAT would get mistakened as reserved and cause pf
 void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flags) {
     uint64_t pml4idx = (virt >> 39) & 0x1FF;
     uint64_t pdptidx = (virt >> 30) & 0x1FF;
@@ -15,7 +17,7 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
 
     if (!(pml4[pml4idx] & MMU_PAGE_BIT_P_PRESENT)){
         pagetable* newpdpt = PmmAllocate();
-        memset(((uint8_t*)newpdpt + gMmuVOffset), 0, MMU_PAGE_SIZE); // pmmallocate doesnt zero out the page frame it returns
+        memset(((uint8_t*)newpdpt + gMmuVOffset), 0, MMU_PAGE_SIZE);
         pml4[pml4idx] = (uint64_t)newpdpt | MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER;
     } else {
         pml4[pml4idx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
@@ -25,7 +27,7 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
     if (!(pdpt[pdptidx] & MMU_PAGE_BIT_P_PRESENT)) {
         pagetable* newpd = PmmAllocate();
         memset(((uint8_t*)newpd + gMmuVOffset), 0, MMU_PAGE_SIZE);
-        pdpt[pdptidx] = (uint64_t)newpd | flags;
+        pdpt[pdptidx] = (uint64_t)newpd | (flags & MMU_INTERMEDIATE_FLAGS);
     } else {
         pdpt[pdptidx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
     }
@@ -35,15 +37,16 @@ void MmuMapPage(pagetable* pml4, virtaddr virt, physaddr phys, unsigned int flag
     if (!(pd[pdidx] & MMU_PAGE_BIT_P_PRESENT)) {
         pagetable* newpt = PmmAllocate();
         memset(((uint8_t*)newpt + gMmuVOffset), 0, MMU_PAGE_SIZE);
-        pd[pdidx] = (uint64_t)newpt | flags;
+        pd[pdidx] = (uint64_t)newpt | (flags & MMU_INTERMEDIATE_FLAGS);
     } else {
         pd[pdidx] |= (flags & (MMU_PAGE_BIT_US_USER | MMU_PAGE_BIT_RW_WRITABLE));
     }
 
     pagetable* pt = (pagetable*)(((uintptr_t)pd[pdidx] & ~0xFFFULL) + gMmuVOffset);
-    pt[ptidx] = phys | flags;
+    pt[ptidx] = phys | flags; 
     asm volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
+
 KE_EXPORT_SYMBOL(MmuMapPage);
 
 physaddr MmuGetPhys(uint64_t pml4p, virtaddr virt) {

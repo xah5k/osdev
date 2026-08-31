@@ -4,8 +4,8 @@
 #define UTIL_DIV_RUP(a, b) (a + b - 1) / b
 
 typedef struct {
-    uint64_t x;
-    uint64_t y;
+    int64_t x;
+    int64_t y;
 } Point;
 
 int strcmp(const char* s1, const char* s2);

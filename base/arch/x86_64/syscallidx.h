@@ -39,6 +39,7 @@ typedef enum {
     OS_FBCREATE,
     OS_FBFREE,
     OS_FBDRAW,
+    OS_FBDRAWPART,
     OS_FBGETINFO,
     OS_SLEEPMS
 } KiSyscallIdx;

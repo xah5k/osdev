@@ -117,16 +117,15 @@ Framebuffer* FbCreate(uint32_t width, uint32_t height, uint64_t pml4) {
     fbinfo->scanline = g_fb_info->scanline;
     fbinfo->size = height * fbinfo->scanline;
     fbinfo->ptr = (uint64_t)P2V(PmmAllocatePages(UTIL_DIV_RUP(fbinfo->size, MMU_PAGE_SIZE)));
+    fbinfo->bpp = g_fb_info->bpp;
     memset((void*)fbinfo->ptr, 0, fbinfo->size);
     for (int i = 0; i < UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE); i++) {
         // printf("map 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
-        MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
-        MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+        MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo + (i * MMU_PAGE_SIZE), V2P(fbinfo + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_US_USER);
     }
     for (int i = 0; i < UTIL_DIV_RUP(fbinfo->size, MMU_PAGE_SIZE); i++) {
         // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuMapPage((pagetable*)pml4, (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
-        MmuMapPage((pagetable*)P2V(HalGetPageTable()), (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     }
     return fbinfo;
 }
@@ -134,8 +133,9 @@ Framebuffer* FbCreate(uint32_t width, uint32_t height, uint64_t pml4) {
 KSTATUS FbFree(Framebuffer* fb, uint64_t pml4) {
     if (!fb) return KINVALID;
     if (fb->ptr == 0) return KINVALID;
-    PmmFreePages((void*)V2P(fb->ptr), UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE));
-    PmmFreePages((void*)V2P(fb), UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE));
+    // PmmFreePages((void*)V2P(fb->ptr), UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE));
+    // PmmFreePages((void*)V2P(fb), UTIL_DIV_RUP(sizeof(Framebuffer), MMU_PAGE_SIZE));
+    // im lwk dumb cuz i forgot unmap page auto frees
     for (int i = 0; i < UTIL_DIV_RUP(fb->size, MMU_PAGE_SIZE); i++) {
         // printf("map2 0x%lx -> 0x%lx (pml4=0x%lx kpml4=0x%lx)\r\n", (virtaddr)fbinfo->ptr + (i * MMU_PAGE_SIZE), V2P(fbinfo->ptr + (i * MMU_PAGE_SIZE)), pml4, HalGetPageTable());
         MmuUnmapPage((pagetable*)pml4, (virtaddr)fb->ptr + (i * MMU_PAGE_SIZE));
@@ -151,7 +151,7 @@ KSTATUS FbDraw(Framebuffer* destfb, Framebuffer* srcfb, int x, int y) {
     if (x < 0 || y < 0) return KINVALID;
     if (x + srcfb->width > destfb->width) return KINVALID;
     if (y + srcfb->height > destfb->height) return KINVALID;
-
+    if (destfb->bpp != srcfb->bpp) return KINVALID; // not tryna convert in kernel
     uint8_t* FbPtr = (uint8_t*)destfb->ptr + FBOFF(x, y, destfb);
     uint8_t* FbSrcPtr = (uint8_t*)srcfb->ptr;
     uint32_t RowBytes = srcfb->width * (destfb->bpp / 8);
@@ -163,6 +163,23 @@ KSTATUS FbDraw(Framebuffer* destfb, Framebuffer* srcfb, int x, int y) {
     }
     return KSUCCESS;
 }
+KSTATUS FbDrawPart(Framebuffer* destfb, Framebuffer* srcfb, int x, int y, int w, int h) {
+    if (x < 0 || y < 0) return KINVALID;
+    // if (x + srcfb->width > destfb->width) return KINVALID;
+    // if (y + srcfb->height > destfb->height) return KINVALID;
+    if (destfb->bpp != srcfb->bpp) return KINVALID; // not tryna convert in kernel
+    if (x + w > destfb->width || y + h > destfb->height) return KINVALID;
+    uint8_t* FbPtr = (uint8_t*)destfb->ptr + FBOFF(x, y, destfb);
+    uint8_t* FbSrcPtr = (uint8_t*)srcfb->ptr + FBOFF(x, y, srcfb);
+    uint32_t RowBytes = w * (destfb->bpp / 8);
+
+    for (uint32_t i = 0; i < h; i++) {
+        memcpy(FbPtr, FbSrcPtr, RowBytes);
+        FbSrcPtr += srcfb->scanline;
+        FbPtr += destfb->scanline;
+    }
+}
+
 void FbPutcAtIn(Framebuffer* fb, char c, int x, int y, uint32_t fg_color, uint32_t bg_color) {
     if (x + 8 > fb->width || y + g_fb_font->characterSize > fb->height) return;
     

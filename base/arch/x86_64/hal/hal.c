@@ -76,8 +76,8 @@ KSTATUS HalSetupMmu(KernelInformation* gkInfo) {
         MmuMapPage((pagetable*)P2V(kpml4), i, MmuGetPhys(_x86_64_get_pml4(), i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     }
     // map fb
-    for (uint64_t i = 0; i < gkInfo->fb->size; i++) {
-        MmuMapPage((pagetable*)P2V(kpml4), (i + gkInfo->fb->ptr), V2P(gkInfo->fb->ptr + i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
+    for (uint64_t i = 0; i < gkInfo->fb->size; i+=PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(kpml4), (i + gkInfo->fb->ptr), V2P(gkInfo->fb->ptr + i), MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_PWT);
     }
     //_x86_64_set_stack(_x86_64_get_stack() + gMmuVOffset);
     // map pml4 itself
@@ -86,6 +86,13 @@ KSTATUS HalSetupMmu(KernelInformation* gkInfo) {
     _x86_64_load_pml4((uint64_t)kpml4);
     // change offset (where physical memory is located in virtual address space)
     //gMmuVOffset = gMmuVOffset;
+
+    // pat for fb
+    // needs to be WC
+    uint64_t pat = CpuReadMsr(0x277);
+    pat &= ~(0xFFULL << 8); // clear pa1
+    pat |= (0x01ULL << 8); // wc
+    CpuWriteMsr(0x277, pat);
     return KSUCCESS;
 }
 

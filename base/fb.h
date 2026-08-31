@@ -11,4 +11,7 @@ void FbClear();
 Framebuffer* FbCreate(uint32_t width, uint32_t height, uint64_t);
 KSTATUS FbFree(Framebuffer* fb, uint64_t);
 KSTATUS FbDraw(Framebuffer* destfb, Framebuffer* srcfb, int x, int y);
+// same thing as draw but it only draws w, h from the srcfb at x,y in destfb
+
+KSTATUS FbDrawPart(Framebuffer* destfb, Framebuffer* srcfb, int x, int y, int w, int h);
 void FbPutcAtIn(Framebuffer* fb, char c, int x, int y, uint32_t fg_color, uint32_t bg_color);

@@ -586,6 +586,22 @@ uint64_t SysFbDraw(uint64_t destptr, uint64_t srcptr, uint64_t x, uint64_t y, KE
     if (!dest || !src) return (uint64_t)KFAIL;
     return (uint64_t)FbDraw(dest, src, x, y);
 }
+// same thing again
+typedef struct {
+    Framebuffer* dest;
+    Framebuffer* src;
+    uint64_t x;
+    uint64_t y;
+    uint64_t w;
+    uint64_t h;
+} FbDrawPartArgs;
+
+uint64_t SysFbDrawPart(uint64_t argptr, KE_SYSCALL_ARGS_UNUSED1) {
+    FbDrawPartArgs* args = (FbDrawPartArgs*)argptr;
+    if (!args) return (uint64_t)KINVALID;
+    if (!args->dest || !args->src) return (uint64_t)KFAIL;
+    return (uint64_t)FbDrawPart(args->dest, args->src, args->x, args->y, args->w, args->h);
+}
 
 uint64_t SysFbGetInfo(uint64_t outbuf, KE_SYSCALL_ARGS_UNUSED1) {
     if (outbuf == 0) {
@@ -638,6 +654,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_MUNMAP, SysMunmap);
     KiRegisterSyscall(OS_FBCREATE, SysFbCreate);
     KiRegisterSyscall(OS_FBDRAW, SysFbDraw);
+    KiRegisterSyscall(OS_FBDRAWPART, SysFbDrawPart);
     KiRegisterSyscall(OS_FBFREE, SysFbFree);
     KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
     KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);

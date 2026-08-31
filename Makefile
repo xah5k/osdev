@@ -2,7 +2,7 @@ ARCH=x86_64
 CFLAGS = -g -Wall -fshort-wchar -fno-pie -mno-sse -mno-sse2 -ffreestanding -fpic -mno-red-zone -fno-stack-protector  -fno-omit-frame-pointer -nostdlib -I./base -I./base/external/uACPI/include -D__$(ARCH)__
 LDFLAGS = -g -nostdlib -n -T link.ld -no-pie
 KNAME=osdev
-override SRCFILES := SRCFILES := $(shell find -L base -type f -not -path 'base/arch/*' -not -path '*/tests/*' 2>/dev/null | LC_ALL=C sort)
+override SRCFILES := $(shell find -L base -type f -not -path 'base/arch/*' -not -path '*/tests/*' 2>/dev/null | LC_ALL=C sort)
 override SRCFILES += $(shell find -L base/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 override CFILES := $(filter %.c,$(SRCFILES))
 override CFILES := $(filter %.c,$(SRCFILES))
