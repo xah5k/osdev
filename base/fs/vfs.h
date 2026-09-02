@@ -54,11 +54,18 @@ typedef struct VfsFile {
 #define VFS_OFD_FLAG_PIPE 0x2
 #define VFS_OFD_FLAG_CNSL 0x3
 
+#define VFS_OFD_OFLAG_RO 0x1
+#define VFS_OFD_OFLAG_WO 0x2
+#define VFS_OFD_OFLAG_RW 0x3
+#define VFS_OFD_OFLAG_APPEND 0x4
+#define VFS_OFD_OFLAG_CREATE 0x5
+
 typedef struct {
     VfsFile* Entry; // only applies if Flag = VFS_OFD_FLAG_FILE otherwise NULL
     uint64_t CursorPos;
     int Flag;
     int NumProc;
+    uint64_t OpenFl; // flags used to open
     IoPipeObj* PipeEntry; // only applies if Flag = VFS_OFD_FLAG_PIPE otherwise NULL
 } VfsOpenFileDescr;
 

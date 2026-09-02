@@ -162,10 +162,18 @@ int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
 }
 
 int OsOpen(const char* path, int flags) {
+    if ((flags & VFS_OFD_OFLAG_CREATE) == VFS_OFD_OFLAG_CREATE) {
+        int fl = flags;
+        fl &= ~(VFS_OFD_OFLAG_CREATE);
+        int s = OsCreate(path, VFS_TYPE_FILE);
+        if (s < 0) return -1;
+        int h = OsOpen(path, fl);
+        return h;
+    }
     VfsFile* f = VfsFindFile(path);
     if (!f) return -1;
     VfsOpen(f);
-
+    if (flags == 0) flags = VFS_OFD_OFLAG_RW;
     ProcessCtrlBlk* current = KernelGetCurrentProc();
     if (!current) { KernelUnlockRsLck(); return -1; }
     if (current->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
@@ -173,9 +181,11 @@ int OsOpen(const char* path, int flags) {
     current->nextfh++;
     current->FileHandleTable[handle].Entry = f;
     current->FileHandleTable[handle].Flag = VFS_OFD_FLAG_FILE;
+    current->FileHandleTable[handle].OpenFl = flags;
     KernelUnlockRsLck();
     return handle;
 }
+
 KE_EXPORT_SYMBOL(OsOpen);
 int OsClose(int handle) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
@@ -198,7 +208,7 @@ KE_EXPORT_SYMBOL(OsClose);
 int OsRead(int handle, void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
-    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
+    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE && (((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_RO) == VFS_OFD_OFLAG_RO) || ((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_RW) == VFS_OFD_OFLAG_RW))) {
         if (!proc->FileHandleTable[handle].Entry)  { KernelUnlockRsLck(); return -1; }
         VfsFile* f = proc->FileHandleTable[handle].Entry;
         if (f->Type == VFS_TYPE_OBJECT) {
@@ -262,15 +272,14 @@ KE_EXPORT_SYMBOL(OsRead);
 int OsWrite(int handle, const void* buffer, size_t nbytes) {
     ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES)  { KernelUnlockRsLck(); return -1; }
-    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE) {
-        
+    if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE && (((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_WO) == VFS_OFD_OFLAG_WO) || ((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_RW) == VFS_OFD_OFLAG_RW))) {
         VfsFile* f = proc->FileHandleTable[handle].Entry;
         uint64_t FileSize = f->Size;
         uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
 
         KernelUnlockRsLck();
         int bytes_wrote = VfsWrite(f, buffer, nbytes, CurrentOff); 
-        printf("vfs: bytes_wrote=%d\r\n", bytes_wrote);
+        // printf("vfs: bytes_wrote=%d\r\n", bytes_wrote);
         if (bytes_wrote > 0) {
             proc->FileHandleTable[handle].CursorPos += bytes_wrote;
         }

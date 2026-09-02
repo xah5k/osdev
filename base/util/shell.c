@@ -431,7 +431,7 @@ void KeShlProcess(char* string) {
         printf("enter path: ");
         char* path = KeShlReadStr();
         printf("\r\n");
-        int h = OsOpen(path, 0);
+        int h = OsOpen(path, VFS_OFD_OFLAG_RW);
         if (h < 0) {
             printf("failed to open file.\r\n");
             return;

@@ -14,6 +14,7 @@ typedef enum {
     OS_READ,
     OS_WRITE,
     OS_SEEK,
+    OS_MKDIR,
     OS_GETCLOCK,
     OS_CHDIR,
     OS_GETCWD,

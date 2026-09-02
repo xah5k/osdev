@@ -193,12 +193,12 @@ uint64_t SysSBrk(uint64_t inc, KE_SYSCALL_ARGS_UNUSED1) {
     return OldBrk;
 }
 
-// osopen doesnt care about modes anyway
-uint64_t SysOpen(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
+uint64_t SysOpen(uint64_t path, uint64_t flags, KE_SYSCALL_ARGS_UNUSED2) {
     char acpath[VFS_MAX_ALLOWED_PATH];
     int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
     if (r2 < 0) return (uint64_t)-1;
-    int h = OsOpen(acpath, arg2);
+    // printf("flags=0x%x\r\n", flags);
+    int h = OsOpen(acpath, flags);
     return (uint64_t)h;
 }
 
@@ -284,6 +284,15 @@ uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
     OsClose(handle);
     strlcpy(proc->cwd, acpath, sizeof(proc->cwd));
     return 0;
+}
+
+uint64_t SysMkdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
+    if (path == 0) return (uint64_t)-1;
+    char acpath[VFS_MAX_ALLOWED_PATH];
+    int r2 = VfsTranslatePath((char*)path, (char*)acpath, CurrentThread->ParentProc);
+    if (r2 < 0) return (uint64_t)-1;
+    int r = OsCreate(acpath, VFS_TYPE_DIRECTORY);
+    return (uint64_t)r;
 }
 
 uint64_t SysFstat(uint64_t handle, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2) {
@@ -658,6 +667,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_FBFREE, SysFbFree);
     KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
     KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);
+    KiRegisterSyscall(OS_MKDIR, SysMkdir);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();
