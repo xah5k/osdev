@@ -4,6 +4,7 @@
 #include <fs/vfs.h>
 #include <ttyobj.h>
 #include <sched/ipc/signal.h>
+#include <sched/ipc/msg.h>
 
 #define PS_USER_STACK_PAGES 4
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
@@ -50,6 +51,9 @@ typedef struct ProcessCtrlBlk {
     struct ThreadCtrlBlk* BlockedQueueHead;
     struct ThreadCtrlBlk* BlockedQueueTail;
     VfsOpenFileDescr* FileHandleTable;
+    KeMessageObj* MessageHead;
+    KeMessageObj* MessageTail;
+    uint64_t MessageCount;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Parent;
     struct ProcessCtrlBlk* Next;

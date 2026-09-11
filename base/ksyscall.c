@@ -113,7 +113,7 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     __builtin_unreachable();
 }
 
-uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
+uint64_t SysKill(uint64_t pid, uint64_t sign, KE_SYSCALL_ARGS_UNUSED2) {
     if (pid == 0) return -1; // cant kill kernel process
     ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
     if (!process) return -1; // no such process
@@ -122,7 +122,7 @@ uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     // send SIGKILL
     ThreadCtrlBlk* current = thrlist;
     while (current != NULL) {
-        current->SigPendingSet |= (1ULL << SIGKILL);
+        current->SigPendingSet |= (1ULL << sign);
         current = current->ProcNext;
     }
     return 0;
@@ -627,6 +627,18 @@ uint64_t SysSleepMs(uint64_t ms, KE_SYSCALL_ARGS_UNUSED1) {
     return ms;
 }
 
+uint64_t SysGetMessageQueue(uint64_t ptrout, uint64_t maxlen, KE_SYSCALL_ARGS_UNUSED2) {
+    if (ptrout == 0) return KINVALID;
+    ProcessCtrlBlk* p = ThrGetCurrent()->ParentProc;
+    if (!p) return KINVALID;
+    // if (p->MessageCount == 0) return KRESEND;
+    KeMessageObj* m = KeMessagePopHead(&p->MessageHead, &p->MessageTail, &p->MessageCount);
+    if (!m) return KINVALID;
+    if (m->Length > maxlen) return KINVALID;
+    memcpy((void*)ptrout, m, sizeof(KeMessageObj) + m->Length);
+    return KSUCCESS;
+}
+
 void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_EXIT, SysExit);
     KiRegisterSyscall(OS_KILL, SysKill);
@@ -668,6 +680,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
     KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);
     KiRegisterSyscall(OS_MKDIR, SysMkdir);
+    KiRegisterSyscall(OS_GETMSGQUEUE, SysGetMessageQueue);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();

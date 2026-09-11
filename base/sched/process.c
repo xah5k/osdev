@@ -100,6 +100,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->FileHandleTable[VFS_HANDLE_STDOUT].Flag = VFS_OFD_FLAG_CNSL;
     new->FileHandleTable[VFS_HANDLE_STDERR].Flag = VFS_OFD_FLAG_CNSL;
     new->TtyObj = TtyCreateObj(VFS_HANDLE_STDIN, VFS_HANDLE_STDOUT, VFS_HANDLE_STDERR);
+    new->MessageHead = NULL;
+    new->MessageTail = NULL;
+    new->MessageCount = 0;
     KATTEMPT(KeSignalInitDef(new) == KSUCCESS);
     return new;
 }

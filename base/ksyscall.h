@@ -22,4 +22,4 @@ uint64_t SysGetCwd(uint64_t buf, uint64_t size, KE_SYSCALL_ARGS_UNUSED2);
 uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1);
 uint64_t SysStat(uint64_t path, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2);
 uint64_t SysFstat(uint64_t handle, uint64_t statbuf, KE_SYSCALL_ARGS_UNUSED2);
-uint64_t SysKill(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1);
+uint64_t SysKill(uint64_t pid, uint64_t sign, KE_SYSCALL_ARGS_UNUSED2);

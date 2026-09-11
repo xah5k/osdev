@@ -16,6 +16,7 @@
 #include <disk/ptable.h>
 #include <net/net.h>
 #include <uacpi/kernel_api.h>
+#include <sched/ipc/msg.h>
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -172,8 +173,8 @@ void KeShlProcess(char* string) {
         argv[argc] = NULL;
         uint64_t pid = SysSpawn((uint64_t)s, (uint64_t)argv, (uint64_t)argc, (uint64_t)gKeEnvp, (uint64_t)gKeEnvc);
         printf("\r\nspawned process with pid %d\r\n", pid);
-        uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
-        printf("\r\nprocess exited with code %d\r\n", r);
+        // uint64_t r = KE_SYSCALL_CALL_ARG1(SysWaitPid, pid);
+        // printf("\r\nprocess exited with code %d\r\n", r);
         MmFree(s);
     } else if (strcmp(string, "lsproc") == 0) {
         ProcListRunning(KernelGetInformation());
@@ -633,6 +634,25 @@ void KeShlProcess(char* string) {
             c = KbdTranslGetc();
         }
         printf("\r\nc = 0x%x ('%c')\r\n", c, c);
+    } else if (strcmp(string, "sendmsg") == 0) {
+        printf("enter pid: ");
+        const char* pids = KeShlReadStr();
+        printf("\r\n");
+        int pid = AsciiAsInt(pids);
+        MmFree(pids);
+        printf("enter message: ");
+        const char* msg = KeShlReadStr();
+        printf("\r\n");
+        KeMessageObj* m = MmAllocate(sizeof(KeMessageObj) + strlen(msg)+1);
+        m->FromPid = 0;
+        m->ToPid = pid;
+        m->Length = strlen(msg)+1;
+        m->Next = NULL;
+        memcpy((void*)((uint64_t)m + sizeof(KeMessageObj)), msg, strlen(msg)+1);
+        KSTATUS s = KeMessageSend(m);
+        printf("sent message. KSTATUS 0x%x\r\n", s);
+        MmFree(pids);
+        // MmFree(msg);
     }
     else {
         if (strcmp(string, "") != 0) printf("error: no such command '%s' \r\n", string);

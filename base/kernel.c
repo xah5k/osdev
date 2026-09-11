@@ -16,6 +16,7 @@
 #include <fs/tar.h>
 #include <fs/krnlfs.h>
 #include <sched/sched.h>
+#include <sched/ipc/msg.h>
 #include <kedriver.h>
 #include <util/util.h>
 #include <ksyscall.h>

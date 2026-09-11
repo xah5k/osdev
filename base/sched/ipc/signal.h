@@ -20,6 +20,9 @@ struct ThreadCtrlBlk;
 #define KE_SIGNAL_DEF_IGNORE 2
 #define KE_SIGNAL_DEF_STOP 3 // todo
 #define KE_SIGNAL_DEF_CONT 4 // todo
+
+#define KE_SIGNAL_RECEIVEMSG 45
+
 // initalizes default handlers
 KSTATUS KeSignalInitDef(struct ProcessCtrlBlk* proc);
 KSTATUS KeSignalRegister(int Index, KeSignalHdlFunc handler, struct ProcessCtrlBlk* proc);
