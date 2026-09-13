@@ -97,6 +97,7 @@ void LdrElfMapPhdr(Elf64_Phdr* PHdr, Elf64_Ehdr* Elf, ProcessCtrlBlk* proc) {
             void* vaddr = (void*)((uint64_t)current->p_vaddr - offset);
             int pages = (current->p_memsz + offset + 4095) / 4096;
             void* block = PmmAllocatePages(pages);
+            memset((void*)P2V(block), 0, pages * MMU_PAGE_SIZE);
             for (int p = 0; p < pages; p++) {
                 MmuMapPage((pagetable*)((uint64_t)proc->cr3 + gMmuVOffset), (virtaddr)vaddr + (p*PAGE_SIZE), (physaddr)block + (p*PAGE_SIZE),  MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
             }

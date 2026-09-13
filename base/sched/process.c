@@ -292,9 +292,9 @@ ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail) {
 }
 KE_EXPORT_SYMBOL(ThreadPopHead);
 
-void ThreadEntry() {
-    // SpnLckRelease(&SchedSpinlock);
+void ThrDeathCleanup() {
     if (DeathThread != NULL) {
+        uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
         if (DeathThread->KernelStackBase) {
             MmFree((void*)DeathThread->KernelStackBase);
         }
@@ -323,8 +323,13 @@ void ThreadEntry() {
             MmFree(DeathThread->ParentProc);
         }
         MmFree(DeathThread);
-        DeathThread = NULL; 
+        DeathThread = NULL;
+        SpnLckReleaseRfl(&SchedSpinlock, r);
     }
+}
+void ThreadEntry() {
+    // SpnLckRelease(&SchedSpinlock);
+    ThrDeathCleanup();
     HAL_INT_ON();
     //printf("sched: wrapper: entering thread(tid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;

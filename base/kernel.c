@@ -84,11 +84,9 @@ void _putchar(char character) {
 
 
 void KernelUnlockRsLck() {
-    SpnLckRelease(&KernelResourceLock);
 }
 
 struct ProcessCtrlBlk* KernelGetCurrentProc() {
-    SpnLckAcquire(&KernelResourceLock);
     return gkInfo->CurrentProcess;
 }
 

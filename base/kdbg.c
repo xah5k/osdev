@@ -1,5 +1,6 @@
 #include <kernel.h>
 #include <sched/process.h>
+#include <sched/sched.h>
 #include <hal/hal.h>
 #include <ksyscall.h>
 #include <kedriver.h>
@@ -12,9 +13,8 @@ const char* BugcheckTable[4] = {
     "KERNEL_ACPI_FIRMWARE_FATAL"
 };
 
-static void KdTraceStack(uint32_t Frames) {
-    HalStackFr* Frame;
-    HAL_GET_BP(Frame);
+static void KdTraceStack(uint32_t Frames, CpuInterruptArgs* r) {
+    HalStackFr* Frame = (HalStackFr*)HAL_GET_BPFR(r);
     printf("kdbg: stack trace: \r\n");
     for (uint32_t i = 0; i < Frames; i++) {
         if (Frame) {
@@ -32,13 +32,15 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
             uint64_t faultaddr;
             HAL_GET_CR2(faultaddr);
             printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
+            // KdTraceStack(5, registers);
             while (1) {
                 HAL_HALT();
             }
         } else {
             printf("kdbg: fault (intvec=%d ip=0x%lx)", HAL_GET_INUM(registers), HAL_GET_IP(registers));
-            printf("kdbg: killing user task..\r\n");
-            KE_SYSCALL_CALL_ARG1(SysKill, ThrGetCurrent()->ParentProc->pid);
+            HalDumpRegisters(registers);
+            KE_SYSCALL_CALL_ARG1(SysExit, (uint64_t)-1);
+            SchedYield();
             return;
         }
     }
@@ -55,7 +57,7 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     } else {
         printf("kdbg: no interrupt frame provided (non interrupt?)\r\n");
     }
-    KdTraceStack(5);
+    KdTraceStack(5, registers);
     if (ThrGetCurrent()->privilege == SCHED_PRIV_KERNEL) {
         printf("kdbg: halting\r\n");
         HAL_HALT();
@@ -74,7 +76,7 @@ void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char*
     if (line && filename) {
         printf("kernel: file and line: %s:%d\r\n", filename, line);
     }
-    KdTraceStack(5);
+    KdTraceStack(5, registers);
     printf("kernel: halting\r\n");
     while (1) {
         HAL_HALT();

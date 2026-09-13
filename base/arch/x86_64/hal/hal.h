@@ -12,6 +12,7 @@ struct ThreadCtrlBlk;
 #define HAL_INT_ON() __asm__ volatile ("sti");
 #define HAL_GET_SP(r) r->rsp
 #define HAL_GET_BP(bpout) asm ("movq %%rbp,%0" : "=r"(bpout) ::)
+#define HAL_GET_BPFR(r) r->rbp
 void HalUserJump(uint64_t entry, uint64_t usersp, uint64_t userargv, uint64_t userargc);
 uint64_t HalGetStack();
 void HalContextSw(uint64_t* old, uint64_t new);

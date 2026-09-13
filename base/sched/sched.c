@@ -125,37 +125,7 @@ void Schedule() {
         SpnLckReleaseRfl(&SchedSpinlock, r);
         HalContextSw(&OldThr->KernelRsp, NextThr->KernelRsp);
     }
-    if (DeathThread != NULL) {
-        if (DeathThread->KernelStackBase) {
-            MmFree((void*)DeathThread->KernelStackBase);
-        }
-        if(DeathThread->ParentProc->threads <= 0) {
-            // remove from kernel list
-            ProcessCtrlBlk* ProcList = KernelGetInformation()->ProcessListHead;
-            
-            if (DeathThread->ParentProc == ProcList){ ProcList = ProcList->Next;} else {
-                ProcessCtrlBlk* current = ProcList;
-                ProcessCtrlBlk* previous;
-                while (current != NULL) {
-                    if (current == DeathThread->ParentProc) break;
-                    previous = current;
-                    current = current->Next;
-                }
-                KATTEMPT(current);
-                if (!(current == DeathThread->ParentProc)) goto _s;
-                KATTEMPT(previous);
-                previous->Next = current->Next;
-            }
-            _s:
-            KernelUnlockRsLck();
-            MmFree(DeathThread->ParentProc->FileHandleTable);
-            ProcFreePML4(DeathThread->ParentProc->pml4);
-            if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
-            MmFree(DeathThread->ParentProc);
-        }
-        MmFree(DeathThread);
-        DeathThread = NULL; 
-    }
+    ThrDeathCleanup();
     HAL_INT_ON();
 }
 

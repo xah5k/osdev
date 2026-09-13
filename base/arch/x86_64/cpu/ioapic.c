@@ -25,17 +25,17 @@ typedef struct CpuIoApicRedirEnt {
 static CpuIoApicRedirEnt IoApicLegacyMap[16];
 
 void CpuIoApicWrite(uint32_t reg, uint32_t value) {
-    SpnLckAcquire(&IoApicLock);
+    uint64_t r = SpnLckAcquireRfl(&IoApicLock);
     *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_SELECTOR) = reg;
     *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_WINDOW) = value;
-    SpnLckRelease(&IoApicLock);
+    SpnLckReleaseRfl(&IoApicLock, r);
 }
 KE_EXPORT_SYMBOL(CpuIoApicWrite);
 
 uint32_t CpuIoApicRead(uint32_t reg) {
-    SpnLckAcquire(&IoApicLock);
+    uint64_t r = SpnLckAcquireRfl(&IoApicLock);
     *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_SELECTOR) = reg;
-    SpnLckRelease(&IoApicLock);
+    SpnLckReleaseRfl(&IoApicLock, r);
     return *(volatile uint32_t*)(ioapicvirtbase + IOAPIC_WINDOW);
 }
 KE_EXPORT_SYMBOL(CpuIoApicRead);

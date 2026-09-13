@@ -39,7 +39,7 @@ KSTATUS MmHeapInitalize() {
 
 // dumps it out to printf
 void MmHeapDumpMap() {
-    SpnLckAcquire(&MmInternalHeapLock);
+    uint64_t r = SpnLckAcquireRfl(&MmInternalHeapLock);
     MmHeapBlockHdr* Current = BlockListHead;
     int i = 0;
     while (Current != NULL) {
@@ -47,11 +47,10 @@ void MmHeapDumpMap() {
         i++;
         Current = Current->Next;
     }
-    SpnLckRelease(&MmInternalHeapLock);
+    SpnLckReleaseRfl(&MmInternalHeapLock, r);
 }
 
 MmHeapBlockHdr* MmInternalFindBlSz(uint64_t size) {
-    //SpnLckAcquire(&MmInternalHeapLock);
     MmHeapBlockHdr* Current = BlockListHead;
     while (Current != NULL) {
         if (Current->Status == MM_HEAP_FREE) {
@@ -82,6 +81,7 @@ void* MmAllocate(uint64_t size) {
             PreviousBlock->Next = Block->Next;
         }
         Block->Status = MM_HEAP_USED;
+        Block->Magic = MM_HEAP_MAGIC;
         Result = (void*)(Block + 1); 
     } else {
         //uint64_t BfSize = Block->Size;
@@ -90,6 +90,7 @@ void* MmAllocate(uint64_t size) {
         MmHeapBlockHdr* NewUsedBlock = (MmHeapBlockHdr*)((uintptr_t)Block + Block->Size);
         NewUsedBlock->Size = TotalSize;
         NewUsedBlock->Status = MM_HEAP_USED;
+        NewUsedBlock->Magic = MM_HEAP_MAGIC;
         Result = (void*)(NewUsedBlock + 1);
     }
     end:

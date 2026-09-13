@@ -62,7 +62,7 @@ KSTATUS PmmInitalize(struct limine_memmap_response* resp, uint64_t hhdm) {
     for (uint64_t i = BitmapStartPage; i < (BitmapStartPage + (BitmapSize / PAGE_SIZE)); i++) {
         uint64_t ArrayIdx = i >> 6;
         uint64_t BitPos =  i & 63;
-        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos); // gpfs and then triple fualts here
+        PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos);
     }
     PmmInternalBitmapSz = BitmapSize;
     PmmTotalPages = (PmmLargestFreeMemorySize) / PAGE_SIZE;
@@ -80,7 +80,7 @@ void* PmmAllocate() {
 }
 KE_EXPORT_SYMBOL(PmmAllocate);
 void* PmmAllocatePages(uint64_t num) {
-    SpnLckAcquire(&PmmInternalLock);
+    uint64_t r = SpnLckAcquireRfl(&PmmInternalLock);
     uint64_t TotalBitmapEntries = PmmInternalBitmapSz/8;
     uint64_t AllocatedPages = 0;
     uint64_t PotentialStartPageIdx = 0;
@@ -99,7 +99,7 @@ void* PmmAllocatePages(uint64_t num) {
             } else AllocatedPages = 0;
         }
     }
-    SpnLckRelease(&PmmInternalLock);
+    SpnLckReleaseRfl(&PmmInternalLock, r);
     return NULL;
     out:
     for (uint64_t i = PotentialStartPageIdx; i < (PotentialStartPageIdx + num); i++) {
@@ -107,7 +107,7 @@ void* PmmAllocatePages(uint64_t num) {
         uint64_t BitPos =  i & 63;
         PmmInternalBitmap[ArrayIdx] |= (1ULL << BitPos);
     }
-    SpnLckRelease(&PmmInternalLock);
+    SpnLckReleaseRfl(&PmmInternalLock, r);
     return (void*)(PotentialStartPageIdx * PAGE_SIZE);
 }
 KE_EXPORT_SYMBOL(PmmAllocatePages);
@@ -117,10 +117,10 @@ void PmmFree(void *page) {
 KE_EXPORT_SYMBOL(PmmFree);
 void PmmFreePages(void* pagef, uint64_t num) {
     if (!pagef) return;
-    SpnLckAcquire(&PmmInternalLock);
+    uint64_t r = SpnLckAcquireRfl(&PmmInternalLock);
     uint64_t Idx = ((uint64_t)pagef / 4096);
     if ((Idx + num) > (PmmInternalBitmapSz * 8)) {
-        SpnLckRelease(&PmmInternalLock);
+        SpnLckReleaseRfl(&PmmInternalLock, r);
         return;
     }
     for (uint64_t i = Idx; i < Idx + num; i++) {
@@ -128,6 +128,6 @@ void PmmFreePages(void* pagef, uint64_t num) {
         uint64_t BitPos = i & 63;
         PmmInternalBitmap[ArrayIdx] &= ~(1ULL << BitPos);
     }
-    SpnLckRelease(&PmmInternalLock);
+    SpnLckReleaseRfl(&PmmInternalLock, r);
 }
 KE_EXPORT_SYMBOL(PmmFreePages);

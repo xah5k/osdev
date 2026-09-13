@@ -49,7 +49,7 @@ KSTATUS VmmInitalize() {
         return KINVALID;
     }
 
-    VmmInternalHead->start = ((uint64_t)MMU_PHYS_OFFSET + 0x40000000); // 1GB after HHDM
+    VmmInternalHead->start = ((uint64_t)0xffff888000000000);
     VmmInternalHead->size = 0x100000000; // 4GB
     
     VmmInternalHead->free = 1;
@@ -84,9 +84,9 @@ VmmInternalBlock* VmmInternalFindAddress(void* ptr) {
 }
 
 void* VmmAllocateAt(uint64_t size, uint64_t cr3) {
-    SpnLckAcquire(&VmmInternalLock);
+    uint64_t r = SpnLckAcquireRfl(&VmmInternalLock);
     VmmInternalBlock* block = VmmInternalFindGap(size);
-    if (!block) { SpnLckRelease(&VmmInternalLock); return NULL; } 
+    if (!block) { SpnLckReleaseRfl(&VmmInternalLock, r); return NULL; } 
     if (block->size > size) { // if the block we get is larger than what we wanted
         VmmInternalBlock* new = VmmInternalAllocBlock();
         // new node
@@ -111,7 +111,7 @@ void* VmmAllocateAt(uint64_t size, uint64_t cr3) {
         MmuMapPage((pagetable*)cr3, i + block->start, f, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
         memset((void*)(i + block->start), 0, MMU_PAGE_SIZE);
     }
-    SpnLckRelease(&VmmInternalLock);
+    SpnLckReleaseRfl(&VmmInternalLock, r);
     return (void*)block->start;
 }
 
@@ -122,11 +122,11 @@ void* VmmAllocate(uint64_t size) {
 KE_EXPORT_SYMBOL(VmmAllocate);
 
 void VmmFreeAt(void* ptr, uint64_t cr3) {
-    SpnLckAcquire(&VmmInternalLock);
+    uint64_t r = SpnLckAcquireRfl(&VmmInternalLock);
     // find block with ptr
     VmmInternalBlock* block = VmmInternalFindAddress(ptr);
-    if (!block)  { SpnLckRelease(&VmmInternalLock); return; }
-    if (block->free == 1) { SpnLckRelease(&VmmInternalLock); return; }
+    if (!block)  { SpnLckReleaseRfl(&VmmInternalLock, r); return; }
+    if (block->free == 1) { SpnLckReleaseRfl(&VmmInternalLock, r); return; }
     // unmap addresses
     for (uint64_t i = block->start; i < (block->start + block->size); i+=MMU_PAGE_SIZE) {
         MmuUnmapPage((pagetable*)cr3, i);
@@ -157,7 +157,7 @@ void VmmFreeAt(void* ptr, uint64_t cr3) {
         deadNode->next = VmmFreeBlockHead;
         VmmFreeBlockHead = deadNode;
     }
-    SpnLckRelease(&VmmInternalLock);
+    SpnLckReleaseRfl(&VmmInternalLock, r);
 }
 
 void VmmFree(void* ptr) {

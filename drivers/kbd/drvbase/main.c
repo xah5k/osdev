@@ -5,6 +5,7 @@
 #include <arch/x86_64/cpu/lapic.h>
 #include <arch/x86_64/cpu/ioapic.h>
 #include <arch/x86_64/ports.h>
+#include <hal/hal.h>
 #include <mm/heap.h>
 #include <sched/process.h>
 #include <sched/sched.h>
@@ -20,21 +21,27 @@ static KbdRingBuffer gKbdBuf = {0};
 ThreadCtrlBlk* gKbdWaitQueueHead;
 ThreadCtrlBlk* gKbdWaitQueueTail;
 static int KbdBufferAdd(uint8_t scancode) {
+    HAL_INT_OFF();
     uint32_t next = (gKbdBuf.head + 1) % KBD_BUFFER_SIZE;
     if (next == gKbdBuf.tail) {
+        HAL_INT_ON();
         return 0;
     }
     gKbdBuf.buffer[gKbdBuf.head] = scancode;
     gKbdBuf.head = next;
+    HAL_INT_ON();
     return 1;
 }
 
 static int KbdBufferRm(uint8_t* out_scancode) {
+    HAL_INT_OFF();
     if (gKbdBuf.head == gKbdBuf.tail) {
+        HAL_INT_ON();
         return 0;
     }
     *out_scancode = gKbdBuf.buffer[gKbdBuf.tail];
     gKbdBuf.tail = (gKbdBuf.tail + 1) % KBD_BUFFER_SIZE;
+    HAL_INT_ON();
     return 1;
 }
 

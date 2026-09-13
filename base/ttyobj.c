@@ -18,27 +18,28 @@ KeTerminalObj* TtyCreateObj(int Stdin, int Stdout, int Stderr) {
 int TtyWrite(KeTerminalObj* TtyObj, const char* output, uint64_t len) {
     if (TtyObj->TtyInfo->StdoutBufferFl) {
         for (uint64_t i = 0; i < len; i++) {
-            if (TtyObj->StdoutBuf[i] == '\n') {
-                for (uint64_t j = 0; j < len; j++) _putchar(TtyObj->StdoutBuf[j]);
-            }
+            if (i >= 1024) break;
             TtyObj->StdoutBuf[i] = output[i];
+            if (output[i] == '\n') {
+                for (uint64_t j = 0; j <= i; j++) _putchar(TtyObj->StdoutBuf[j]);
+            }
         }
         return len;
     } else {
         for (uint64_t i = 0; i < len; i++) _putchar(output[i]);
         return len;
     }
-    return -1;
 }
 
 uint64_t TtyRead(KeTerminalObj* TtyObj, char* inbuf, uint64_t len) {
     if (TtyObj->TtyInfo->StdinBufferFl) {
         for (uint64_t i = 0; i < len; i++) {
+            if (i >= 128) break;
+            TtyObj->StdinBuf[i] = KbdTranslGetc();
             if (TtyObj->StdinBuf[i] == '\n') {
-                memcpy((void*)inbuf, TtyObj->StdinBuf, i);
+                memcpy((void*)TtyObj->StdinBuf, inbuf, i);
                 return i;
             }
-            TtyObj->StdinBuf[i] = KbdTranslGetc();
         }
         return len;
     } else {
@@ -48,5 +49,4 @@ uint64_t TtyRead(KeTerminalObj* TtyObj, char* inbuf, uint64_t len) {
         }
         return len;
     }
-    return -1;
 }

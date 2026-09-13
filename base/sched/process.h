@@ -6,7 +6,7 @@
 #include <sched/ipc/signal.h>
 #include <sched/ipc/msg.h>
 
-#define PS_USER_STACK_PAGES 4
+#define PS_USER_STACK_PAGES 64
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
 #define PS_USER_BRK_BASE 0x700000000000
@@ -87,6 +87,7 @@ typedef struct ThreadCtrlBlk {
     CpuInterruptArgs* LastIframe;
 } ThreadCtrlBlk;
 
+void ThrDeathCleanup();
 ThreadCtrlBlk* ThrGetCurrent();
 ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
 ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc, const char** envp, int envc);
