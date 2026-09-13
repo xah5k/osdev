@@ -660,6 +660,15 @@ void KeShlProcess(char* string) {
 }
 extern uint64_t PmmTotalFreePhysRam;
 
+static void KeTestExec(const char* s) {
+    char** argv = MmAllocate(sizeof(char*) * 1);
+    argv[0] = MmAllocate(sizeof(char)*strlen(s)+1);
+    strlcpy(argv[0], s, strlen(s)+1);
+    int argc = 1;
+    uint64_t pid = SysSpawn((uint64_t)s, (uint64_t)argv, (uint64_t)argc, (uint64_t)gKeEnvp, (uint64_t)gKeEnvc);
+    printf("%s: spawned process with pid %d\r\n", s, pid);
+}
+
 void KeUtilShell() {
     FbClear();
     printf("kshell: Welcome to ah5kos 1.0.0\r\n");
@@ -671,8 +680,9 @@ void KeUtilShell() {
     KeShlFillEnv("HOME=initrd:/home");
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
-    KeShlFillEnv("PRIV=kernel");
     MmFree(cwdbuf);
+    KeTestExec("initrd:/programs/hello.elf");
+    KeTestExec("initrd:/programs/uname.elf");
     printf("kshell> ");
     while (1) {
         char* str = KeShlReadStr();

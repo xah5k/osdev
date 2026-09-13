@@ -135,12 +135,17 @@ uint64_t SysSpawn(uint64_t pathaddr, uint64_t argv, uint64_t argc, uint64_t envp
     uint64_t size = OsGetFileSize(handle);
     void* buf = MmAllocate(size);
     KATTEMPT(buf);
-    OsRead(handle, buf, size);
+    int nb = OsRead(handle, buf, size);
     OsClose(handle);
+    if (nb != size) {
+        MmFree(buf);
+        OsClose(handle);
+        return (uint64_t)-1;
+    }
     uint64_t pid = 0;
     KSTATUS result = LdrElfExecute(buf, SCHED_PRIV_USER, &pid, (const char**)argv, (int)argc, (const char**)envp, (uint64_t)envc, basename(path));
     MmFree(buf);
-    return (result == KSUCCESS) ? pid : -1;
+    return (result == KSUCCESS) ? pid : (uint64_t)-1;
 }
 
 uint64_t SysConWrite(uint64_t pathaddr, KE_SYSCALL_ARGS_UNUSED1) {
@@ -636,7 +641,16 @@ uint64_t SysGetMessageQueue(uint64_t ptrout, uint64_t maxlen, KE_SYSCALL_ARGS_UN
     if (!m) return KINVALID;
     if (m->Length > maxlen) return KINVALID;
     memcpy((void*)ptrout, m, sizeof(KeMessageObj) + m->Length);
+    MmFree(m);
     return KSUCCESS;
+}
+
+uint64_t SysSendMessage(uint64_t msgptr, KE_SYSCALL_ARGS_UNUSED1) {
+    if (msgptr == 0) return KINVALID;
+    KeMessageObj* m = (KeMessageObj*)msgptr;
+    KeMessageObj* m2 = MmAllocate(sizeof(KeMessageObj) + m->Length);
+    memcpy(m2, m, sizeof(KeMessageObj) + m->Length);
+    return (uint64_t)KeMessageSend(m2);
 }
 
 void KeRegisterSyscalls() {
@@ -681,6 +695,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);
     KiRegisterSyscall(OS_MKDIR, SysMkdir);
     KiRegisterSyscall(OS_GETMSGQUEUE, SysGetMessageQueue);
+    KiRegisterSyscall(OS_SENDMSG, SysSendMessage);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();

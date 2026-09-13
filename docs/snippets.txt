@@ -300,3 +300,21 @@ ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip tuntap add dev tap0 mode tap user $(whoami
 ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip link set tap0 up
 ah5k@DESKTOP-JL92OAJ:~/osdev$ sudo ip addr add 192.168.100.2/24 dev tap0
 ah5k@DESKTOP-JL92OAJ:~/osdev$ 
+
+/*
+note for myself: if a userspace program fails to run with sm weird gpf
+with a completely invalid rip.
+run it without the shell first and see if it works.
+like this:
+    KeTestExec("initrd:/programs/hello.elf");
+    KeTestExec("initrd:/programs/uname.elf");
+    printf("kshell> ");
+    while (1) {
+        char* str = KeShlReadStr();
+        KeShlProcess(str);
+        MmFree(str);
+        printf("\r\nkshell> ");
+    }
+
+cuz i genuinely wasted too much time yesterday tryna fix userspace
+*/
