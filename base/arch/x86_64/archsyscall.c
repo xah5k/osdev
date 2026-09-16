@@ -10,7 +10,6 @@ void KiRegisterSyscall(KiSyscallIdx index, syscallfunc ptr) {
     gSyscallTable[index] = ptr;
 }
 void KiHandleSyscall(CpuInterruptArgs* registers) {
-    ThrGetCurrent()->LastIframe = registers;
     uint64_t syscallnum = registers->rax;
     uint64_t arg1 = registers->rdi;
     uint64_t arg2 = registers->rsi;
@@ -29,7 +28,10 @@ void KiHandleSyscall(CpuInterruptArgs* registers) {
     }
     else  { result = gSyscallTable[syscallnum](arg1, arg2, arg3, arg4, arg5); }
     registers->rax = result;
-    ThrCheckSignals(ThrGetCurrent()->LastIframe);
+    if ((((registers)->cs & 3) == 3)) {
+        ThrGetCurrent()->LastIframe = registers;
+        ThrCheckSignals((CpuInterruptArgs*)ThrGetCurrent()->LastIframe);
+    }
 }
 
 uint64_t SysSetFsBase(uint64_t base, KE_SYSCALL_ARGS_UNUSED1) {

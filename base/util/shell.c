@@ -681,8 +681,8 @@ void KeUtilShell() {
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
     MmFree(cwdbuf);
+    KeTestExec("initrd:/programs/dwm");
     KeTestExec("initrd:/programs/hello.elf");
-    KeTestExec("initrd:/programs/uname.elf");
     printf("kshell> ");
     while (1) {
         char* str = KeShlReadStr();

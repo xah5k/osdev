@@ -559,24 +559,31 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
         }
         e->Vaddr = (virtaddr)args->addr;
         e->Next = ThrGetCurrent()->ParentProc->MmapEntryHead;
+        e->Length = length;
         ThrGetCurrent()->ParentProc->MmapEntryHead = e;
+        // printf("map: [e=0x%lx] e->Vaddr=0x%lx e->Length = %lu\r\n", e, e->Vaddr, e->Length);
         return (uint64_t)args->addr;
     }
     return (uint64_t)-1;
 }
 
+// stupid memory corruption caused so much issues
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
-    MmapEntry* e = ThrGetCurrent()->ParentProc->MmapEntryHead;
-    while (e != NULL) {
+    MmapEntry** pp = &ThrGetCurrent()->ParentProc->MmapEntryHead;
+    MmapEntry* e = *pp;
+    while (e != NULL || e > 0x1000) {
         if (e->Vaddr == addr && e->Length == length) {
-            for (int i = 0; i < e->Length; i+=PAGE_SIZE) {
-                MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), ((uint64_t)e->Vaddr + i));
+            for (uint64_t i = 0; i < e->Length; i += PAGE_SIZE) {
+                MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), (e->Vaddr + i));
             }
+            *pp = e->Next;
+            MmFree(e);
             return 0;
         }
+        pp = &e->Next;
         e = e->Next;
     }
-    return -1;
+    return (uint64_t)-1;
 }
 
 uint64_t SysFbCreate(uint64_t width, uint64_t height, KE_SYSCALL_ARGS_UNUSED2) {

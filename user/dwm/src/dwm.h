@@ -2,7 +2,10 @@
 #include <ah5kos.h>
 #include <stdbool.h>
 #include <list>
+#include "../../shared/dwmapi.h"
 class Window;
+class Server;
+
 class Dwm {
     public:
     Dwm();
@@ -10,10 +13,15 @@ class Dwm {
     ~Dwm();
     void Start();
     KSTATUS GetStatus();
+    void SetStatus(KSTATUS s);
     KSTATUS RegisterWindow(const Window* window);
+    KSTATUS DeregisterWindow(WNDHDL w);
     Framebuffer* GetFrontBuffer();
     Framebuffer* GetGlobalBuffer();
+    void Redraw();
+    std::list<Window*>& GetWindowsList();
     private:
+    std::list<Window*> Windows;
     int MouseDeviceHdl = -1;
     KSTATUS HandleMouse(int handle);
     KSTATUS Draw();
@@ -26,7 +34,7 @@ class Dwm {
     Framebuffer* GlobalBuffer;
     KSTATUS Status = KSUCCESS;
     bool DrawFullBuffer = false;
-    std::list<Window*> Windows;
+    Server* MsgServer;
     void PutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color);
     void PutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color);
 };

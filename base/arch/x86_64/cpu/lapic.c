@@ -29,11 +29,13 @@ void CpuEnableLapic() {
 }
 
 void CpuLapicTimerHandler(CpuInterruptArgs* r) {
-    ThrGetCurrent()->LastIframe = r;
     lapictimertick++;
     CpuLapicEoi();
     Schedule();
-    ThrCheckSignals((CpuInterruptArgs*)ThrGetCurrent()->LastIframe);
+    if ((((r)->cs & 3) == 3)) {
+        ThrGetCurrent()->LastIframe = r;
+        ThrCheckSignals((CpuInterruptArgs*)ThrGetCurrent()->LastIframe);
+    }
 }
 
 uint64_t gCpuLapicTicksPer10ms = 0;

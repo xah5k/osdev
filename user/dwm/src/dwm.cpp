@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <math.h>
 #include "window.h"
+#include "server.h"
+#include <fcntl.h>
 
 #define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
@@ -83,6 +85,10 @@ KSTATUS Dwm::Draw() {
 
 Dwm::Dwm() {}
 
+void Dwm::Redraw() {
+    this->DrawFullBuffer = true;
+}
+
 Dwm::Dwm(const char* MousePath) {
     this->GlobalBuffer = (Framebuffer*)malloc(sizeof(Framebuffer));
     KSTATUS s = OsGetFbInfo(this->GlobalBuffer);
@@ -116,6 +122,7 @@ void Dwm::Start() {
         return;
     }
     this->DrawFullBuffer = true;
+    this->MsgServer = new Server(this);
     while (1) {
         this->HandleMouse(MouseDeviceHdl);
         this->Draw();
@@ -127,7 +134,9 @@ Dwm::~Dwm() {
     KSTATUS s = OsFreeFb(this->CursorBuffer);
     s = OsFreeFb(this->FrontBuffer);
     this->Status = s; // idrc
+    delete this->MsgServer;
 }
+
 KSTATUS Dwm::RegisterWindow(const Window* window) {
     this->Windows.push_back((Window*)window);
     return KSUCCESS;
@@ -137,10 +146,30 @@ KSTATUS Dwm::GetStatus() {
     return this->Status;
 }
 
+void Dwm::SetStatus(KSTATUS s) {
+    this->Status = s;
+}
+
 Framebuffer* Dwm::GetFrontBuffer() {
     return this->FrontBuffer;
 }
 
 Framebuffer* Dwm::GetGlobalBuffer() {
     return this->GlobalBuffer;
+}
+
+std::list<Window*>& Dwm::GetWindowsList() {
+    return this->Windows;
+}
+
+KSTATUS Dwm::DeregisterWindow(WNDHDL w) {
+    for (Window* w : this->Windows) {
+        if (w->Wid == w) {
+            this->Windows.remove(w);
+            this->DrawFullBuffer = true;
+            delete w; // for now, whoever deregisters it should delete it on their own
+            return KSUCCESS;
+        }
+    }
+    return KFAIL;
 }
