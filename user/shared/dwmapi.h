@@ -3,9 +3,7 @@
 typedef enum {
     DWMPCK_CRWIN, // creates a window and returns the fbinfo struct for it
     DWMPCK_REFBINFO,
-    DWMPCK_GETFB, // returns the current whole fb of the window
-    DWMPCK_SETFB,
-    DWMPCK_RMWIN // i do hope this is self explanatory
+    DWMPCK_DRAW
 } DwmPckType;
 
 typedef struct {

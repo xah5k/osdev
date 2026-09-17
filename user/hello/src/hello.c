@@ -31,15 +31,6 @@ void SignalReceive(int SigIdx) {
             if (gFbInfo) memcpy((void*)gFbInfo, finfo, sizeof(Framebuffer));
             break;
         }
-        case DWMPCK_GETFB: {
-            void* p1 = (void*)((uint64_t)p + sizeof(DwmPacket));
-            if (!gFbPtr && !gGetFbRecv) {
-                gFbPtr = malloc(gFbInfo->size);
-                gGetFbRecv = true;
-            }
-            memcpy(gFbPtr, p1, gFbInfo->size);
-            break;
-        }
         default: {
             printf("dropping dwm packet. invalid type %d.\r\n", p->Type);
             break;
@@ -63,8 +54,7 @@ KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height) {
     return s;
 }
 
-KSTATUS DwmApiGetFbPtr(void** ptrout, WNDHDL Wnd) {
-    if (!Wnd) return KINVALID;
+KSTATUS DwmApiDrawFinish(WNDHDL w) {
     OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(WNDHDL));
     m->FromPid = getpid();
     m->ToPid = 1; // dwm should be pid 1.
@@ -72,48 +62,13 @@ KSTATUS DwmApiGetFbPtr(void** ptrout, WNDHDL Wnd) {
     DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
     p->CrWinWidth = 0;
     p->CrWinHeight = 0;
-    p->Type = DWMPCK_GETFB;
-    WNDHDL* w = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
-    *w = Wnd;
+    p->Type = DWMPCK_DRAW;
+    WNDHDL* pwhdl = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
+    *pwhdl = w;
     KSTATUS s;
     s = OsMsgSend(m);
     free(m);
     return s;
-}
-
-KSTATUS DwmApiSetFbPtr(void* ptrin, WNDHDL Wnd) {
-    OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(WNDHDL) + gFbInfo->size);
-    m->FromPid = getpid();
-    m->ToPid = 1; // dwm should be pid 1.
-    m->Length = sizeof(DwmPacket) + sizeof(WNDHDL) + gFbInfo->size;
-    DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
-    p->CrWinWidth = 0;
-    p->CrWinHeight = 0;
-    p->Type = DWMPCK_SETFB;
-    WNDHDL* w = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
-    *w = Wnd;
-    memcpy((void*)((uint64_t)p + sizeof(DwmPacket) + sizeof(WNDHDL)), ptrin, gFbInfo->size);
-    KSTATUS s;
-    s = OsMsgSend(m);
-    free(m);
-    return s;
-}
-
-KSTATUS DwmApiDestroyWindow(WNDHDL Wnd) {
-    if (!Wnd) return KINVALID;
-    OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(WNDHDL));
-    m->FromPid = getpid();
-    m->ToPid = 1; // dwm should be pid 1.
-    m->Length = sizeof(DwmPacket) + sizeof(WNDHDL);
-    DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
-    p->CrWinWidth = 0;
-    p->CrWinHeight = 0;
-    p->Type = DWMPCK_RMWIN;
-    WNDHDL* w = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
-    *w = Wnd;
-    KSTATUS s;
-    s = OsMsgSend(m);
-    free(m);
 }
 
 #define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
@@ -147,18 +102,8 @@ int main(int argc, const char* argv[]) {
     s = DwmApiCreateWin(128, 128);
     while (!gReFbInfRecv); // as ugly as this is we need it for synchronizing the server and client
     printf("after. KSTATUS 0x%x\r\n", s);
-    printf("getting whole fb of window.\r\n");
-    s = DwmApiGetFbPtr(NULL, Window);
-    while (!gGetFbRecv);
-    printf("get fb. KSTATUS 0x%x\r\n", s);
-    printf("gFbPtr = 0x%lx.\r\n", gFbPtr);
-    PutPixel((uint64_t)gFbPtr, 64, 64, ARGB(255, 255, 0, 0));
-    s = DwmApiSetFbPtr(gFbPtr, Window);
-    printf("set fb. KSTATUS 0x%x\r\n", s);
-    printf("waiting 5 seconds and then destroying window before exit..\r\n");
-    OsSleep(5);
-    s = DwmApiDestroyWindow(Window);
-    printf("destroy window. KSTATUS 0x%x\r\n", s);
-    printf("exiting....\r\n");
+    PutRect(gFbInfo->ptr, 64, 64, 10, 10, ARGB(255, 255, 0, 0));
+    DwmApiDrawFinish(Window);
+    while (1);
     return 0;
 }

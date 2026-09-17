@@ -586,6 +586,40 @@ uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
     return (uint64_t)-1;
 }
 
+// https://wiki.osdev.org/Shared_Memory
+// also cuz for dwm im not tryna send the whole fb over message
+// that'd be slow
+// difference between A and B
+// A maps 'addr' from 'pid' address space into the syscall callers address space
+// B maps 'addr' from syscall callers address space into 'pid' address space
+uint64_t SysSharedMapA(uint64_t pid, uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED3) {
+    if (addr == 0 || length == 0) return KINVALID;
+    if (pid == 0 || (uint64_t)pid < (uint64_t)-1) return KINVALID;
+    ProcessCtrlBlk* target = ProcFindByPid(pid, KernelGetInformation());
+    ProcessCtrlBlk* current = ThrGetCurrent()->ParentProc;
+    if (!current || !target) return KINVALID;
+    physaddr paddr = MmuGetPhys((uint64_t)target->pml4, (virtaddr)addr);
+    if (paddr == 0) return KINVALID;
+    for (uint64_t i = 0; i < length; i+=MMU_PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(current->pml4), addr + i, paddr + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+    }
+    return KSUCCESS;
+}
+
+uint64_t SysSharedMapB(uint64_t pid, uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED3) {
+    if (addr == 0 || length == 0) return KINVALID;
+    if (pid == 0) return KINVALID;
+    ProcessCtrlBlk* target = ProcFindByPid(pid, KernelGetInformation());
+    ProcessCtrlBlk* current = ThrGetCurrent()->ParentProc;
+    if (!current || !target) return KINVALID;
+    physaddr paddr = MmuGetPhys((uint64_t)current->pml4, (virtaddr)addr);
+    if (paddr == 0) return KINVALID;
+    for (uint64_t i = 0; i < length; i+=MMU_PAGE_SIZE) {
+        MmuMapPage((pagetable*)P2V(target->pml4), addr + i, paddr + i, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER);
+    }
+    return KSUCCESS;
+}
+
 uint64_t SysFbCreate(uint64_t width, uint64_t height, KE_SYSCALL_ARGS_UNUSED2) {
     Framebuffer* fb = FbCreate((uint32_t)width, (uint32_t)height, P2V(ThrGetCurrent()->ParentProc->cr3));
     if (!fb) {
@@ -703,6 +737,8 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_MKDIR, SysMkdir);
     KiRegisterSyscall(OS_GETMSGQUEUE, SysGetMessageQueue);
     KiRegisterSyscall(OS_SENDMSG, SysSendMessage);
+    KiRegisterSyscall(OS_SHMAPA, SysSharedMapA);
+    KiRegisterSyscall(OS_SHMAPB, SysSharedMapB);
     KeSignalRegisterSyscalls();
     #ifdef __x86_64__
     KiRegisterSyscalls64();

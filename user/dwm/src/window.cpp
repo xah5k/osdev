@@ -13,7 +13,7 @@ Window::Window(std::string wname, int w, int h, Dwm* dwm, int x, int y) {
     this->Pos.y = y;
     this->OwningPid = 1;
     assert(this->Buffer);
-    printf("dwm: win: window{wname='%s', wndhdl/wid=0x%lx, fbptr=0x%lx}\r\n", wname.c_str(), WidCount, this->Buffer->ptr);
+    // printf("dwm: win: window{wname='%s', wndhdl/wid=0x%lx, fbptr=0x%lx}\r\n", wname.c_str(), WidCount, this->Buffer->ptr);
     memset((void*)this->Buffer->ptr, 0xFF, this->Buffer->size); // fill white for now
     this->Wid = WidCount;
     WidCount+=1; // ++ throws a compiler err??

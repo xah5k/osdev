@@ -44,5 +44,7 @@ typedef enum {
     OS_FBGETINFO,
     OS_SLEEPMS,
     OS_GETMSGQUEUE,
-    OS_SENDMSG
+    OS_SENDMSG,
+    OS_SHMAPA,
+    OS_SHMAPB
 } KiSyscallIdx;

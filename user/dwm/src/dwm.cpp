@@ -87,6 +87,7 @@ Dwm::Dwm() {}
 
 void Dwm::Redraw() {
     this->DrawFullBuffer = true;
+    this->Draw();
 }
 
 Dwm::Dwm(const char* MousePath) {

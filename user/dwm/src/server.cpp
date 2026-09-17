@@ -33,59 +33,23 @@ extern "C" void SignalReceive(int SigIdx) {
             OsMessage* msg = gServer->CreateFbInfoMsg(w->GetFb(), (WNDHDL)w->Wid);
             msg->ToPid = m->FromPid;
             DwmPacket* pck2 = (DwmPacket*)((uint64_t)msg + sizeof(OsMessage));
-            KSTATUS s = OsMsgSend(msg);
+            KSTATUS s = OsSharedMapB(m->FromPid, (void*)w->GetFb()->ptr, (uint64_t)w->GetFb()->size);
+            if (s != KSUCCESS) printf("dwm: server: mapping fb into pids process failed! KSTATUS 0x%x\r\n", s);
+            s = OsMsgSend(msg);
             free(m);
             free(msg);
             gServer->dwm->Redraw();
             return;
         }
-        case DWMPCK_GETFB: {
-            WNDHDL* wh = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
-            Window* w = NULL;
+        case DWMPCK_DRAW: {
+            WNDHDL* pWhdl = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
             std::list<Window*>& wlist = gServer->dwm->GetWindowsList();
-            for (Window* wnd : wlist) {
-                if (wnd->Wid == *wh) {
-                    w = wnd;
-                    break;
+            for (Window* w : wlist) {
+                if (w->Wid == *pWhdl) {
+                    w->FullWindowRedraw = true;
+                    gServer->dwm->Redraw();
                 }
             }
-            printf("w=0x%lx\r\n", w);
-            if (!w) {
-                printf("dwm: server: error! failed to find windows with wndhdl 0x%lx\r\n", *wh);
-                break;
-            }
-            OsMessage* msg = gServer->CreateFbPtrMsg(w->GetFb());
-            if (!msg) return;
-            msg->ToPid = m->FromPid;
-            KSTATUS s = OsMsgSend(msg);
-            free(m);
-            free(msg);
-            return;
-        }
-        case DWMPCK_SETFB: {
-            Window* w = NULL;
-            WNDHDL* wh = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
-            std::list<Window*>& wlist = gServer->dwm->GetWindowsList();
-            for (Window* window : wlist) {
-                if (window->Wid == *wh) {
-                    w = window;
-                    break;
-                }
-            }
-            if (!w) {
-                printf("dwm: server: error! failed to find windows with wndhdl 0x%lx\r\n", *wh);
-                break;
-            }
-            printf("dwm: server: setting fb for WNDHDL 0x%lx (actual Window class @ 0x%lx).\r\n", *wh, w);
-            printf("dwm: server: Windows current ptr 0x%lx Message fb start @0x%lx.\r\n", w->GetFb()->ptr, ((uint64_t)pck + sizeof(DwmPacket) + sizeof(WNDHDL)));
-            memcpy((void*)w->GetFb()->ptr, (void*)((uint64_t)pck + sizeof(DwmPacket) + sizeof(WNDHDL)), w->GetFb()->size);
-            gServer->dwm->Redraw();
-            w->Draw();
-            break;
-        }
-        case DWMPCK_RMWIN: {
-            WNDHDL* wh = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
-            gServer->dwm->DeregisterWindow(*wh);
             break;
         }
         default: {
@@ -110,22 +74,7 @@ OsMessage* Server::CreateFbInfoMsg(Framebuffer* info, WNDHDL whdl) {
     Framebuffer* f = &resp->fbinf;
     memcpy((void*)f, (void*)info, sizeof(Framebuffer));
     resp->WindowHandle = whdl;
-    printf("whdl=0x%lx resp->WindowHandle=0x%lx resp=0x%lx f=0x%lx.\r\n", whdl, resp->WindowHandle, resp, f);
-    return m;
-}
-
-OsMessage* Server::CreateFbPtrMsg(Framebuffer* msg) {
-    if (!msg) return NULL;
-    OsMessage* m = (OsMessage*)malloc(sizeof(OsMessage) + sizeof(DwmPacket) + msg->size);
-    m->FromPid = getpid();
-    // to pid should be set by caller
-    m->Length = sizeof(DwmPacket) + msg->size;
-    DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
-    p->Type = DWMPCK_GETFB;
-    p->CrWinHeight = 0;
-    p->CrWinWidth = 0;
-    void* p1 = (void*)((uint64_t)p + sizeof(DwmPacket));
-    memcpy((void*)p1, (void*)msg->ptr, msg->size);
+    // printf("whdl=0x%lx resp->WindowHandle=0x%lx resp=0x%lx f=0x%lx.\r\n", whdl, resp->WindowHandle, resp, f);
     return m;
 }
 
