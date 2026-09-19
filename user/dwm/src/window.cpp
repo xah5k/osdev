@@ -28,14 +28,17 @@ Window::~Window() {
 
 uint64_t Window::DrawDecoration() {
     if ((FullWindowRedraw || DecorationRedraw) && (this->Options == DWMPCK_CRWIN_DEFAULT || this->Options == DWMPCK_CRWIN_WINDOWED)) {
+        this->dwm->PutHollowRect(this->dwm->GetFrontBuffer(), this->Pos.x, this->Pos.y, this->Width, this->Height + DWM_WINDOW_TITLEBAR_HEIGHT, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE);
+        this->dwm->PutHollowRect(this->dwm->GetFrontBuffer(), this->Pos.x + 1, this->Pos.y + 1, this->Width - 2, this->Height - 2, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE);
+        this->dwm->PutHollowRect(this->dwm->GetFrontBuffer(), this->Pos.x + 2, this->Pos.y + 2, this->Width - 4, this->Height - 4, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE);
         this->dwm->PutRect(this->dwm->GetFrontBuffer(), this->Pos.x, this->Pos.y, this->Width, DWM_WINDOW_TITLEBAR_HEIGHT, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE);
         OsDrawTextAtFb(this->dwm->GetFrontBuffer(), this->Name.c_str(), this->Pos.x, this->Pos.y, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE, DWM_WINDOW_TITLEBAR_TEXTCOLOUR);
+        
         if (DecorationRedraw) DecorationRedraw = false;
         return DWM_WINDOW_TITLEBAR_HEIGHT;
     }
     return 0;
 }
-
 
 KSTATUS Window::Draw() {
     KSTATUS s = KSUCCESS;

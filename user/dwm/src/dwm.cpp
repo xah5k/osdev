@@ -32,6 +32,20 @@ void Dwm::PutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h,
     }
 }
 
+void Dwm::HorizontalLine(Framebuffer* fb, int64_t x, int64_t y, uint32_t length, uint32_t color) {
+    PutRect(fb, x, y, length, DWM_WINDOW_BORDER_SIZE, color);
+}
+void Dwm::VerticalLine(Framebuffer* fb, int64_t x, int64_t y, uint32_t length, uint32_t color) {
+    PutRect(fb, x, y, DWM_WINDOW_BORDER_SIZE, length, color);
+}
+
+void Dwm::PutHollowRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color) {
+    HorizontalLine(fb, x, y, w, color);
+    VerticalLine(fb, x, y + 1, h - 2, color);
+    HorizontalLine(fb, x, y + h - 1, w, color);
+    VerticalLine(fb, x + w - 1, y + 1, h - 2, color);
+}
+
 KSTATUS Dwm::HandleMouse(int handle) {
     KeDevMousePacket* mouse = (KeDevMousePacket*)malloc(sizeof(KeDevMousePacket));
     int s = read(handle, mouse, sizeof(KeDevMousePacket));

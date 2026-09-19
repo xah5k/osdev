@@ -23,6 +23,9 @@ class Dwm {
     std::list<Window*>& GetWindowsList();
     void PutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color);
     void PutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color);
+    void PutHollowRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color);
+    void HorizontalLine(Framebuffer* fb, int64_t x, int64_t y, uint32_t length, uint32_t color);
+    void VerticalLine(Framebuffer* fb, int64_t x, int64_t y, uint32_t length, uint32_t color);
     private:
     std::list<Window*> Windows;
     int MouseDeviceHdl = -1;
