@@ -7,9 +7,9 @@ override CFILES := $(filter %.c,$(SRCFILES))
 override CXXFILES := $(filter %.cpp,$(SRCFILES))
 override OBJ := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.o) $(CXXFILES:.cpp=.cpp.o))
 CC=x86_64-ah5kos-gcc
-CFLAGS=-Wall -g 
+CFLAGS= -Wall -Wextra -Wswitch-enum -g
 CXX=x86_64-ah5kos-g++
-CPPFLAGS_CXX=-Wall -g 
+CPPFLAGS_CXX= -Wall -Wextra -Wswitch-enum -g
 
 all: $(OUT)
 

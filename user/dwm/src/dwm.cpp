@@ -53,6 +53,26 @@ KSTATUS Dwm::HandleMouse(int handle) {
     // printf("this->FrontBuffer=0x%lx this->FrontBuffer->ptr=0x%lx this->CursorPosX=0x%lx this->CursorPosY=0x%lx\r\n", this->FrontBuffer, this->FrontBuffer->ptr, this->CursorPosX, this->CursorPosY);
     // printf("fb %dx%d cmp to gfb %dx%d\r\n", this->FrontBuffer->width, this->FrontBuffer->height, this->GlobalBuffer->width, this->GlobalBuffer->height);
     if (mouse->LeftClickPress) {
+        if (!this->OldLeftClickPress) {
+            for (Window* wnd : this->Windows) {
+                uint32_t x = wnd->GetPos().x;
+                uint32_t y = wnd->GetPos().y;
+                uint32_t w = wnd->GetWidth();
+                uint32_t h = wnd->GetHeight();
+                // check bounds
+                if (this->CursorPosX >= x && this->CursorPosX < (x + w) && this->CursorPosY >= y && this->CursorPosY < (y + h)) {
+                    if (FocusedWindow)  { FocusedWindow->IsActive = false; FocusedWindow->FullWindowRedraw = true;}
+                    this->Windows.remove(wnd);
+                    this->Windows.push_front(wnd);
+                    FocusedWindow = wnd;
+                    wnd->IsActive = true;
+                    wnd->FullWindowRedraw = true;
+                    this->Redraw(); // window order has changed
+                    // printf("dwm: clicked on window with whdl 0x%lx win x=%d win y=%d win w=%d win h=%d mousepos={%d, %d}\r\n", wnd->Wid, x, y, w, h, this->CursorPosX, this->CursorPosY);
+                    break;
+                }
+            }
+        }
         PutRect(this->CursorBuffer, 0, 0, 5, 5, ARGB(255, 0, 255, 0));
     } else if (mouse->RightClickPress) {
         PutRect(this->CursorBuffer, 0, 0, 5, 5, ARGB(255, 0, 0, 255));
@@ -61,16 +81,27 @@ KSTATUS Dwm::HandleMouse(int handle) {
     } else {
         PutRect(this->CursorBuffer, 0, 0, 5, 5, ARGB(255, 255, 255, 255));
     }
+    this->OldLeftClickPress = mouse->LeftClickPress;
     return KSUCCESS;
 }
 
-KSTATUS Dwm::Draw() {
+void Dwm::RedrawAllWindows() {
     for (Window* window : this->Windows) {
+        window->FullWindowRedraw = true;
         window->Draw();
     }
+}
+KSTATUS Dwm::Draw() {
     if (this->DrawFullBuffer) {
+        RedrawAllWindows();
         KSTATUS s = OsDrawFb(this->GlobalBuffer, this->FrontBuffer, 0, 0);
         this->DrawFullBuffer = false;
+    } else {
+        for (Window* window : this->Windows) {
+            if (window->FullWindowRedraw) {
+                window->DrawDirty(); // note: draw dirty directly draws onto global buffer
+            }
+        }
     }
     if (this->CursorPosX == this->OldCursorPosX && this->CursorPosY == this->OldCursorPosY) {
         KSTATUS s = KSUCCESS;

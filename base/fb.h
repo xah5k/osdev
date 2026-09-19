@@ -2,7 +2,8 @@
 #include <stdint.h>
 #include <kernel.h>
 #define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
-#define FBOFF(x, y, fbinfo) (y * fbinfo->scanline) + (x * fbinfo->bpp)
+// shi confused me bruh
+#define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
 
 void FbTextInitalize(void* sfn, void* fb);
 void FbPutc(char c);

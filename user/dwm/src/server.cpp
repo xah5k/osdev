@@ -30,6 +30,7 @@ extern "C" void SignalReceive(int SigIdx) {
         case DWMPCK_CRWIN: {
             Window* w = gServer->CreateWindow(std::to_string(m->FromPid), pck->CrWinWidth, pck->CrWinHeight, RANDRANGE(0, gServer->dwm->GetFrontBuffer()->width), RANDRANGE(0, gServer->dwm->GetFrontBuffer()->height));
             w->OwningPid = m->FromPid;
+            w->Options = pck->CrWinOpt;
             OsMessage* msg = gServer->CreateFbInfoMsg(w->GetFb(), (WNDHDL)w->Wid);
             msg->ToPid = m->FromPid;
             DwmPacket* pck2 = (DwmPacket*)((uint64_t)msg + sizeof(OsMessage));
@@ -47,7 +48,7 @@ extern "C" void SignalReceive(int SigIdx) {
             for (Window* w : wlist) {
                 if (w->Wid == *pWhdl) {
                     w->FullWindowRedraw = true;
-                    gServer->dwm->Redraw();
+                    break;
                 }
             }
             break;

@@ -39,7 +39,7 @@ void SignalReceive(int SigIdx) {
     free(m);
 }
 
-KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height) {
+KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, DwmCrWinOpt Opt) {
     OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket));
     m->FromPid = getpid();
     m->ToPid = 1; // dwm should be pid 1.
@@ -47,6 +47,7 @@ KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height) {
     DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
     p->CrWinWidth = Width;
     p->CrWinHeight = Height;
+    p->CrWinOpt = Opt;
     p->Type = DWMPCK_CRWIN;
     KSTATUS s;
     s = OsMsgSend(m);
@@ -62,6 +63,7 @@ KSTATUS DwmApiDrawFinish(WNDHDL w) {
     DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
     p->CrWinWidth = 0;
     p->CrWinHeight = 0;
+    p->CrWinOpt = DWMPCK_CRWIN_DEFAULT;
     p->Type = DWMPCK_DRAW;
     WNDHDL* pwhdl = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
     *pwhdl = w;
@@ -71,7 +73,6 @@ KSTATUS DwmApiDrawFinish(WNDHDL w) {
     return s;
 }
 
-#define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
 
 void PutPixel(uint64_t fb, int64_t x, int64_t y, uint32_t color) {
@@ -99,7 +100,7 @@ int main(int argc, const char* argv[]) {
     KSTATUS s;
     uint64_t r = dosyscall(36, SIGNAL_RECEIVEMSG, (uint64_t)SignalReceive, 0, 0, 0);
     printf("creating 128x128 window.\r\n");
-    s = DwmApiCreateWin(128, 128);
+    s = DwmApiCreateWin(128, 128, DWMPCK_CRWIN_WINDOWED);
     while (!gReFbInfRecv); // as ugly as this is we need it for synchronizing the server and client
     printf("after. KSTATUS 0x%x\r\n", s);
     PutRect(gFbInfo->ptr, 64, 64, 10, 10, ARGB(255, 255, 0, 0));
