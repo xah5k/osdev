@@ -42,6 +42,7 @@ typedef enum {
     OS_FBDRAW,
     OS_FBDRAWPART,
     OS_FBGETINFO,
+    OS_FBPUTCAT, // uses kernel internal font to putc
     OS_SLEEPMS,
     OS_GETMSGQUEUE,
     OS_SENDMSG,

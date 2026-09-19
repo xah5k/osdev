@@ -29,6 +29,7 @@ Window::~Window() {
 uint64_t Window::DrawDecoration() {
     if (FullWindowRedraw && (this->Options == DWMPCK_CRWIN_DEFAULT || this->Options == DWMPCK_CRWIN_WINDOWED)) {
         this->dwm->PutRect(this->dwm->GetFrontBuffer(), this->Pos.x, this->Pos.y, this->Width, DWM_WINDOW_TITLEBAR_HEIGHT, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE);
+        OsDrawTextAtFb(this->dwm->GetFrontBuffer(), this->Name.c_str(), this->Pos.x, this->Pos.y, this->IsActive ? DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE : DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE, DWM_WINDOW_TITLEBAR_TEXTCOLOUR);
         return DWM_WINDOW_TITLEBAR_HEIGHT;
     }
     return 0;

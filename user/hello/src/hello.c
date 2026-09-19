@@ -104,6 +104,7 @@ int main(int argc, const char* argv[]) {
     while (!gReFbInfRecv); // as ugly as this is we need it for synchronizing the server and client
     printf("after. KSTATUS 0x%x\r\n", s);
     PutRect(gFbInfo->ptr, 64, 64, 10, 10, ARGB(255, 255, 0, 0));
+    OsDrawTextAtFb(gFbInfo, "Hello world!", 0, 0, ARGB(255, 255, 255, 255), ARGB(255, 255, 0, 0));
     DwmApiDrawFinish(Window);
     while (1);
     return 0;

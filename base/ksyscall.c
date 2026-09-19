@@ -668,6 +668,23 @@ uint64_t SysFbGetInfo(uint64_t outbuf, KE_SYSCALL_ARGS_UNUSED1) {
     return KSUCCESS;
 }
 
+typedef struct {
+    Framebuffer* fb;
+    char c;
+    int x;
+    int y;
+    uint32_t fg_color;
+    uint32_t bg_color;
+} FbPutcAtArgs;
+
+uint64_t SysFbPutcAt(uint64_t argptr, KE_SYSCALL_ARGS_UNUSED1) {
+    FbPutcAtArgs* args = (FbPutcAtArgs*)argptr;
+    if (!args) return (uint64_t)KINVALID;
+    if (!args->fb) return (uint64_t)KINVALID;
+    FbPutcAtIn(args->fb, args->c, args->x, args->y, args->fg_color, args->bg_color);
+    return KSUCCESS;
+}
+
 uint64_t SysSleepMs(uint64_t ms, KE_SYSCALL_ARGS_UNUSED1) {
     uacpi_kernel_sleep(ms); // using uacpi api for this is mad work
     return ms;
@@ -733,6 +750,7 @@ void KeRegisterSyscalls() {
     KiRegisterSyscall(OS_FBDRAWPART, SysFbDrawPart);
     KiRegisterSyscall(OS_FBFREE, SysFbFree);
     KiRegisterSyscall(OS_FBGETINFO, SysFbGetInfo);
+    KiRegisterSyscall(OS_FBPUTCAT, SysFbPutcAt);
     KiRegisterSyscall(OS_SLEEPMS, SysSleepMs);
     KiRegisterSyscall(OS_MKDIR, SysMkdir);
     KiRegisterSyscall(OS_GETMSGQUEUE, SysGetMessageQueue);
