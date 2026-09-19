@@ -671,23 +671,17 @@ static void KeTestExec(const char* s) {
 
 void KeUtilShell() {
     FbClear();
-    printf("kshell: Welcome to ah5kos 1.0.0\r\n");
-    printf("kshell: Total Free Physical RAM: %ld MB\r\n", UTIL_DIV_RUP(UTIL_DIV_RUP(PmmTotalFreePhysRam, 1024), 1024));
-    char* cwdbuf = MmAllocate(VFS_MAX_ALLOWED_PATH);
-    KE_SYSCALL_CALL_ARG2(SysGetCwd, (uint64_t)cwdbuf, VFS_MAX_ALLOWED_PATH);
-    printf("kshell: cwd is %s\r\n", cwdbuf);
+    printf("[Ah5kOs %d.%d %s]\r\n", 1, 0, __DATE__);
+    printf("Total Free Physical RAM: %ld MB\r\n", UTIL_DIV_RUP(UTIL_DIV_RUP(PmmTotalFreePhysRam, 1024), 1024));
     gKeEnvp = MmAllocate(sizeof(char*)*64);
     KeShlFillEnv("HOME=initrd:/home");
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
-    MmFree(cwdbuf);
     KeTestExec("initrd:/programs/dwm");
     KeTestExec("initrd:/programs/hello.elf");
-    printf("kshell> ");
     while (1) {
         char* str = KeShlReadStr();
-        KeShlProcess(str);
+        //KeShlProcess(str);
         MmFree(str);
-        printf("\r\nkshell> ");
     }
 }

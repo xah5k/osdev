@@ -21,12 +21,14 @@ class Window {
     Framebuffer* GetFb();
     bool FullWindowRedraw = false;
     bool IsActive = false;
+    bool DecorationRedraw = false;
     uint64_t OwningPid;
     WNDHDL Wid;
     DwmCrWinOpt Options;
     Point& GetPos();
     int GetWidth();
     int GetHeight();
+    void ChangeName(std::string newname);
     private:
     int Width;
     int Height;

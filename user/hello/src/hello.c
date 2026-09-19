@@ -73,6 +73,7 @@ KSTATUS DwmApiDrawFinish(WNDHDL w) {
     return s;
 }
 
+
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
 
 void PutPixel(uint64_t fb, int64_t x, int64_t y, uint32_t color) {

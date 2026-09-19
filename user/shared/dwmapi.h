@@ -3,7 +3,8 @@
 typedef enum {
     DWMPCK_CRWIN, // creates a window and returns the fbinfo struct for it
     DWMPCK_REFBINFO,
-    DWMPCK_DRAW
+    DWMPCK_DRAW,
+    DWMPCK_CHNAME,
 } DwmPckType;
 
 typedef enum {

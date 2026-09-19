@@ -53,6 +53,20 @@ extern "C" void SignalReceive(int SigIdx) {
             }
             break;
         }
+        case DWMPCK_CHNAME: {
+            WNDHDL* pWhdl = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
+            const char* pName = (const char*)((uint64_t)pWhdl + sizeof(WNDHDL));
+            printf("dwm: server: req to change name of whdl 0x%lx to %s\r\n", *pWhdl, pName);
+            std::list<Window*>& wlist = gServer->dwm->GetWindowsList();
+            for (Window* w : wlist) {
+                if (w->Wid == *pWhdl) {
+                    w->ChangeName(pName);
+                    w->DecorationRedraw = true;
+                    break;
+                }
+            }
+            break;
+        }
         default: {
             printf("dwm: server: invalid pck type %d.\r\n", pck->Type);
             break;
