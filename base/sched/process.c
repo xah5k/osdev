@@ -103,6 +103,8 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->MessageHead = NULL;
     new->MessageTail = NULL;
     new->MessageCount = 0;
+    new->ThreadListHead = NULL;
+    memset(&new->MessageQueueLock, 0, sizeof(Spinlock));
     KATTEMPT(KeSignalInitDef(new) == KSUCCESS);
     return new;
 }

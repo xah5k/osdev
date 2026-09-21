@@ -18,17 +18,11 @@ Window* Server::CreateWindow(std::string wname, int w, int h, int x, int y) {
     return window;
 }
 
-extern "C" void SignalReceive(int SigIdx) {
-    if (!gServer) return;
-    OsMessage* m = OsMsgGet(NULL, sizeof(DwmPacket) + gServer->dwm->GetGlobalBuffer()->size);
-    if (!m) {
-        printf("dwm: server: failed to get message from queue.\r\n");
-        return;
-    }
+static void ServerProcessMsg(OsMessage* m) {
     DwmPacket* pck = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
     switch (pck->Type) {
         case DWMPCK_CRWIN: {
-            Window* w = gServer->CreateWindow(std::to_string(m->FromPid), pck->CrWinWidth, pck->CrWinHeight, RANDRANGE(0, gServer->dwm->GetFrontBuffer()->width), RANDRANGE(0, gServer->dwm->GetFrontBuffer()->height));
+            Window* w = gServer->CreateWindow(std::to_string(m->FromPid), pck->CrWinWidth, pck->CrWinHeight, CLAMP(pck->CrWinX, 0, gServer->dwm->GetFrontBuffer()->width), CLAMP(pck->CrWinY, 0, gServer->dwm->GetFrontBuffer()->height));
             w->OwningPid = m->FromPid;
             w->Options = pck->CrWinOpt;
             OsMessage* msg = gServer->CreateFbInfoMsg(w->GetFb(), (WNDHDL)w->Wid);
@@ -47,6 +41,7 @@ extern "C" void SignalReceive(int SigIdx) {
             std::list<Window*>& wlist = gServer->dwm->GetWindowsList();
             for (Window* w : wlist) {
                 if (w->Wid == *pWhdl) {
+                    // printf("window with whdnl 0x%lx from pid %d {message fpid = %d} has completed drawing. wname=%s\r\n", *pWhdl, w->OwningPid, m->FromPid, w->GetName().c_str());
                     w->FullWindowRedraw = true;
                     break;
                 }
@@ -56,7 +51,7 @@ extern "C" void SignalReceive(int SigIdx) {
         case DWMPCK_CHNAME: {
             WNDHDL* pWhdl = (WNDHDL*)((uint64_t)pck + sizeof(DwmPacket));
             const char* pName = (const char*)((uint64_t)pWhdl + sizeof(WNDHDL));
-            printf("dwm: server: req to change name of whdl 0x%lx to %s\r\n", *pWhdl, pName);
+            // printf("dwm: server: req to change name of whdl 0x%lx to %s\r\n", *pWhdl, pName);
             std::list<Window*>& wlist = gServer->dwm->GetWindowsList();
             for (Window* w : wlist) {
                 if (w->Wid == *pWhdl) {
@@ -72,12 +67,24 @@ extern "C" void SignalReceive(int SigIdx) {
             break;
         }
     }
-    free(m);
+}
+extern "C" void SignalReceive(int SigIdx) {
+    if (!gServer) return;
+    OsMessage* m;
+    while ((m = OsMsgGet(NULL, sizeof(DwmPacket) + gServer->dwm->GetGlobalBuffer()->size)) != NULL) {
+        if (!m) {
+            printf("dwm: server: failed to get message from queue.\r\n");
+            return;
+        }
+        ServerProcessMsg(m);
+        // free(m);
+    }
     return;
 }
 
 OsMessage* Server::CreateFbInfoMsg(Framebuffer* info, WNDHDL whdl) {
     OsMessage* m = (OsMessage*)malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(DwmCrWinResponse));
+    memset((void*)m, 0, sizeof(OsMessage));
     m->FromPid = getpid();
     // to pid should be set by caller
     m->Length = sizeof(DwmPacket) + sizeof(DwmCrWinResponse);

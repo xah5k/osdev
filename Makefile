@@ -27,10 +27,10 @@ user: FORCE
 produceimage: user
 	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
 	@exec ./produceimage.sh
-	@exec ./tools/genosver.sh base osver.h
 # Fetch external sources
 preinit:
 	@exec ./preinit.sh
+	@exec ./tools/genosver.sh base osver.h
 
 
 $(KNAME).x86_64.elf: $(OBJ)

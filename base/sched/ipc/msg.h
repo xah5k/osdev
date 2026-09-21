@@ -1,5 +1,6 @@
 #pragma once
 #include "signal.h"
+#include <util/spinlock.h>
 
 typedef struct KeMessageObj {
     uint64_t FromPid;
@@ -9,4 +10,4 @@ typedef struct KeMessageObj {
 } KeMessageObj;
 
 KSTATUS KeMessageSend(KeMessageObj* Obj);
-KeMessageObj* KeMessagePopHead(KeMessageObj** Head, KeMessageObj** Tail, uint64_t* MCount);
+KeMessageObj* KeMessagePopHead(KeMessageObj** Head, KeMessageObj** Tail, uint64_t* MCount, Spinlock* QueueLock);

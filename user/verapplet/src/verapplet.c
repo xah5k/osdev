@@ -12,12 +12,14 @@ int main(int argc, const char* argv[]) {
     DwmApiInitalize();
     WNDHDL Window = NULL;
     Framebuffer* Fb = malloc(sizeof(Framebuffer));
-    DwmApiCreateWin(256, 256, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
+    DwmApiCreateWin(256, 256, 128, 128, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
     if (!Window) {
         perror("window creation fail");
         return -1;
     }
+    DwmApiChangeName(Window, "About ah5kos");
     printf("%d: created window.\r\n", getpid());
+    memset((void*)Fb->ptr, ARGB(255, 255, 255, 255), Fb->size);
     struct utsname* buf = malloc(sizeof(struct utsname));
     if (uname(buf) != 0) {
         perror("syscall fail.");

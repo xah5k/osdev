@@ -14,7 +14,7 @@ extern "C" int main(int argc, const char* argv[]) {
     // create a bunch of windows before starting
     // MainCreateWindow("window1", 50, 50, &dwm, 128, 128);
     // MainCreateWindow("window2", 100, 100, &dwm, 256, 256);
-    MainCreateWindow("window3", 200, 200, &dwm, 512, 512);
+    // MainCreateWindow("window3", 200, 200, &dwm, 512, 512);
     dwm.Start();
     KSTATUS s = dwm.GetStatus();
     return s;

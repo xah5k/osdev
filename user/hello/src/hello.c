@@ -12,11 +12,12 @@ int main(int argc, const char* argv[]) {
     DwmApiInitalize();
     WNDHDL Window = NULL;
     Framebuffer* Fb = malloc(sizeof(Framebuffer));
-    DwmApiCreateWin(256, 256, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
+    DwmApiCreateWin(256, 256, 256, 256, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
     if (!Window) {
         perror("window creation fail");
         return -1;
     }
+    DwmApiChangeName(Window, "Test program");
     printf("created window.\r\n");
     PutRect(Fb, 64, 64, 10, 10, ARGB(255, 255, 0, 0));
     OsPutcAtFb(Fb, 'A', 128, 128, ARGB(255, 255, 0, 0), ARGB(255, 255, 255, 255));

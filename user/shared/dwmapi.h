@@ -18,6 +18,8 @@ typedef struct {
     DwmCrWinOpt CrWinOpt;
     uint64_t CrWinWidth;
     uint64_t CrWinHeight;
+    uint64_t CrWinX;
+    uint64_t CrWinY;
 } DwmPacket;
 
 typedef void* WNDHDL;
@@ -33,4 +35,5 @@ KSTATUS DwmApiInitalize();
 void PutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color);
 void PutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color);
 KSTATUS DwmApiDrawFinish(WNDHDL w);
-KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, DwmCrWinOpt Opt, WNDHDL* WndOut, Framebuffer* FbOut);
+KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, uint64_t X, uint64_t Y, DwmCrWinOpt Opt, WNDHDL* WndOut, Framebuffer* FbOut);
+KSTATUS DwmApiChangeName(WNDHDL w, const char* Name);

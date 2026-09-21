@@ -21,6 +21,8 @@
 #include <hal/archsyscall.h>
 #include <fb.h>
 #include <uacpi/kernel_api.h>
+#include <osver.h>
+
 extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
@@ -370,7 +372,7 @@ uint64_t SysUname(uint64_t buf, KE_SYSCALL_ARGS_UNUSED1) {
     memset(&uname, 0, sizeof(utsname));
     strlcpy(uname.sysname, "ah5kos", sizeof(uname.sysname));
     strlcpy(uname.nodename, "<none>", sizeof(uname.nodename));
-    strlcpy(uname.release, "1.0.0", sizeof(uname.release));
+    snprintf(uname.release, 65, "%d.%d.%d.%d", OS_VER_MAJOR, OS_VER_MINOR, OS_VER_BUILD, OS_VER_REV);
     strlcpy(uname.version, __DATE__ " " __TIME__, sizeof(uname.version));
     strlcpy(uname.machine, "x86_64", sizeof(uname.release));
     strlcpy(uname.domainname, "<none>", sizeof(uname.domainname));
@@ -695,7 +697,7 @@ uint64_t SysGetMessageQueue(uint64_t ptrout, uint64_t maxlen, KE_SYSCALL_ARGS_UN
     ProcessCtrlBlk* p = ThrGetCurrent()->ParentProc;
     if (!p) return KINVALID;
     // if (p->MessageCount == 0) return KRESEND;
-    KeMessageObj* m = KeMessagePopHead(&p->MessageHead, &p->MessageTail, &p->MessageCount);
+    KeMessageObj* m = KeMessagePopHead(&p->MessageHead, &p->MessageTail, &p->MessageCount, &p->MessageQueueLock);
     if (!m) return KINVALID;
     if (m->Length > maxlen) return KINVALID;
     memcpy((void*)ptrout, m, sizeof(KeMessageObj) + m->Length);

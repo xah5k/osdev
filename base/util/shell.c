@@ -66,13 +66,13 @@ char* KeShlReadStr() {
             if (c == '\b') {
                 strbuf[index] = 0;
                 index--;
-                _putchar('\b');
-                _putchar(' ');
-                _putchar('\b');
+                // _putchar('\b');
+                // _putchar(' ');
+                // _putchar('\b');
                 continue;
             }
             strbuf[index] = c;
-            _putchar(c);
+            // _putchar(c);
             index++;
         }
     }
@@ -671,14 +671,15 @@ static void KeTestExec(const char* s) {
 
 void KeUtilShell() {
     FbClear();
-    printf("[Ah5kOs %d.%d %s]\r\n", 1, 0, __DATE__);
-    printf("Total Free Physical RAM: %ld MB\r\n", UTIL_DIV_RUP(UTIL_DIV_RUP(PmmTotalFreePhysRam, 1024), 1024));
+    // printf("[Ah5kOs %d.%d %s]\r\n", 1, 0, __DATE__);
+    // printf("Total Free Physical RAM: %ld MB\r\n", UTIL_DIV_RUP(UTIL_DIV_RUP(PmmTotalFreePhysRam, 1024), 1024));
     gKeEnvp = MmAllocate(sizeof(char*)*64);
     KeShlFillEnv("HOME=initrd:/home");
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
     KeTestExec("initrd:/programs/dwm");
     KeTestExec("initrd:/programs/hello.elf");
+    KeTestExec("initrd:/programs/verapplet.elf");
     while (1) {
         char* str = KeShlReadStr();
         //KeShlProcess(str);

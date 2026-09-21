@@ -77,7 +77,7 @@ KSTATUS Dwm::HandleMouse(int handle) {
                 if (this->CursorPosX >= x && this->CursorPosX < (x + w) && this->CursorPosY >= y && this->CursorPosY < (y + h)) {
                     if (FocusedWindow)  { FocusedWindow->IsActive = false; FocusedWindow->FullWindowRedraw = true;}
                     this->Windows.remove(wnd);
-                    this->Windows.push_front(wnd);
+                    this->Windows.push_back(wnd);
                     FocusedWindow = wnd;
                     wnd->IsActive = true;
                     wnd->FullWindowRedraw = true;
@@ -132,7 +132,7 @@ Dwm::Dwm() {}
 
 void Dwm::Redraw() {
     this->DrawFullBuffer = true;
-    this->Draw();
+    // this->Draw();
 }
 
 Dwm::Dwm(const char* MousePath) {

@@ -12,6 +12,11 @@
 #define DWM_WINDOW_TITLEBAR_HEIGHT 31
 #define DWM_WINDOW_BORDER_SIZE 3
 
+// useful for windows thats width and height might go off the screen
+#define CLAMP(v, lo, hi) \
+    std::max<std::common_type_t<decltype(lo), decltype(hi)>> \
+        (lo, std::min<std::common_type_t<decltype(v), decltype(hi)>>(v, hi)) // holy shit c++ is ugly only reason why i used it was for oop classes
+
 class Window {
     public:
     Window(std::string wname, int w, int h, Dwm* dwm, int x, int y);

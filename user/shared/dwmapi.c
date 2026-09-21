@@ -38,14 +38,17 @@ void SignalReceive(int SigIdx) {
     free(m);
 }
 
-KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, DwmCrWinOpt Opt, WNDHDL* WndOut, Framebuffer* FbOut) {
+KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, uint64_t X, uint64_t Y, DwmCrWinOpt Opt, WNDHDL* WndOut, Framebuffer* FbOut) {
     OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket));
+    memset((void*)m, 0, sizeof(OsMessage));
     m->FromPid = getpid();
     m->ToPid = 1; // dwm should be pid 1.
     m->Length = sizeof(DwmPacket);
     DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
     p->CrWinWidth = Width;
     p->CrWinHeight = Height;
+    p->CrWinX = X;
+    p->CrWinY = Y;
     p->CrWinOpt = Opt;
     p->Type = DWMPCK_CRWIN;
     KSTATUS s;
@@ -63,6 +66,7 @@ KSTATUS DwmApiCreateWin(uint64_t Width, uint64_t Height, DwmCrWinOpt Opt, WNDHDL
 
 KSTATUS DwmApiDrawFinish(WNDHDL w) {
     OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(WNDHDL));
+    memset((void*)m, 0, sizeof(OsMessage));
     m->FromPid = getpid();
     m->ToPid = 1; // dwm should be pid 1.
     m->Length = sizeof(DwmPacket) + sizeof(WNDHDL);
@@ -74,13 +78,31 @@ KSTATUS DwmApiDrawFinish(WNDHDL w) {
     WNDHDL* pwhdl = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
     *pwhdl = w;
     KSTATUS s;
-    printf("sending DWMPCK_DRAW to dwm {pid=%d} from pid %d for wndhdl 0x%lx\r\n", m->ToPid, m->FromPid, w);
+    // printf("sending DWMPCK_DRAW to dwm {pid=%d} from pid %d for wndhdl 0x%lx\r\n", m->ToPid, m->FromPid, w);
     s = OsMsgSend(m);
     free(m);
     return s;
 }
 
-
+KSTATUS DwmApiChangeName(WNDHDL w, const char* Name) {
+    OsMessage* m = malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(WNDHDL) + strlen(Name)+1);
+    memset((void*)m, 0, sizeof(OsMessage));
+    m->FromPid = getpid();
+    m->ToPid = 1; // dwm should be pid 1.
+    m->Length = sizeof(DwmPacket) + sizeof(WNDHDL) + strlen(Name)+1;
+    DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
+    p->CrWinWidth = 0;
+    p->CrWinHeight = 0;
+    p->CrWinOpt = DWMPCK_CRWIN_DEFAULT;
+    p->Type = DWMPCK_CHNAME;
+    WNDHDL* pwhdl = (WNDHDL*)((uint64_t)p + sizeof(DwmPacket));
+    *pwhdl = w;
+    char* pName = (char*)((uint64_t)pwhdl + sizeof(WNDHDL));
+    memcpy(pName, Name, strlen(Name)+1);
+    KSTATUS s;
+    s = OsMsgSend(m);
+    free(m);
+}
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
 
 void PutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color) {

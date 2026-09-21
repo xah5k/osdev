@@ -5,6 +5,7 @@
 #include <ttyobj.h>
 #include <sched/ipc/signal.h>
 #include <sched/ipc/msg.h>
+#include <util/spinlock.h>
 
 #define PS_USER_STACK_PAGES 64
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
@@ -53,6 +54,7 @@ typedef struct ProcessCtrlBlk {
     VfsOpenFileDescr* FileHandleTable;
     KeMessageObj* MessageHead;
     KeMessageObj* MessageTail;
+    Spinlock MessageQueueLock;
     uint64_t MessageCount;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Parent;
