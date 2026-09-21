@@ -1,9 +1,6 @@
 # ah5kos
 basically a kernel ive made with a buggy userspace
-currently i've been using bootboot as my boot loader
-but it has shown issues (unable to find ACPI on vmware/real hardware)
-and is also apparently abandoned? (might need to check this)
-so i'm not really sure whether to use limine.
+with limine as a bootloader. (used bootboot before but it was too buggy on real hardware.)
 
 # implemented things
 * x86_64 arch specific (interrupts, apic, ioapic, rtc clock)
@@ -20,11 +17,15 @@ so i'm not really sure whether to use limine.
 * UDP protocol (basic implementation)
 * DHCP protocol (basic impl)  
 
+# in progress
+* a usermode window manager
+
+
 # things i still want to add
 * job control (probably going to delay adding this)
 * port an actual shell (like busybox ash or bash even) with some coreutils
 * port doom (cuz why not)
-* gui of some sort (?? probably too unrealistic)
+* port a game like mario64 or sumth (never gonna happen)
 
 # external projects used
 * ```external/elf.h``` - Taken from standard library and is licensed as GNU LGPL
@@ -32,3 +33,5 @@ so i'm not really sure whether to use limine.
 * ```external/posix/*``` - Also taken from stdlib and is licensed as GNU LGPL.
 * ```external/utsname.h``` - Same as above.
 * ```external/uACPI``` - Licensed under the MIT license was made by Daniil Tatianin
+* ```external/stb_image.h``` - public domain image loader - http://nothings.org/stb
+* ```external/limine.h``` - limine bootloader defines and structs and is licensed under 0BSD.
