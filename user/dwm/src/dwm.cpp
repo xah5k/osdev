@@ -86,16 +86,16 @@ KSTATUS Dwm::HandleInput(int handle, int kbdhandle) {
                 }
             }
             if (wnd->IsActive) { // only if focused
-                uint32_t lx = this->CursorPosX - x;
-                uint32_t ly = this->CursorPosY - y;
+                int32_t lx = this->CursorPosX - x;
+                int32_t ly = this->CursorPosY - y;
                 lx = lx - ((wnd->Options == DWMPCK_CRWIN_WINDOWED) ? DWM_WINDOW_BORDER_SIZE : 0);
                 ly = ly - ((wnd->Options == DWMPCK_CRWIN_WINDOWED) ? DWM_WINDOW_TITLEBAR_HEIGHT : 0);
                 if (lx >= 0 && ly >= 0) {
                     DwmReEventResponse r;
                     r.Type = DWMPCK_EVENT_MOUSE;
                     r.Window = wnd->Wid;
-                    r.MouseX = lx;
-                    r.MouseY = ly; 
+                    r.MouseX = (uint32_t)lx;
+                    r.MouseY = (uint32_t)ly; 
                     r.MouseBtnLeft = mouse->LeftClickPress;
                     r.MouseBtnMiddle = mouse->MiddleClickPress;
                     r.MouseBtnRight = mouse->RightClickPress;
