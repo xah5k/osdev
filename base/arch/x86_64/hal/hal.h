@@ -30,14 +30,14 @@ typedef struct {
     in->r15 = out->r15; \
     in->r14 = out->r14; \
     in->r13 = out->r13; \
-    in->r12 = out->r12; \ 
+    in->r12 = out->r12; \
     in->r11 = out->r11; \
     in->r10 = out->r10; \
     in->r9 = out->r9; \
     in->r8 = out->r8; \
     in->rdi = out->rdi; \
     in->rsi = out->rsi; \
-    in->rdx = out->rdx; \ 
+    in->rdx = out->rdx; \
     in->rcx = out->rcx; \
     in->rbx = out->rbx; \
     in->rax = out->rax; \

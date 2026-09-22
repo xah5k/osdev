@@ -44,4 +44,4 @@ void PciEnumerate(AcpiMcfgTable* mcfg);
 void PciWriteDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset, uint32_t value);
 uint32_t PciReadDword(uint16_t base, uint8_t bus, uint8_t dev, uint8_t func, uint8_t offset);
 
-#define PCI_ECAM(base, bus, dev, func, offset) (volatile uint32_t*)(base + ((uint64_t)bus << 20) + ((uint64_t)dev << 15) + ((uint64_t)func << 12) + offset)
+#define PCI_ECAM(base, bus, dev, func, offset) ((volatile uint32_t*)((uint64_t)(base) + ((uint64_t)(bus)  << 20) + ((uint64_t)(dev)  << 15) + ((uint64_t)(func) << 12) + (uint64_t)(offset)))

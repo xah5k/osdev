@@ -256,7 +256,7 @@ void uacpi_kernel_restore_interrupts(uacpi_interrupt_state state) {
 }
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) {
-    return (uacpi_thread_id)ThrGetCurrent()->tid; // todo: tids might be the same for different threads. (like tid 0 in pid1 has the same tid as tid0 in pid2)
+    return (uacpi_thread_id)((uint64_t)ThrGetCurrent()->tid); // todo: tids might be the same for different threads. (like tid 0 in pid1 has the same tid as tid0 in pid2)
 }
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request* request) {

@@ -66,7 +66,7 @@ KSTATUS AcpiResolvePciGsi() {
         printf("acpi: fail: failed to get PRT. err \"%s\" \r\n", uacpi_status_to_string(ret));
         return KFAIL;
     }
-    uacpi_namespace_node *sb_node = uacpi_namespace_get_predefined(UACPI_PREDEFINED_NAMESPACE_SB);
+    // uacpi_namespace_node *sb_node = uacpi_namespace_get_predefined(UACPI_PREDEFINED_NAMESPACE_SB);
     // js loop through the table
     for (uacpi_size i = 0; i < prt->num_entries; i++) {
         uacpi_pci_routing_table_entry* e = &prt->entries[i];

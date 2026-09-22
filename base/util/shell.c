@@ -52,9 +52,9 @@ static KSTATUS KeShlListenCallback(NetEthFrameHdr* EFrame, NetIpv4Hdr* Ipv4, Net
     return KSUCCESS;
 }
 char* KeShlReadStr() {
-    char* strbuf = MmAllocate(sizeof(char) * 1024);
+    char* strbuf = MmAllocate(sizeof(char) * 64);
     int index = 0;
-    memset((void*)strbuf, 0, 1024);
+    memset((void*)strbuf, 0, 64);
     while (1) {
         char c = KbdTranslGetc();
         if (c < 0 || c > 0x7F) continue;
@@ -413,7 +413,7 @@ void KeShlProcess(char* string) {
             int fsz = OsGetFileSize(h);
             char* buf = MmAllocate(fsz);
             memset(buf, 0, fsz);
-            int r = OsRead(h, buf, fsz);
+            int r __attribute__((unused)) = OsRead(h, buf, fsz);
             for (int i = 0; i < fsz; i++) _putchar(buf[i]);
             printf("\r\n");
             OsClose(h);
@@ -621,7 +621,7 @@ void KeShlProcess(char* string) {
         NetDeregisterCalback(1);
     } else if (strcmp(string, "udptest") == 0) {
         uint8_t* buf = MmAllocate(13);
-        strlcpy(buf, "Hello world from ah5kos!", 13);
+        strlcpy((char*)buf, "Hello world from ah5kos!", 13);
         uint8_t ipaddr[4] = {192, 168, 100, 2}; // ip of host on tap
         uint16_t port = 25565; // only port i could think of, prob bcz of minecraft
         KSTATUS r = NetUdpSend(NetGetLinkedList(), ipaddr, buf, 13, 1234, port); // from us:1234 -> 192.168.100.2:25565
@@ -639,7 +639,7 @@ void KeShlProcess(char* string) {
         const char* pids = KeShlReadStr();
         printf("\r\n");
         int pid = AsciiAsInt(pids);
-        MmFree(pids);
+        MmFree((void*)pids);
         printf("enter message: ");
         const char* msg = KeShlReadStr();
         printf("\r\n");
@@ -651,7 +651,7 @@ void KeShlProcess(char* string) {
         memcpy((void*)((uint64_t)m + sizeof(KeMessageObj)), msg, strlen(msg)+1);
         KSTATUS s = KeMessageSend(m);
         printf("sent message. KSTATUS 0x%x\r\n", s);
-        MmFree(pids);
+        MmFree((void*)pids);
         // MmFree(msg);
     }
     else {
@@ -682,7 +682,7 @@ void KeUtilShell() {
     KeTestExec("initrd:/programs/verapplet.elf");
     while (1) {
         char* str = KeShlReadStr();
-        //KeShlProcess(str);
+        KeShlProcess(str);
         MmFree(str);
     }
 }

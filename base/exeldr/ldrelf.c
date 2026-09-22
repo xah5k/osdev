@@ -118,7 +118,7 @@ KSTATUS LdrElfValidate(Elf64_Ehdr* Elf) {
         printf("ldr: elf64: invalid cpu architecture\r\n");
         return KINVALID;
     }
-    Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
+    Elf64_Phdr* PHdr __attribute__((unused)) = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
     if (Elf->e_phentsize != sizeof(Elf64_Phdr)) {
         printf("ldr: elf64: program header size mismatch!\r\n");
         return KINVALID;
@@ -134,7 +134,7 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
     Elf64_Phdr* PHdr = (Elf64_Phdr*)((void*)Elf + Elf->e_phoff);
 
 
-    ProcessCtrlBlk* proc = ProcessNew(name);
+    ProcessCtrlBlk* proc = ProcessNew((char*)name);
     LdrElfMapPhdr(PHdr, Elf, proc);
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;

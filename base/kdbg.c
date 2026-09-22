@@ -24,6 +24,17 @@ static void KdTraceStack(uint32_t Frames, CpuInterruptArgs* r) {
     }
 }
 
+// eq to _return_address(n) on some compilers
+uint64_t KdGetLastReturnAddress(uint32_t Frame) {
+    HalStackFr* FrameBp;
+    HAL_GET_BP(FrameBp);
+    for (uint32_t i = 0; i < Frame+1; i++) {
+        if (FrameBp && i == Frame) {
+            return FrameBp->ip;
+        }
+    }
+}
+
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
     if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
         printf("kdbg: bugcheck in usermode.\r\n");

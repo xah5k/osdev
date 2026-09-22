@@ -19,13 +19,13 @@ all: preinit $(KNAME).x86_64.elf user drivers
 .PHONY: FORCE
 
 drivers: FORCE
-	$(MAKE) -C drivers all cpsysroot ARCH=$(ARCH)
+	@$(MAKE) -C drivers all cpsysroot ARCH=$(ARCH)
 
 user: FORCE
-	$(MAKE) -C user all cpsysroot ARCH=$(ARCH)
+	@$(MAKE) -C user all cpsysroot ARCH=$(ARCH)
 
 produceimage: user
-	cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
+	@cp $(KNAME).$(ARCH).elf sysroot/boot/osdev.elf
 	@exec ./produceimage.sh
 # Fetch external sources
 preinit:

@@ -19,4 +19,4 @@ void UtilPrintW(wchar_t* ptr, int len);
 uint16_t UtilSwapEnd16(uint16_t n);
 uint32_t UtilSwapEnd32(uint32_t n);
 void UtilPrintMacAddr(uint8_t* macaddr);
-void UtilPrintFmtAt(const char* message, int x, int y, ...);
+void UtilPrintFmtAt(int x, int y, const char* message, ...);

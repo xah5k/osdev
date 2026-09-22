@@ -394,7 +394,6 @@ uint64_t SysUmask(uint64_t mode, uint64_t modeout, KE_SYSCALL_ARGS_UNUSED2) {
 }
 
 uint64_t SysIoCtl(uint64_t handle, uint64_t request, uint64_t arg, KE_SYSCALL_ARGS_UNUSED3) {
-    ProcessCtrlBlk* proc = KernelGetCurrentProc();
     if (handle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     int IsTty = (handle == VFS_HANDLE_STDOUT || handle == VFS_HANDLE_STDERR || handle == VFS_HANDLE_STDIN);
     switch (request) {
@@ -406,15 +405,12 @@ uint64_t SysIoCtl(uint64_t handle, uint64_t request, uint64_t arg, KE_SYSCALL_AR
             ws.ws_xpixel = 0;
             ws.ws_ypixel = 0;
             memcpy((void*)arg, &ws, sizeof(unixwinsize));
-            KernelUnlockRsLck();
             return 0;
         }
         default: {
-            KernelUnlockRsLck();
             return (uint64_t)-1;
         }
     }
-    KernelUnlockRsLck();
     return (uint64_t)-1;
 }
 
@@ -573,7 +569,7 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
     MmapEntry** pp = &ThrGetCurrent()->ParentProc->MmapEntryHead;
     MmapEntry* e = *pp;
-    while (e != NULL || e > 0x1000) {
+    while (e != NULL || (uint64_t)e > 0x1000) {
         if (e->Vaddr == addr && e->Length == length) {
             for (uint64_t i = 0; i < e->Length; i += PAGE_SIZE) {
                 MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), (e->Vaddr + i));
@@ -710,6 +706,7 @@ uint64_t SysSendMessage(uint64_t msgptr, KE_SYSCALL_ARGS_UNUSED1) {
     KeMessageObj* m = (KeMessageObj*)msgptr;
     KeMessageObj* m2 = MmAllocate(sizeof(KeMessageObj) + m->Length);
     memcpy(m2, m, sizeof(KeMessageObj) + m->Length);
+    m2->Next = NULL;
     return (uint64_t)KeMessageSend(m2);
 }
 

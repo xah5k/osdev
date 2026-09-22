@@ -36,6 +36,7 @@ static void MouseWaitForInput() {
 }
 
 void MouseInterruptHandler(CpuInterruptArgs* r) {
+    (void)r;
     uint8_t status = inb(0x64);
     if (status & 0x01) {
         uint8_t In = inb(0x60);
@@ -116,10 +117,13 @@ static uint8_t MouseReadPort() {
 }
 
 KSTATUS MouseHwSpec(KeDeviceObj* dev, KeIoRequest* irp) {
+    (void)dev; (void)irp;
     MouseProcessPacket();
+    return KSUCCESS;
 }
 
 KSTATUS MouseRead(KeDeviceObj* dev, KeIoRequest* irp) {
+    (void)dev;
     KeDevMousePacket* pck = MouseProcessPacket();
     if (!pck) return KRESEND;
 

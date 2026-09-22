@@ -183,6 +183,7 @@ KSTATUS FbDrawPart(Framebuffer* destfb, Framebuffer* srcfb, int x, int y, int w,
         FbSrcPtr += srcfb->scanline;
         FbPtr += destfb->scanline;
     }
+    return KSUCCESS;
 }
 
 void FbPutcAtIn(Framebuffer* fb, char c, int x, int y, uint32_t fg_color, uint32_t bg_color) {

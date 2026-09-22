@@ -99,7 +99,7 @@ char* VfsRemoveFormatPath(const char* in) {
         }
         p++;
     }
-    return in;
+    return (char*)in;
 }
 
 int VfsIsAbsolute(const char* in) {
@@ -139,9 +139,9 @@ void VfsFillStat(posixstat* stat, uint64_t type, uint64_t size) {
 }
 
 int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
-    if (!proc) return (uint64_t)-1;
+    if (!proc) return -1;
     if (path[0] == '.' && path[1] == '/') {
-        uint64_t len = strlen((const char*)path)-2;
+        uint64_t len __attribute__((unused)) = strlen((const char*)path)-2;
         char* ptr = path+2;
         snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, ptr);
         uint64_t nl = strlen(acpath);
@@ -274,7 +274,7 @@ int OsWrite(int handle, const void* buffer, size_t nbytes) {
     if (handle <= -1 || handle >= VFS_MAX_ALLOWED_OPEN_HANDLES)  { KernelUnlockRsLck(); return -1; }
     if (proc->FileHandleTable[handle].Flag == VFS_OFD_FLAG_FILE && (((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_WO) == VFS_OFD_OFLAG_WO) || ((proc->FileHandleTable[handle].OpenFl & VFS_OFD_OFLAG_RW) == VFS_OFD_OFLAG_RW))) {
         VfsFile* f = proc->FileHandleTable[handle].Entry;
-        uint64_t FileSize = f->Size;
+        uint64_t FileSize __attribute__((unused)) = f->Size;
         uint64_t CurrentOff = proc->FileHandleTable[handle].CursorPos;
 
         KernelUnlockRsLck();

@@ -152,7 +152,7 @@ static void KeInitalizeDrivers() {
                 int sz = OsGetFileSize(handle);
                 void* buf = MmAllocate(sz);
                 if (!buf)  { printf("kernel: failed to allocate buffer.\r\n"); continue; }
-                int read = OsRead(handle, buf, sz);
+                int read __attribute__((unused)) = OsRead(handle, buf, sz);
                 KeDriverObj* driver = NULL;
                 KSTATUS result = LdrElfDriverExec(buf, &driver);
                 MmFree(buf);

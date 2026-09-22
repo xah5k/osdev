@@ -32,7 +32,7 @@ obj-x86_64/%.asm.o: %.asm
 	@echo [build driver $(DRVNAME).sys]" $<"
 
 cpsysroot:
-	cp $(DRVNAME).sys ../../sysroot/drivers/$(DRVNAME).sys
+	@cp $(DRVNAME).sys ../../sysroot/drivers/$(DRVNAME).sys
 clean:
 	@rm -rf $(DRVNAME).sys
 	@rm -rf obj-$(ARCH)

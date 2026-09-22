@@ -132,12 +132,12 @@ void ThrCheckSignals(CpuInterruptArgs* OldCtx) {
     }
     KeSignalHdlObj* SigObj = &CurrentThread->ParentProc->Handlers[SigIdx];
 
-    if (SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTIGN) {
+    if ((uint64_t)SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTIGN) {
         // ignore it
         return;
     }
 
-    if (SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTKHDL) {
+    if ((uint64_t)SigObj->Handler == KE_SIGLIST_ADDR_DEFAULTKHDL) {
         switch (KeSignalDefAct(SigIdx)) {
             case KE_SIGNAL_DEF_TERMINATE:
             case KE_SIGNAL_DEF_COREDUMP:

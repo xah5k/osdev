@@ -37,7 +37,7 @@ uint64_t TtyRead(KeTerminalObj* TtyObj, char* inbuf, uint64_t len) {
             if (i >= 128) break;
             TtyObj->StdinBuf[i] = KbdTranslGetc();
             if (TtyObj->StdinBuf[i] == '\n') {
-                memcpy((void*)TtyObj->StdinBuf, inbuf, i);
+                memcpy((void*)inbuf, TtyObj->StdinBuf, i);
                 return i;
             }
         }
@@ -47,6 +47,7 @@ uint64_t TtyRead(KeTerminalObj* TtyObj, char* inbuf, uint64_t len) {
         for (uint64_t i = 0; i < len; i++) {
             array[i] = KbdTranslGetc();
         }
+        memcpy((void*)inbuf, array, len);
         return len;
     }
 }

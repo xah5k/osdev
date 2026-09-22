@@ -85,18 +85,24 @@ KSTATUS Dwm::HandleInput(int handle, int kbdhandle) {
                     // printf("dwm: clicked on window with whdl 0x%lx win x=%d win y=%d win w=%d win h=%d mousepos={%d, %d}\r\n", wnd->Wid, x, y, w, h, this->CursorPosX, this->CursorPosY);
                 }
             }
-            uint32_t lx = this->CursorPosX - x;
-            uint32_t ly = this->CursorPosY - y;
-            DwmReEventResponse r;
-            r.Type = DWMPCK_EVENT_MOUSE;
-            r.Window = wnd->Wid;
-            r.MouseX = lx;
-            r.MouseY = ly;
-            r.MouseBtnLeft = mouse->LeftClickPress;
-            r.MouseBtnMiddle = mouse->MiddleClickPress;
-            r.MouseBtnRight = mouse->RightClickPress;
-            r.KbdChar = 0;
-            KSTATUS s = this->MsgServer->SendEventMsg(wnd->OwningPid, &r);
+            if (wnd->IsActive) { // only if focused
+                uint32_t lx = this->CursorPosX - x;
+                uint32_t ly = this->CursorPosY - y;
+                lx = lx - ((wnd->Options == DWMPCK_CRWIN_WINDOWED) ? DWM_WINDOW_BORDER_SIZE : 0);
+                ly = ly - ((wnd->Options == DWMPCK_CRWIN_WINDOWED) ? DWM_WINDOW_TITLEBAR_HEIGHT : 0);
+                if (lx >= 0 && ly >= 0) {
+                    DwmReEventResponse r;
+                    r.Type = DWMPCK_EVENT_MOUSE;
+                    r.Window = wnd->Wid;
+                    r.MouseX = lx;
+                    r.MouseY = ly; 
+                    r.MouseBtnLeft = mouse->LeftClickPress;
+                    r.MouseBtnMiddle = mouse->MiddleClickPress;
+                    r.MouseBtnRight = mouse->RightClickPress;
+                    r.KbdChar = 0;
+                    KSTATUS s = this->MsgServer->SendEventMsg(wnd->OwningPid, &r);
+                }
+            }
             // printf("dwm: send event to pid kstatus 0x%lx\r\n", s);
             break;
         }

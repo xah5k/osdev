@@ -24,12 +24,12 @@ obj-$(ARCH)/%.c.o: %.c
 	@echo " $<"
 
 obj-$(ARCH)/%.cpp.o: %.cpp
-	mkdir -p "$(dir $@)"
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS_CXX) -c $< -o $@
+	@mkdir -p "$(dir $@)"
+	@$(CXX) $(CXXFLAGS) $(CPPFLAGS_CXX) -c $< -o $@
 	@echo " $<"
 
 cpsysroot:
-	cp $(OUT) ../../sysroot/programs/$(OUT)
+	@cp $(OUT) ../../sysroot/programs/$(OUT)
 clean:
 	@rm -rf $(OUT)
 	@rm -rf obj-$(ARCH)

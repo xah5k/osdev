@@ -16,7 +16,7 @@ static const char* KrnlFsRootDirs[3] = {"Devices", "Drivers", "Processes"};
 int KrnlFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offset) {
     int read = -1;
     if (strcmpl(file->Path, "krnlfs:/Devices/", 16) == 0) {
-        char* DevName = file->Path + 16;
+        char* DevName = (char*)file->Path + 16;
         KeDeviceObj* d = KeFindDeviceByName(DevName);
         if (!d) {
             return -1;
@@ -33,7 +33,7 @@ int KrnlFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offse
         // printf("krnlfs: read=%d\r\n", read);
         return read;
     } else if (strcmpl(file->Path, "krnlfs:/Drivers/", 16) == 0) {
-        char* DrvName = file->Path + 16;
+        char* DrvName = (char*)file->Path + 16;
         KeDriverObj* d = KeDrvFindDriverByName(DrvName);
         if (!d) return -1;
         char cbuffer[1024];
@@ -42,7 +42,7 @@ int KrnlFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offse
         memcpy((void*)buffer, cbuffer, w);
         return w;
     } else if (strcmpl(file->Path, "krnlfs:/Processes/", 18) == 0) {
-        char* ProcName = file->Path + 18;
+        char* ProcName = (char*)file->Path + 18;
         KeDrvWriteFmt("krnlfs: ProcName=\"%s\"\r\n", ProcName); 
     }
     return read;
@@ -51,7 +51,7 @@ int KrnlFsRead(struct VfsFile* file, void* buffer, size_t nbytes, uint64_t offse
 static void KrnlFsInsertEntry(int i, char* Path, uint64_t Type, uint64_t Size) {
     VfsFile* file = MmAllocate(sizeof(VfsFile));
     memset((void*)file, 0, sizeof(VfsFile));
-    sprintf(file->Path, "%s", Path);
+    sprintf((char*)file->Path, "%s", Path);
     file->Type = Type;
     file->DrivePtr = gFsDrive;
     file->Size = Size;

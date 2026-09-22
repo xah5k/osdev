@@ -30,9 +30,7 @@ KSTATUS NetDeregisterCalback(uint16_t At) {
 KSTATUS NetRegisterNic(NetInterface* Nic) {
     Nic->Next = gNetInterfaceHead;
     gNetInterfaceHead = Nic; 
-    if (Nic->MacAddress) {
-        memcpy((void*)KernelGetInformation()->net.Mac, Nic->MacAddress, 6);
-    }   
+    memcpy((void*)KernelGetInformation()->net.Mac, Nic->MacAddress, 6);
     return KSUCCESS;
 }
 
@@ -413,9 +411,9 @@ KSTATUS NetIpv4Handle(NetEthFrameHdr* EthFrame, NetIpv4Hdr* Ipv4) {
         }
         case NET_IPV4_PROTOCOL_UDP: {
             NetUdpHdr* UdpHdr = (NetUdpHdr*)((uint64_t)EthFrame + sizeof(NetEthFrameHdr) + sizeof(NetIpv4Hdr));
-            uint16_t SrcPort = UtilSwapEnd16(UdpHdr->SrcPort);
+            uint16_t SrcPort __attribute__((unused)) = UtilSwapEnd16(UdpHdr->SrcPort);
             uint16_t DestPort = UtilSwapEnd16(UdpHdr->DestPort);
-            uint16_t Length = UtilSwapEnd16(UdpHdr->Length);
+            uint16_t Length __attribute__((unused)) = UtilSwapEnd16(UdpHdr->Length);
             #ifdef _NET_DEBUG
             printf("net: udp: UDP packet from %d.%d.%d.%d:%d -> %d.%d.%d.%d:%d\r\n", Ipv4->Sender[0], Ipv4->Sender[1], Ipv4->Sender[2], Ipv4->Sender[3], SrcPort, Ipv4->Destination[0], Ipv4->Destination[1], Ipv4->Destination[2], Ipv4->Destination[3], DestPort);
             printf("net: udp: Length %d\r\n", Length);
@@ -538,7 +536,7 @@ KSTATUS NetHandlePacket(NetInterface* Nic, void* Buffer, uint16_t Length) {
         printf("net: Protocol number: %d\r\n", Ipv4Hdr->Protocol);
         printf("net: [%d.%d.%d.%d] -> [%d.%d.%d.%d]\r\n", Ipv4Hdr->Sender[0], Ipv4Hdr->Sender[1], Ipv4Hdr->Sender[2], Ipv4Hdr->Sender[3], Ipv4Hdr->Destination[0], Ipv4Hdr->Destination[1], Ipv4Hdr->Destination[2], Ipv4Hdr->Destination[3]);
         #endif
-        KSTATUS r = NetIpv4Handle(EthFrame, Ipv4Hdr);
+        KSTATUS r __attribute__((unused)) = NetIpv4Handle(EthFrame, Ipv4Hdr);
         //printf("net: NetIpv4Handle KSTATUS 0x%lx\r\n", r);
     }
     // note we dont free the buffer mainly cuz the proper NetRead call might still be using it

@@ -13,8 +13,8 @@
 #define MM_HEAP_USED 1
 
 typedef struct _MmHeapHeader {
-    uint32_t Magic;
     uint64_t Size;
+    uint32_t Magic;
     uint16_t Status;
     uint16_t Unused;
     struct _MmHeapHeader* Next;

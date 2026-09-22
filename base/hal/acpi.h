@@ -59,8 +59,8 @@ typedef struct {
 
 typedef struct {
     AcpiMadtIntDeviceHdr header;
-    char BusSource;
-    char IrqSource;
+    uint8_t BusSource;
+    uint8_t IrqSource;
     uint32_t Gsi;
     uint16_t Flags;
 } __attribute__((packed)) AcpiMadtIntDevIntSrc;

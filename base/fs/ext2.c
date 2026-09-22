@@ -198,7 +198,7 @@ static KSTATUS Ext2CreateVfsTable(KeExt2Volume* Vol, uint32_t DirInode, char* Pa
                 Ext2InoData Inode1;
                 if (Ext2ReadInode(Vol, Ent->Inode, &Inode1) != KSUCCESS) KATTEMPT(0); // well shit
                 VfsFile* Current = MmAllocate(sizeof(VfsFile));
-                snprintf(Current->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, PathBf);
+                snprintf((char*)Current->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, PathBf);
                 if ((Inode1.TypePerm & 0xF000) == 0x8000) Current->Type = VFS_TYPE_FILE;
                 else if ((Inode1.TypePerm & 0xF000) == 0x4000) Current->Type = VFS_TYPE_DIRECTORY;
                 else Current->Type = 0x0;
@@ -840,7 +840,7 @@ int Ext2VfsRead(VfsFile* File, void* OutBuf, size_t Bytes, uint64_t Offset) {
 int Ext2VfsWrite(VfsFile* File, const void* InBuf, size_t Bytes, uint64_t Offset) {
     if (File->Type != VFS_TYPE_FILE) return -1;
     uint32_t Inode = File->DriverRsv;
-    KSTATUS r = Ext2WriteFile(gVolume, Inode, InBuf, Bytes, (uint32_t)Offset);
+    KSTATUS r = Ext2WriteFile(gVolume, Inode, (uint8_t*)InBuf, Bytes, (uint32_t)Offset);
     if (r != KSUCCESS) return -1;
     if (Bytes + Offset > File->Size) File->Size = (uint64_t)Bytes + Offset;
     return Bytes;
@@ -869,11 +869,11 @@ int Ext2VfsCreate(const char* Path, int Type) {
     uint32_t ParentInode = Ext2ResolvePath(gVolume, ParentPath);
     if (ParentInode == 0) return -1;
     uint32_t InodeOut;
-    KSTATUS r = Ext2CreateFile(gVolume, ParentInode, Name, Type, &InodeOut);
+    KSTATUS r = Ext2CreateFile(gVolume, ParentInode, (char*)Name, Type, &InodeOut);
     if (r != KSUCCESS) return -1;
     // also make vfs recognize it
     VfsFile* File = MmAllocate(sizeof(VfsFile));
-    strlcpy(File->Path, Path, VFS_MAX_ALLOWED_PATH);
+    strlcpy((char*)File->Path, Path, VFS_MAX_ALLOWED_PATH);
     File->Type = (Type == 1) ? VFS_TYPE_DIRECTORY : VFS_TYPE_FILE;
     File->DrivePtr = gVolume->Ext2Drive;
     File->DriverRsv = InodeOut;
@@ -962,10 +962,10 @@ void Ext2SbInit(uint64_t lba, uint64_t partnum) {
         MmFree(Vol);
         return;
     }
-    uint64_t Count = Ext2CountEntries(Vol, EXT2_ROOT_INODE, 0);
+    uint64_t Count __attribute__((unused)) = Ext2CountEntries(Vol, EXT2_ROOT_INODE, 0);
     Vol->Ext2Files = MmAllocate(sizeof(VfsFile));
     // manually make root node
-    snprintf(Vol->Ext2Files->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, "/");
+    snprintf((char*)Vol->Ext2Files->Path, VFS_MAX_ALLOWED_PATH, "%s:%s", Vol->Ext2Drive->Name, "/");
     Vol->Ext2Files->DrivePtr = Vol->Ext2Drive;
     Vol->Ext2Files->Size = Vol->BlockSize;
     Vol->Ext2Files->Type = VFS_TYPE_DIRECTORY;

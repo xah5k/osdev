@@ -109,7 +109,7 @@ void UtilPrintMacAddr(uint8_t* macaddr) {
 
 
 
-void UtilPrintFmtAt(const char* message, int x, int y, ...) {
+void UtilPrintFmtAt(int x, int y, const char* message, ...) {
     va_list va;
     va_start(va, message);
     char buffer[1024];

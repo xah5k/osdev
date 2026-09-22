@@ -31,6 +31,7 @@ void* KeGetExport(const char* name) {
             return __start_kexports[i].addr;
         }
     }
+    return NULL;
 }
 
 void KeRegisterDevice(KeDeviceObj* dev) {
@@ -139,7 +140,7 @@ const char** KeDrvBuildDriverList(int* countOut) {
         const char* ext = KeDrvGetFileExt(dirent.Name);
         if (ext && strcmp(ext, "sys") == 0) {
             Paths[i] = MmAllocate(len);
-            memcpy(Paths[i], dirent.Path, len);
+            memcpy((void*)Paths[i], dirent.Path, len);
             i++;
         }
         idx++;

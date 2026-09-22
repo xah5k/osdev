@@ -45,7 +45,7 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
         while (!(inb(gNic->IoBase + 0x37) & 0x01))  {
             Rtl8139DriverSt* DrvSt = (Rtl8139DriverSt*)gNic->DriverState;
             uint16_t Capr = inw(gNic->IoBase + 0x38);
-            uint16_t Offset = (Capr + 16) % RTL8139_RXBUF_SZ;
+            uint16_t Offset __attribute__((unused)) = (Capr + 16) % RTL8139_RXBUF_SZ;
             physaddr RxAddr = gNic->RxBuffer + DrvSt->RxReadOffset;
             void* VRxAddr = (void*)P2V(RxAddr);
             uint16_t PckStatus = (uint16_t)(*(uint32_t*)VRxAddr & 0xFFFF);
@@ -57,7 +57,7 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
             DrvSt->RxReadOffset = (DrvSt->RxReadOffset + PckLength + 4 + 3) & ~3;
             DrvSt->RxReadOffset %= RTL8139_RXBUF_SZ;
             outw(gNic->IoBase + 0x38, DrvSt->RxReadOffset - 16);
-            uint8_t CrAfter = inb(gNic->IoBase + 0x37);
+            uint8_t CrAfter __attribute__((unused)) = inb(gNic->IoBase + 0x37);
             Rtl8139Packet* Packet = MmAllocate(sizeof(Rtl8139Packet));
             Packet->Buffer = MmAllocate(PckLength - 4); // apparently the card can js start writing new data if we use the direct framedata ptr
             memcpy(Packet->Buffer, FrameData, PckLength - 4);
@@ -71,7 +71,7 @@ void Rtl8139InterruptHandler(CpuInterruptArgs* r) {
             DrvSt->RxQueue.Tail = Packet;
             // KeDrvWriteFmt("rtl8139: adding to queue @ ring offset 0x%x\r\n", DrvSt->RxReadOffset);
             // also call kernel callback
-            KSTATUS r = NetHandlePacket(gNic, Packet->Buffer, Packet->Length);
+            KSTATUS r __attribute__((unused)) = NetHandlePacket(gNic, Packet->Buffer, Packet->Length);
             Capr = inw(gNic->IoBase + 0x38); // reread
             uint16_t Cbr = inw(gNic->IoBase + 0x3A);
             if (DrvSt->RxReadOffset == Cbr) {
@@ -115,7 +115,7 @@ KSTATUS Rtl8139Transmit(NetInterface* Nic, void* Data, uint16_t Length) {
     memcpy((void*)P2V(TxBufferPhys), Data, Length);
     uint32_t TsadReg = 0x20 + (Nic->NextTxDesc * 4);
     uint32_t TsdReg  = 0x10 + (Nic->NextTxDesc * 4);
-    outl(Nic->IoBase + TsadReg, (uint32_t)TxBufferPhys);
+    outl(Nic->IoBase + TsadReg, (uint32_t)((uint64_t)TxBufferPhys));
     outl(Nic->IoBase + TsdReg, Length);
     Rtl8139DriverSt* DrvSt =  (Rtl8139DriverSt*)Nic->DriverState;
     DrvSt->TxSavedAddrs[Nic->NextTxDesc] = (physaddr)TxBufferPhys;
