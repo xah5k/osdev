@@ -46,7 +46,7 @@ void Dwm::PutHollowRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint6
     VerticalLine(fb, x + w - 1, y + 1, h - 2, color);
 }
 
-KSTATUS Dwm::HandleMouse(int handle) {
+KSTATUS Dwm::HandleInput(int handle, int kbdhandle) {
     KeDevMousePacket* mouse = (KeDevMousePacket*)malloc(sizeof(KeDevMousePacket));
     int s = read(handle, mouse, sizeof(KeDevMousePacket));
     if (s != sizeof(KeDevMousePacket)) {
@@ -66,15 +66,15 @@ KSTATUS Dwm::HandleMouse(int handle) {
     // printf("mouse RawPos X = %d mouse RawPos Y = %d CurPosX = %d CurPosY = %d\r\n", mouse->RawPos.x, mouse->RawPos.y, CursorPosX, CursorPosY);
     // printf("this->FrontBuffer=0x%lx this->FrontBuffer->ptr=0x%lx this->CursorPosX=0x%lx this->CursorPosY=0x%lx\r\n", this->FrontBuffer, this->FrontBuffer->ptr, this->CursorPosX, this->CursorPosY);
     // printf("fb %dx%d cmp to gfb %dx%d\r\n", this->FrontBuffer->width, this->FrontBuffer->height, this->GlobalBuffer->width, this->GlobalBuffer->height);
-    if (mouse->LeftClickPress) {
-        if (!this->OldLeftClickPress) {
-            for (Window* wnd : this->Windows) {
-                uint32_t x = wnd->GetPos().x;
-                uint32_t y = wnd->GetPos().y;
-                uint32_t w = wnd->GetWidth();
-                uint32_t h = wnd->GetHeight();
-                // check bounds
-                if (this->CursorPosX >= x && this->CursorPosX < (x + w) && this->CursorPosY >= y && this->CursorPosY < (y + h)) {
+    for (Window* wnd : this->Windows) {
+        uint32_t x = wnd->GetPos().x;
+        uint32_t y = wnd->GetPos().y;
+        uint32_t w = wnd->GetWidth();
+        uint32_t h = wnd->GetHeight();
+        // check bounds
+        if (this->CursorPosX >= x && this->CursorPosX < (x + w) && this->CursorPosY >= y && this->CursorPosY < (y + h)) {
+            if (mouse->LeftClickPress) {
+                if (!this->OldLeftClickPress) {
                     if (FocusedWindow)  { FocusedWindow->IsActive = false; FocusedWindow->FullWindowRedraw = true;}
                     this->Windows.remove(wnd);
                     this->Windows.push_back(wnd);
@@ -83,10 +83,25 @@ KSTATUS Dwm::HandleMouse(int handle) {
                     wnd->FullWindowRedraw = true;
                     this->Redraw(); // window order has changed
                     // printf("dwm: clicked on window with whdl 0x%lx win x=%d win y=%d win w=%d win h=%d mousepos={%d, %d}\r\n", wnd->Wid, x, y, w, h, this->CursorPosX, this->CursorPosY);
-                    break;
                 }
             }
+            uint32_t lx = this->CursorPosX - x;
+            uint32_t ly = this->CursorPosY - y;
+            DwmReEventResponse r;
+            r.Type = DWMPCK_EVENT_MOUSE;
+            r.Window = wnd->Wid;
+            r.MouseX = lx;
+            r.MouseY = ly;
+            r.MouseBtnLeft = mouse->LeftClickPress;
+            r.MouseBtnMiddle = mouse->MiddleClickPress;
+            r.MouseBtnRight = mouse->RightClickPress;
+            r.KbdChar = 0;
+            KSTATUS s = this->MsgServer->SendEventMsg(wnd->OwningPid, &r);
+            // printf("dwm: send event to pid kstatus 0x%lx\r\n", s);
+            break;
         }
+    }
+    if (mouse->LeftClickPress) {
         PutRect(this->CursorBuffer, 0, 0, 5, 5, ARGB(255, 0, 255, 0));
     } else if (mouse->RightClickPress) {
         PutRect(this->CursorBuffer, 0, 0, 5, 5, ARGB(255, 0, 0, 255));
@@ -170,7 +185,7 @@ void Dwm::Start() {
     this->DrawFullBuffer = true;
     this->MsgServer = new Server(this);
     while (1) {
-        this->HandleMouse(MouseDeviceHdl);
+        this->HandleInput(MouseDeviceHdl, STDIN_FILENO);
         this->Draw();
     }
 }
@@ -181,6 +196,7 @@ Dwm::~Dwm() {
     s = OsFreeFb(this->FrontBuffer);
     this->Status = s; // idrc
     delete this->MsgServer;
+    close(this->MouseDeviceHdl);
 }
 
 KSTATUS Dwm::RegisterWindow(const Window* window) {

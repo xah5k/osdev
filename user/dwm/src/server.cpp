@@ -82,6 +82,24 @@ extern "C" void SignalReceive(int SigIdx) {
     return;
 }
 
+KSTATUS Server::SendEventMsg(uint64_t ToPid, DwmReEventResponse* r) {
+    OsMessage* m = (OsMessage*)malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(DwmReEventResponse));
+    memset((void*)m, 0, sizeof(OsMessage));
+    m->FromPid = getpid();
+    m->Length = sizeof(DwmPacket) + sizeof(DwmReEventResponse);
+    m->ToPid = ToPid;
+    DwmPacket* p = (DwmPacket*)((uint64_t)m + sizeof(OsMessage));
+    p->Type = DWMPCK_REEVENT;
+    p->CrWinHeight = 0;
+    p->CrWinWidth = 0;
+    DwmReEventResponse* resp = (DwmReEventResponse*)((uint64_t)p + sizeof(DwmPacket));
+    memcpy((void*)resp, r, sizeof(DwmReEventResponse));
+    KSTATUS s;
+    s = OsMsgSend(m);
+    free(m);
+    return s;
+}
+
 OsMessage* Server::CreateFbInfoMsg(Framebuffer* info, WNDHDL whdl) {
     OsMessage* m = (OsMessage*)malloc(sizeof(OsMessage) + sizeof(DwmPacket) + sizeof(DwmCrWinResponse));
     memset((void*)m, 0, sizeof(OsMessage));

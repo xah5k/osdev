@@ -12,6 +12,8 @@ static volatile uint64_t mlength = sizeof(DwmPacket) + sizeof(DwmCrWinResponse);
 static Framebuffer* gFbInfo = NULL;
 static WNDHDL Window = NULL;
 
+extern KSTATUS DWMCALLBACK WndEventCallback(DwmReEventResponse* info);
+
 void SignalReceive(int SigIdx) {
     // printf("%d: mlength=%d\r\n", getpid(), mlength);
     OsMessage* m = OsMsgGet(NULL, mlength);
@@ -28,6 +30,12 @@ void SignalReceive(int SigIdx) {
                 gReFbInfRecv = true;
             }
             if (gFbInfo) memcpy((void*)gFbInfo, finfo, sizeof(Framebuffer));
+            break;
+        }
+        case DWMPCK_REEVENT: {
+            // printf("received event packet.\r\n");
+            DwmReEventResponse* resp = (DwmReEventResponse*)((uint64_t)p + sizeof(DwmPacket));
+            WndEventCallback(resp);
             break;
         }
         default: {
@@ -105,12 +113,12 @@ KSTATUS DwmApiChangeName(WNDHDL w, const char* Name) {
 }
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
 
-void PutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color) {
+void DwmApiPutPixel(Framebuffer* fb, int64_t x, int64_t y, uint32_t color) {
     uint32_t offset = FBOFF(x, y, fb);
     *(uint32_t*)((uint8_t*)fb->ptr + offset) = color;
 }
 
-void PutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color) {
+void DwmApiPutRect(Framebuffer* fb, int64_t x, int64_t y, uint64_t w, uint64_t h, uint32_t color) {
     if (x < 0 || y < 0) return;
     if ((uint64_t)x + w > fb->width) return;
     if ((uint64_t)y + h > fb->height) return;

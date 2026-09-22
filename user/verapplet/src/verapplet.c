@@ -8,11 +8,13 @@
 #include <stdbool.h>
 #include <sys/utsname.h>
 
+KSTATUS DWMCALLBACK WndEventCallback(DwmReEventResponse* info) {return KSUCCESS;}
+
 int main(int argc, const char* argv[]) {
     DwmApiInitalize();
     WNDHDL Window = NULL;
     Framebuffer* Fb = malloc(sizeof(Framebuffer));
-    DwmApiCreateWin(256, 256, 128, 128, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
+    DwmApiCreateWin(256, 256, 640, 480, DWMPCK_CRWIN_WINDOWED, &Window, Fb);
     if (!Window) {
         perror("window creation fail");
         return -1;

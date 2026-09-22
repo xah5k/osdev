@@ -11,6 +11,7 @@ class Server {
     ~Server();
     OsMessage* CreateFbInfoMsg(Framebuffer* info, WNDHDL whdl);
     OsMessage* CreateFbPtrMsg(Framebuffer* msg);
+    KSTATUS SendEventMsg(uint64_t ToPid, DwmReEventResponse* r);
     Window* CreateWindow(std::string wname, int w, int h, int x, int y);
     Dwm* dwm;
     private:

@@ -29,7 +29,7 @@ class Dwm {
     private:
     std::list<Window*> Windows;
     int MouseDeviceHdl = -1;
-    KSTATUS HandleMouse(int handle);
+    KSTATUS HandleInput(int handle, int kbdhandle);
     KSTATUS Draw();
     int64_t CursorPosX = 0;
     int64_t CursorPosY = 0;
