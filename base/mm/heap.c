@@ -102,6 +102,12 @@ void MmFree(void* ptr) {
     uint64_t r = SpnLckAcquireRfl(&MmInternalHeapLock);
     if (!ptr) { SpnLckReleaseRfl(&MmInternalHeapLock, r); return; }
     MmHeapBlockHdr* Block = (MmHeapBlockHdr*)ptr - 1;
+    int c1 = (Block->Magic != MM_HEAP_MAGIC);
+    int c2 = (Block->Status == MM_HEAP_FREE);
+    if (c1 || c2) {
+        printf("kheap: corruped/bad attempt to free ptr 0x%lx (c1(magic check)=%d, c2(double free)=%d) last ip = 0x%lx\r\n", ptr, c1, c2, KdGetLastReturnAddress(0));
+        return;
+    }
     Block->Status = MM_HEAP_FREE;
 
     if (BlockListHead == NULL || (uintptr_t)Block < (uintptr_t)BlockListHead) {

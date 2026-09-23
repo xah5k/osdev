@@ -543,6 +543,7 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
     MmapArgs* args = (MmapArgs*)structptr;
     if (!args) return (uint64_t)-1;
     if (args->fd == -1 && args->flags & 0x20) {
+        uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
         MmapEntry* e = MmAllocate(sizeof(MmapEntry));
         memset(e, 0, sizeof(MmapEntry));
         uint64_t length = MMU_ROUND_PAGE_UP(args->length);
@@ -559,6 +560,7 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
         e->Next = ThrGetCurrent()->ParentProc->MmapEntryHead;
         e->Length = length;
         ThrGetCurrent()->ParentProc->MmapEntryHead = e;
+        SpnLckReleaseRfl(&ThrGetCurrent()->ParentProc->MmapListLock, r);
         // printf("map: [e=0x%lx] e->Vaddr=0x%lx e->Length = %lu\r\n", e, e->Vaddr, e->Length);
         return (uint64_t)args->addr;
     }
@@ -569,18 +571,21 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
     MmapEntry** pp = &ThrGetCurrent()->ParentProc->MmapEntryHead;
     MmapEntry* e = *pp;
-    while (e != NULL || (uint64_t)e > 0x1000) {
+    uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
+    while (e != NULL && (uint64_t)e > 0x1000) {
         if (e->Vaddr == addr && e->Length == length) {
             for (uint64_t i = 0; i < e->Length; i += PAGE_SIZE) {
                 MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), (e->Vaddr + i));
             }
             *pp = e->Next;
             MmFree(e);
+            SpnLckReleaseRfl(&ThrGetCurrent()->ParentProc->MmapListLock, r);
             return 0;
         }
         pp = &e->Next;
         e = e->Next;
     }
+    SpnLckReleaseRfl(&ThrGetCurrent()->ParentProc->MmapListLock, r);
     return (uint64_t)-1;
 }
 

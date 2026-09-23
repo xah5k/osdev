@@ -78,7 +78,10 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc,
 // creates a new process and it makes one thread with the entry point
 ProcessCtrlBlk* ProcessNew(char* name) {
     ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
-    memcpy((void*)new->name, (void*)name, strlen(name)+1);
+    uint64_t NameSz = strlen(name);
+    if (NameSz >= sizeof(new->name)) NameSz = sizeof(new->name) - 1;
+    memcpy(new->name, name, NameSz);
+    new->name[NameSz] = '\0';
     memcpy((void*)new->cwd, (const void*)"initrd:/programs", 17);
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
@@ -105,6 +108,7 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->MessageCount = 0;
     new->ThreadListHead = NULL;
     memset(&new->MessageQueueLock, 0, sizeof(Spinlock));
+    memset(&new->MmapListLock, 0, sizeof(Spinlock));
     KATTEMPT(KeSignalInitDef(new) == KSUCCESS);
     return new;
 }

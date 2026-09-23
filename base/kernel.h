@@ -70,4 +70,4 @@ void KernelUnlockRsLck();
 #define KSUCCESS(x) if (x != KSUCCESS) { printf("x=%lu\r\n", x); KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__); }
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers);
 void KdBugcheck2(BugcheckCode code, CpuInterruptArgs* registers, int line, char* filename);
-uint64_t KdGetLastReturnAddress(uint32_t Frame);
+#define KdGetLastReturnAddress(n) __builtin_extract_return_addr(__builtin_return_address(n))

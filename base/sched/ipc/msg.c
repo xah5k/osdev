@@ -27,7 +27,7 @@ KeMessageObj* KeMessagePopHead(KeMessageObj** Head, KeMessageObj** Tail, uint64_
         return NULL;
     }
     KeMessageObj* Msg = *Head;
-    *Head = Msg->Next;
+    *Head = Msg->Next; // pf
     if (*Head == NULL) {
         *Tail = NULL;
     }

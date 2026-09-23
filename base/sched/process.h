@@ -55,6 +55,7 @@ typedef struct ProcessCtrlBlk {
     KeMessageObj* MessageHead;
     KeMessageObj* MessageTail;
     Spinlock MessageQueueLock;
+    Spinlock MmapListLock;
     uint64_t MessageCount;
     struct ThreadCtrlBlk* ThreadListHead;
     struct ProcessCtrlBlk* Parent;
