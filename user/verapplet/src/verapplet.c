@@ -34,6 +34,8 @@ int main(int argc, const char* argv[]) {
     free(buffer);
     printf("%d: finished drawing. notifying dwm..\r\n", getpid());
     DwmApiDrawFinish(Window);
-    while (1);
+    while (1) {
+        OsYield();
+    }
     return 0;
 }

@@ -1,5 +1,7 @@
 #pragma once
 #include <stdint.h>
+#include <ah5kos.h>
+
 typedef enum {
     DWMPCK_CRWIN, // creates a window and returns the fbinfo struct for it
     DWMPCK_REFBINFO,

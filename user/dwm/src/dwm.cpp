@@ -8,6 +8,7 @@
 #include "window.h"
 #include "server.h"
 #include <fcntl.h>
+#include <time.h>
 
 #define ARGB(a, r, g, b) (a << 24) | (r << 16) | (g << 8) | b
 #define FBOFF(x, y, fbinfo) ((y) * (fbinfo)->scanline + (x) * ((fbinfo)->bpp / 8))
@@ -101,6 +102,7 @@ KSTATUS Dwm::HandleInput(int handle, int kbdhandle) {
                     r.MouseBtnRight = mouse->RightClickPress;
                     r.KbdChar = 0;
                     KSTATUS s = this->MsgServer->SendEventMsg(wnd->OwningPid, &r);
+                    // if (r.MouseBtnLeft) printf("dwm: sent event message for mouse lclick event. ts = %d\r\n", time(NULL));
                 }
             }
             // printf("dwm: send event to pid kstatus 0x%lx\r\n", s);
