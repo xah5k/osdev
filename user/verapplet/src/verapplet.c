@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <ah5kos.h>
-#include "../../shared/dwmapi.h"
+#include "../../_shared/dwmapi.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>

@@ -22,6 +22,7 @@ drivers: FORCE
 	@$(MAKE) -C drivers all cpsysroot ARCH=$(ARCH)
 
 user: FORCE
+	@$(MAKE) -C user/_shared all ARCH=$(ARCH)
 	@$(MAKE) -C user all cpsysroot ARCH=$(ARCH)
 
 produceimage: user

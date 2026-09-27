@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <ah5kos.h>
-#include "../../shared/dwmapi.h"
-#include "../../shared/osui/osui.h"
-#include "../../shared/osui/btn.h"
+#include "../../_shared/dwmapi.h"
+#include "../../_shared/osui/osui.h"
+#include "../../_shared/osui/btn.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>

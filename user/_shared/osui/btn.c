@@ -1,4 +1,4 @@
-#include "../../shared/osui/btn.h"
+#include "btn.h"
 #include <ah5kos.h>
 #include <string.h>
 #include <assert.h>

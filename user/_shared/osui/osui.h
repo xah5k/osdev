@@ -1,5 +1,5 @@
 #pragma once
-#include "../../shared/dwmapi.h"
+#include "../../_shared/dwmapi.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

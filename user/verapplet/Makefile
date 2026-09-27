@@ -15,7 +15,7 @@ all: $(OUT)
 
 $(OUT): $(OBJ)
 	@mkdir -p "$(dir $@)"
-	@$(CXX) $(OBJ) -g -lm -o $@
+	@$(CXX) $(OBJ) -g -lm -L../_shared -ldwmapi -losui -o $@
 	@echo " $<"
 
 obj-$(ARCH)/%.c.o: %.c

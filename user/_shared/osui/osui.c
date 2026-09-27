@@ -1,4 +1,4 @@
-#include "../../shared/osui/osui.h"
+#include "osui.h"
 #include <ah5kos.h>
 #include <string.h>
 #include <stdlib.h>

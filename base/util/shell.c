@@ -680,6 +680,7 @@ void KeUtilShell() {
     KeTestExec("initrd:/programs/dwm");
     KeTestExec("initrd:/programs/hello.elf");
     KeTestExec("initrd:/programs/verapplet.elf");
+    // KeTestExec("initrd:/programs/doomgeneric");
     while (1) {
         char* str = KeShlReadStr();
         KeShlProcess(str);

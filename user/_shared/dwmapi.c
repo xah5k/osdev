@@ -1,5 +1,5 @@
 #include <ah5kos.h>
-#include "../../shared/dwmapi.h"
+#include "dwmapi.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
