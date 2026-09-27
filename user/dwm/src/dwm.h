@@ -2,7 +2,7 @@
 #include <ah5kos.h>
 #include <stdbool.h>
 #include <list>
-#include "../../shared/dwmapi.h"
+#include "../../_shared/dwmapi.h"
 class Window;
 class Server;
 

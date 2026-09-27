@@ -2,7 +2,7 @@
 #include <ah5kos.h>
 #include "dwm.h"
 #include <string>
-#include "../../shared/dwmapi.h"
+#include "../../_shared/dwmapi.h"
 
 
 class Server {

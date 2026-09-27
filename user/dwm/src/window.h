@@ -4,7 +4,7 @@
 #include <string>
 #include "dwm.h"
 #include <cstdbool>
-#include "../../shared/dwmapi.h"
+#include "../../_shared/dwmapi.h"
 
 #define DWM_WINDOW_TITLEBAR_COLOUR_ACTIVE ARGB(255, 58, 97, 243)
 #define DWM_WINDOW_TITLEBAR_COLOUR_INACTIVE ARGB(128, 143, 166, 250)

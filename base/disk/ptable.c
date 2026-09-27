@@ -38,9 +38,9 @@ KSTATUS PtableEnumerate(void* Lba1) {
     for (uint32_t i = 0; i < Hdr->PartitionNumber; i++) {
         GptPartEnt* Entry = (GptPartEnt*)base;
         if (memcmp((void*)Entry->PartitionTypeGuid, gZeroGuid, 16) == 0) continue;
-        // printf("ptable: partition %d: name=", i);
-        // UtilPrintW(Entry->PartitionName, 36);
-        // printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
+        printf("ptable: partition %d: name=", i);
+        UtilPrintW(Entry->PartitionName, 36);
+        printf("\r\nptable: partition %d: start lba = %d end lba = %d\r\n", i, Entry->StartLba, Entry->EndLba);
         if (i == 2 && gInitPart1 == 0 && KernelGetInformation()->DriverExt2Load) {
             Ext2SbInit(Entry->StartLba, i);
             gInitPart1 = 1;

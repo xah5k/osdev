@@ -4,8 +4,8 @@
 #include "window.h"
 #include <unistd.h>
 #include <string.h>
-#include "../../shared/dwmapi.h"
-#include "ah5kos.h"
+#include "../../_shared/dwmapi.h"
+#include <ah5kos.h>
 #include <time.h>
 
 Server* gServer = NULL;
