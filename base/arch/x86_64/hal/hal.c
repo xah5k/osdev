@@ -83,6 +83,7 @@ KSTATUS HalSetupMmu(KernelInformation* gkInfo) {
     // map pml4 itself
     MmuMapPage((pagetable*)P2V(kpml4), (virtaddr)((uint64_t)kpml4 + gMmuVOffset), (physaddr)kpml4, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE);
     // switch
+    KDBG;
     _x86_64_load_pml4((uint64_t)kpml4);
     // change offset (where physical memory is located in virtual address space)
     //gMmuVOffset = gMmuVOffset;
@@ -119,6 +120,7 @@ void HalContextSw(uint64_t* old, uint64_t new) {
 }
 
 void HalSwPageTable(uint64_t new) {
+    KATTEMPT(new);
     _x86_64_load_pml4(new);
 }
 void HalDumpRegisters(CpuInterruptArgs* registers) {

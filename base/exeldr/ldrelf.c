@@ -139,7 +139,7 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;
     // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry)
-    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv, argv, argc, envp, envc);
+    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv, SCHED_THREAD_PMEDIUM, argv, argc, envp, envc);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadMapUserStack(thr);

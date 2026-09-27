@@ -6,7 +6,7 @@
 #include <sched/ipc/signal.h>
 #include <sched/ipc/msg.h>
 #include <util/spinlock.h>
-
+struct KeSchedQueue;
 #define PS_USER_STACK_PAGES 64
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
@@ -23,6 +23,10 @@
 
 #define SCHED_PRIV_KERNEL 0
 #define SCHED_PRIV_USER 1
+
+#define SCHED_THREAD_PLOW 0
+#define SCHED_THREAD_PMEDIUM 16
+#define SCHED_THREAD_PHIGH 32
 
 typedef struct MmapEntry {
     virtaddr Vaddr;
@@ -69,7 +73,10 @@ typedef struct ThreadCtrlBlk {
     uint64_t UserStackBase; // vaddr
     uint32_t tid;
     uint8_t state;
-    uint8_t priority;
+    uint32_t priority;
+    uint32_t bpriority; // priority when first created
+    uint32_t deadline; // ticks countdown
+    uint32_t tickdefault;
     void* entry;
     uint8_t privilege; // 0 = kernel, 1 = user
     uint64_t exitcode;
@@ -86,14 +93,18 @@ typedef struct ThreadCtrlBlk {
     #endif
     struct ProcessCtrlBlk* ParentProc;
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
+    struct ThreadCtrlBlk* GlobalPrev;
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
     CpuInterruptArgs* LastIframe;
+    uint64_t CpuNum;
 } ThreadCtrlBlk;
 
 void ThrDeathCleanup();
+void ThreadRemove(ThreadCtrlBlk* Tcb);
+ThreadCtrlBlk* ThreadNext(struct KeScheduler* Sched);
 ThreadCtrlBlk* ThrGetCurrent();
 ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo);
-ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, const char** argv, int argc, const char** envp, int envc);
+ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, uint32_t prior, const char** argv, int argc, const char** envp, int envc);
 ProcessCtrlBlk* ProcessNew(char* name);
 void ProcessCreate(void* entry, KernelInformation* kinfo, uint8_t priv);
 uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptArgs* frame);
@@ -105,3 +116,5 @@ void ProcListRunning(KernelInformation* kinfo);
 void ThreadAdd(ThreadCtrlBlk* Tcb);
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb);
 void ThrCheckSignals(CpuInterruptArgs* OldCtx);
+void ThreadQueueAdd(struct KeSchedQueue* Queue, ThreadCtrlBlk* Tcb);
+void ThreadQueueRemove(struct KeSchedQueue* Queue, ThreadCtrlBlk* Tcb);

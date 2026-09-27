@@ -31,7 +31,8 @@ void CpuEnableLapic() {
 void CpuLapicTimerHandler(CpuInterruptArgs* r) {
     lapictimertick++;
     CpuLapicEoi();
-    Schedule();
+    SchedYield();
+    ThrGetCurrent()->deadline--;
     if ((((r)->cs & 3) == 3)) {
         ThrGetCurrent()->LastIframe = r;
         ThrCheckSignals((CpuInterruptArgs*)ThrGetCurrent()->LastIframe);

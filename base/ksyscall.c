@@ -75,28 +75,7 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
     // unlink from list
     previous1->ProcNext = current1->ProcNext;
     _2:
-    if (c != CurrentThread) {
-        if (c == ReadyQueueHead) {
-            ReadyQueueHead = c->GlobalNext;
-            c->GlobalNext = NULL;
-            goto _3;
-        }
-        
-        ThreadCtrlBlk* current2 = ReadyQueueHead;
-        ThreadCtrlBlk* previous2 = NULL;
-        while (current2 != NULL && current2 != c) {
-            //printf("current2=0x%lx\r\n", current2);
-            previous2 = current2;
-            current2 = current2->GlobalNext;
-        }
-
-        if (!current2 || current2 != c) {
-           // printf("current2=0x%lx c=0x%lx\r\n", current2, c);
-            KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
-        }
-        previous2->GlobalNext = current2->GlobalNext;
-        current2->GlobalNext = NULL;
-    }
+    ThreadRemove(c);
     _3:
     c->ProcNext = NULL;
     c->GlobalNext = NULL;

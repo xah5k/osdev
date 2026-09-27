@@ -76,10 +76,10 @@ void KernelApplicationProc();
 
 static KernelInformation* gkInfo;
 Spinlock KernelResourceLock = {ATOMIC_FLAG_INIT};
-
+static int gFbPermissible = 0;
 void _putchar(char character) {
     HalPutChar(character);
-    FbPutc(character);
+    if (gFbPermissible) FbPutc(character);
 }
 
 
@@ -130,6 +130,7 @@ static KernelInformation* KeCreateKinfo() {
     kInfo->net.Ip[3] = 1;
     kInfo->net.DhcpXid = 0x3903F326;
     kInfo->net.ArpHead = NULL;
+    kInfo->CurrentSchedCount = 0;
     KeParseConfig(kInfo);
     return (KernelInformation*)(kInfo);
 }
@@ -188,6 +189,7 @@ void KeFbAsConsole() {
     OsRead(h, (void*)buf, sz);
     FbTextInitalize((void*)buf, gkInfo->fb);
     OsClose(h);
+    gFbPermissible = 1;
 }
 
 void KeInitalizeDiskParts() {
