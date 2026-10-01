@@ -17,7 +17,7 @@
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;
-ThreadCtrlBlk* DeathThread;
+KeSchedQueue DeathQueue = {NULL, NULL};
 ThreadCtrlBlk* IdleThreadPtr;
 static KernelInformation* gkinfoPtr;
 void SchedIdleThread() {
@@ -38,6 +38,7 @@ void SchedInitalize(KernelInformation* kinfo) {
     KernelProc->pid = 0;
     KernelProc->nextfh = 3; // process.c
     KernelProc->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    KernelProc->ThreadList = MmAllocate(sizeof(KeSchedQueue));
     memset(KernelProc->FileHandleTable, 0, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     KernelProc->Next = NULL;
 
@@ -45,11 +46,11 @@ void SchedInitalize(KernelInformation* kinfo) {
     ThreadCtrlBlk* KernelThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
     memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
     KernelThread->tid = 0;
-    KernelThread->state = SCHED_THREAD_RUNNING;
+    KernelThread->State = SCHED_THREAD_RUNNING;
     KernelThread->KernelRsp = HalGetStack();
     KernelThread->privilege = SCHED_PRIV_KERNEL;
-    KernelThread->priority = 4;
-    KernelThread->bpriority = 4;
+    KernelThread->Priority = 4;
+    KernelThread->Bpriority = 4;
     KernelThread->tickdefault = 64;
     KernelThread->deadline = 64;
 
@@ -71,20 +72,21 @@ void SchedInitalize(KernelInformation* kinfo) {
 void Schedule(KeScheduler* Sched) {
     uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
     ThreadCtrlBlk* OldThr = CurrentThread;
-    if (OldThr == DeathThread) {
-        OldThr->state = SCHED_THREAD_DEAD;
-    } else if (OldThr->state == SCHED_THREAD_RUNNING) {
-        OldThr->state = SCHED_THREAD_READY;
+    if (OldThr->State == SCHED_THREAD_DYING) {
+        OldThr->State = SCHED_THREAD_DEAD;
+    } else if (OldThr->State == SCHED_THREAD_RUNNING) {
+        OldThr->State = SCHED_THREAD_READY;
     }
 
-    if (OldThr->state == SCHED_THREAD_READY) {
+    if (OldThr->State == SCHED_THREAD_READY) {
         OldThr->deadline = OldThr->tickdefault;
-        ThreadQueueAdd(&Sched->Queues[OldThr->priority], OldThr);
+        ThreadQueueAdd(&Sched->Queues[OldThr->Priority], OldThr);
+        Sched->Bitmap |= (1ULL << OldThr->Priority);
     }
     ThreadCtrlBlk* NextThr = ThreadNext(Sched);
     if (!NextThr) NextThr = IdleThreadPtr;
     CurrentThread = NextThr;
-    NextThr->state = SCHED_THREAD_RUNNING;
+    NextThr->State = SCHED_THREAD_RUNNING;
 
     if (OldThr != NextThr) {
         if (NextThr->ParentProc != OldThr->ParentProc) {
@@ -94,7 +96,7 @@ void Schedule(KeScheduler* Sched) {
         if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
             if (NextThr->ParentProc->cr3) HalSwPageTable(NextThr->ParentProc->cr3);
             else {
-                printf("sched: warn: cr3 of next process is NULL (???)\r\n");
+                printf("sched: warn: cr3 of next process is NULL?\r\n");
                 printf("sched: warn: OldThr=0x%lx NextThr=0x%lx NextThr->ParentProc{pid=%d, cr3=0x%lx} OldThr->ParentProc{pid=%d, cr3=0x%lx}\r\n", OldThr, NextThr, NextThr->ParentProc->pid, NextThr->ParentProc->cr3, OldThr->ParentProc->pid, OldThr->ParentProc->cr3);
             }
         }
@@ -106,8 +108,9 @@ void Schedule(KeScheduler* Sched) {
     } else {
         SpnLckReleaseRfl(&SchedSpinlock, r);
     }
-    ThrDeathCleanup();
+    SpnLckReleaseRfl(&SchedSpinlock, r);
     HAL_INT_ON();
+    ThrDeathCleanup();
 }
 
 void SchedYield() {

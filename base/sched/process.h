@@ -7,6 +7,7 @@
 #include <sched/ipc/msg.h>
 #include <util/spinlock.h>
 struct KeSchedQueue;
+
 #define PS_USER_STACK_PAGES 64
 #define PS_USER_STACK_BASE 0x00007FFFFFFFF000
 
@@ -18,8 +19,9 @@ struct KeSchedQueue;
 
 #define SCHED_THREAD_READY 1
 #define SCHED_THREAD_RUNNING 2
-#define SCHED_THREAD_DEAD 3
-#define SCHED_THREAD_SUSPENDED 4
+#define SCHED_THREAD_DYING 3
+#define SCHED_THREAD_DEAD 4
+#define SCHED_THREAD_SUSPENDED 5
 
 #define SCHED_PRIV_KERNEL 0
 #define SCHED_PRIV_USER 1
@@ -61,7 +63,7 @@ typedef struct ProcessCtrlBlk {
     Spinlock MessageQueueLock;
     Spinlock MmapListLock;
     uint64_t MessageCount;
-    struct ThreadCtrlBlk* ThreadListHead;
+    struct KeSchedQueue* ThreadList;
     struct ProcessCtrlBlk* Parent;
     struct ProcessCtrlBlk* Next;
 } ProcessCtrlBlk;
@@ -72,9 +74,9 @@ typedef struct ThreadCtrlBlk {
     uint64_t UserRsp;
     uint64_t UserStackBase; // vaddr
     uint32_t tid;
-    uint8_t state;
-    uint32_t priority;
-    uint32_t bpriority; // priority when first created
+    uint8_t State;
+    uint32_t Priority;
+    uint32_t Bpriority; // priority when first created
     uint32_t deadline; // ticks countdown
     uint32_t tickdefault;
     void* entry;
@@ -95,10 +97,45 @@ typedef struct ThreadCtrlBlk {
     struct ThreadCtrlBlk* GlobalNext; // next thread in the actual global list of threads (scheduler doesnt care about which process it belongs to)
     struct ThreadCtrlBlk* GlobalPrev;
     struct ThreadCtrlBlk* ProcNext; // next thread that shares the same process
+    struct ThreadCtrlBlk* ProcPrev;
+    struct ThreadCtrlBlk* DeathNext;
+    struct ThreadCtrlBlk* DeathPrev;
     CpuInterruptArgs* LastIframe;
     uint64_t CpuNum;
 } ThreadCtrlBlk;
 
+// dumb macros prob should make a function instead
+#define PROC_THRADD(Queue, Tcb) do { \
+    Tcb->ProcNext = NULL; \
+    Tcb->ProcPrev = Queue->Tail; \
+    if (Queue->Tail) Queue->Tail->ProcNext = Tcb; \
+    else Queue->Head = Tcb; \
+    Queue->Tail = Tcb; \
+} while(0); \
+
+#define PROC_THRRM(Queue, Tcb) do { \
+    if (Tcb->ProcPrev) Tcb->ProcPrev->ProcNext = Tcb->ProcNext; \
+    else Queue->Head = Tcb->ProcNext; \
+    if (Tcb->ProcNext) Tcb->ProcNext->ProcPrev = Tcb->ProcPrev; \
+    else Queue->Tail = Tcb->ProcPrev; \
+} while (0); \
+
+#define THR_DEATHADD(Queue, Tcb) do { \
+    Tcb->DeathNext = NULL; \
+    Tcb->DeathPrev = Queue->Tail; \
+    if (Queue->Tail) Queue->Tail->DeathNext = Tcb; \
+    else Queue->Head = Tcb; \
+    Queue->Tail = Tcb; \
+} while(0); \
+
+#define THR_DEATHRM(Queue, Tcb) do { \
+    if (Tcb->DeathPrev) Tcb->DeathPrev->DeathNext = Tcb->DeathNext; \
+    else Queue->Head = Tcb->DeathNext; \
+    if (Tcb->DeathNext) Tcb->DeathNext->DeathPrev = Tcb->DeathPrev; \
+    else Queue->Tail = Tcb->DeathPrev; \
+} while (0); \
+
+void ThrDeathMark(ThreadCtrlBlk* Tcb);
 void ThrDeathCleanup();
 void ThreadRemove(ThreadCtrlBlk* Tcb);
 ThreadCtrlBlk* ThreadNext(struct KeScheduler* Sched);

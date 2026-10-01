@@ -35,7 +35,7 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
             HAL_GET_CR2(faultaddr);
             printf("fault address = 0x%lx ip = 0x%lx err = 0x%lx\r\n", faultaddr, HAL_GET_IP(registers), HAL_GET_ERR(registers));
             HalDumpRegisters(registers);
-            // KdTraceStack(5, registers);
+            KdTraceStack(5, registers);
             while (1) {
                 HAL_HALT();
             }

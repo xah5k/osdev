@@ -16,12 +16,14 @@ with limine as a bootloader. (used bootboot before but it was too buggy on real 
 * ICMP protocol (only echo packet)
 * UDP protocol (basic implementation)
 * DHCP protocol (basic impl)  
+* Round Robin Scheduler
 
 # in progress
 * a usermode window manager
-
+* add priority and aging to scheduler
 
 # things i still want to add
+* make it asynchronous (mouse does this but kbd and rtl8139 drivers still block)
 * job control (probably going to delay adding this)
 * port an actual shell (like busybox ash or bash even) with some coreutils
 * port doom (cuz why not)

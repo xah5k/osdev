@@ -17,6 +17,8 @@
 #include <net/net.h>
 #include <uacpi/kernel_api.h>
 #include <sched/ipc/msg.h>
+#include <sched/sched.h>
+
 char** gKeEnvp;
 int gKeEnvc = 0;
 
@@ -492,7 +494,7 @@ void KeShlProcess(char* string) {
         int sig = AsciiAsInt(sigs);
         MmFree(sigs);
         ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
-        ThreadCtrlBlk* current = process->ThreadListHead;
+        ThreadCtrlBlk* current = process->ThreadList->Head;
         while (current != NULL) {
             current->SigPendingSet |= (1ULL << sig);
             current = current->ProcNext;
@@ -678,6 +680,8 @@ void KeUtilShell() {
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
     KeTestExec("initrd:/programs/uname.elf");
+    // printf("0x%lx\r\n", KernelGetInformation()->Scheduler[0]->Bitmap);
+    // KeShlProcess("lsproc");
     // KeTestExec("initrd:/programs/hello.elf");
     // KeTestExec("initrd:/programs/verapplet.elf");
     // KeTestExec("initrd:/programs/doomgeneric");

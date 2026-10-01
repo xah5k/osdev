@@ -16,7 +16,7 @@
 
 extern Spinlock SchedSpinlock;
 extern ThreadCtrlBlk* CurrentThread;
-extern ThreadCtrlBlk* DeathThread;
+extern KeSchedQueue DeathQueue;
 extern ThreadCtrlBlk* IdleThreadPtr;
 
 static uint64_t PidCount = 0;
@@ -59,7 +59,7 @@ static const uint32_t TicksDefault[SCHED_THREAD_PHIGH+1] = {
     10,
     9,
     8,
-    4 // SCHED_THREAD_PHIGH
+    4, // SCHED_THREAD_PHIGH
 };
 
 static uint32_t ThrDecideTicksDefault(uint32_t Priority) {
@@ -86,9 +86,9 @@ void ProcListRunning(KernelInformation* kinfo) {
     printf("process: List of running processes: \r\n");
     while (current != NULL) {
         printf("process:     [*] %s (pid=%d)\r\n", current->name, current->pid);
-        ThreadCtrlBlk* thrc = current->ThreadListHead;
+        ThreadCtrlBlk* thrc = current->ThreadList->Head;
         while (thrc != NULL) {
-            printf("process:            [*] TID %d (prior=%d)\r\n", thrc->tid, thrc->priority);
+            printf("process:            [*] TID %d (prior=%d state=%d)\r\n", thrc->tid, thrc->Priority, thrc->State);
             thrc = thrc->ProcNext;
         }
         current = current->Next;
@@ -98,10 +98,10 @@ void ProcListRunning(KernelInformation* kinfo) {
 ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, uint32_t prior, const char** argv, int argc, const char** envp, int envc) {
     ThreadCtrlBlk* new = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(new, 0, sizeof(ThreadCtrlBlk));
-    new->state = SCHED_THREAD_READY;
+    new->State = SCHED_THREAD_READY;
     //new->tid = ThreadGetTid();
-    new->priority = prior;
-    new->bpriority = prior;
+    new->Priority = prior;
+    new->Bpriority = prior;
     new->tickdefault = ThrDecideTicksDefault(prior);
     new->deadline = new->tickdefault;
     new->privilege = priv;
@@ -148,7 +148,9 @@ ProcessCtrlBlk* ProcessNew(char* name) {
     new->MessageHead = NULL;
     new->MessageTail = NULL;
     new->MessageCount = 0;
-    new->ThreadListHead = NULL;
+    new->ThreadList = MmAllocate(sizeof(KeSchedQueue));
+    new->ThreadList->Head = NULL;
+    new->ThreadList->Tail = NULL;
     memset(&new->MessageQueueLock, 0, sizeof(Spinlock));
     memset(&new->MmapListLock, 0, sizeof(Spinlock));
     KATTEMPT(KeSignalInitDef(new) == KSUCCESS);
@@ -240,7 +242,7 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     memcpy((void*)new->FileHandleTable, proc->FileHandleTable, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     ThreadCtrlBlk* thr = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(thr, 0, sizeof(ThreadCtrlBlk));
-    thr->state = SCHED_THREAD_READY;
+    thr->State = SCHED_THREAD_READY;
     thr->privilege = caller->privilege;
     thr->exitcode = 0;
 
@@ -281,6 +283,9 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     ThreadAdd(thr);
     return new->pid;
 }
+
+
+
 void ThreadQueueAdd(struct KeSchedQueue* Queue, ThreadCtrlBlk* Tcb) {
     Tcb->GlobalNext = NULL;
     Tcb->GlobalPrev = Queue->Tail;
@@ -299,14 +304,15 @@ void ThreadQueueRemove(struct KeSchedQueue* Queue, ThreadCtrlBlk* Tcb) {
 // picks the next thread
 ThreadCtrlBlk* ThreadNext(struct KeScheduler* Sched) {
     if (Sched->Bitmap == 0) return IdleThreadPtr;
-    uint32_t priority = __builtin_ctzll(Sched->Bitmap);
-    ThreadCtrlBlk* Thr = Sched->Queues[priority].Head;
-    // if (Thr == NULL) printf("ThreadNext: picked priority %d but queue is empty (bitmap=0x%lx)", priority, Sched->Bitmap);
-    ThreadQueueRemove(&Sched->Queues[priority], Thr);
-    if (Sched->Queues[priority].Head == NULL) {
-        Sched->Bitmap &= ~(1ULL << priority);
+    uint32_t Priority = 63 - __builtin_clzll(Sched->Bitmap);
+    // printf("Priority = %d\r\n", Priority);
+    ThreadCtrlBlk* Thr = Sched->Queues[Priority].Head;
+    // if (Thr == NULL) printf("ThreadNext: picked Priority %d but queue is empty (bitmap=0x%lx)", Priority, Sched->Bitmap);
+    ThreadQueueRemove(&Sched->Queues[Priority], Thr);
+    if (Sched->Queues[Priority].Head == NULL) {
+        Sched->Bitmap &= ~(1ULL << Priority);
     }
-    // printf("picked and returning thread 0x%lx {tid=%d, proc{pid=%d, name='%s'}}\r\n", Thr, Thr->tid, Thr->ParentProc->pid, Thr->ParentProc->name);
+    // printf("picked and returning thread 0x%lx {tid=%d, proc{pid=%d, name='%s'}, priority=%d}\r\n", Thr, Thr->tid, Thr->ParentProc->pid, Thr->ParentProc->name, Thr->Priority);
     return Thr;
 }
 
@@ -314,42 +320,34 @@ void ThreadAdd(ThreadCtrlBlk* Tcb) {
     KeScheduler* Scheduler = KernelGetInformation()->Scheduler[Tcb->CpuNum];
     if (Scheduler) {
         // printf("adding thread 0x%lx with tid %d owned by pid %d\r\n", Tcb, Tcb->tid, Tcb->ParentProc->pid);
-        ThreadQueueAdd(&Scheduler->Queues[Tcb->priority], Tcb);
-        Scheduler->Bitmap |= (1ULL << Tcb->priority);
-        Tcb->state = SCHED_THREAD_READY;
+        ThreadQueueAdd(&Scheduler->Queues[Tcb->Priority], Tcb);
+        Scheduler->Bitmap |= (1ULL << Tcb->Priority);
+        Tcb->State = SCHED_THREAD_READY;
     }
 }
 
 void ThreadRemove(ThreadCtrlBlk* Tcb) {
     KeScheduler* Scheduler = KernelGetInformation()->Scheduler[Tcb->CpuNum];
     if (Scheduler) {
-        ThreadQueueRemove(&Scheduler->Queues[Tcb->priority], Tcb);
-        if (Scheduler->Queues[Tcb->priority].Head == NULL) {
-            Scheduler->Bitmap &= ~(1ULL << Tcb->priority);
+        KDBG;
+        ThreadQueueRemove(&Scheduler->Queues[Tcb->Priority], Tcb);
+        if (Scheduler->Queues[Tcb->Priority].Head == NULL) {
+            Scheduler->Bitmap &= ~(1ULL << Tcb->Priority);
         }
     }
 }
 
 
 void ThreadWake(ThreadCtrlBlk* Tcb) {
-    // if (!Tcb) return;
+    if (!Tcb) return;
 
-    // uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
+    uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
 
-    // Tcb->state = SCHED_THREAD_READY;
-    // Tcb->GlobalNext = NULL;
+    Tcb->State = SCHED_THREAD_READY;
+    Tcb->GlobalNext = NULL;
 
-    // if (ReadyQueueHead == NULL) {
-    //     ReadyQueueHead = Tcb;
-    // } else {
-    //     ThreadCtrlBlk* current = ReadyQueueHead;
-    //     while (current->GlobalNext != NULL) {
-    //         current = current->GlobalNext;
-    //     }
-    //     current->GlobalNext = Tcb;
-    // }
-
-    // SpnLckReleaseRfl(&SchedSpinlock, r);
+    ThreadAdd(Tcb);
+    SpnLckReleaseRfl(&SchedSpinlock, r);
 }
 KE_EXPORT_SYMBOL(ThreadWake);
 
@@ -383,46 +381,63 @@ ThreadCtrlBlk* ThreadPopHead(ThreadCtrlBlk** Head, ThreadCtrlBlk** Tail) {
 }
 KE_EXPORT_SYMBOL(ThreadPopHead);
 
+static Spinlock DeathSpinlock = {ATOMIC_FLAG_INIT};
+
 void ThrDeathCleanup() {
-    if (DeathThread != NULL) {
-        uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
-        if (DeathThread->KernelStackBase) {
-            MmFree((void*)DeathThread->KernelStackBase);
+    uint64_t r = SpnLckAcquireRfl(&DeathSpinlock);
+    ThreadCtrlBlk* c = DeathQueue.Head;
+    DeathQueue.Head = NULL;
+    DeathQueue.Tail = NULL;
+    while (c != NULL) {
+        ThreadCtrlBlk* n = c->DeathNext;
+        // printf("cleaning up thread 0x%lx {tid=%d, pid=%d}\r\n", c, c->tid, c->ParentProc->pid);
+        if (c->KernelStackBase) {
+            MmFree((void*)c->KernelStackBase);
         }
-        if(DeathThread->ParentProc->threads <= 0) {
-            // remove from kernel list
-            ProcessCtrlBlk* ProcList = KernelGetInformation()->ProcessListHead;
-            
-            if (DeathThread->ParentProc == ProcList){ ProcList = ProcList->Next;} else {
-                ProcessCtrlBlk* current = ProcList;
-                ProcessCtrlBlk* previous;
-                while (current != NULL) {
-                    if (current == DeathThread->ParentProc) break;
-                    previous = current;
-                    current = current->Next;
-                }
-                KATTEMPT(current);
-                if (!(current == DeathThread->ParentProc)) goto _s;
-                KATTEMPT(previous);
-                previous->Next = current->Next;
-            }
+        if (c->UserStackBase) {
+            PmmFreePages((void*)V2P(c->UserStackBase), PS_USER_STACK_PAGES);
+        }
+        c->ParentProc->threads--;
+        if(c->ParentProc->threads <= 0) {
+            printf("todo: remove process from list..\r\n");
             _s:
             KernelUnlockRsLck();
-            MmFree(DeathThread->ParentProc->FileHandleTable);
-            ProcFreePML4(DeathThread->ParentProc->pml4);
-            if (DeathThread->ParentProc->TtyObj) MmFree(DeathThread->ParentProc->TtyObj);
-            MmFree(DeathThread->ParentProc);
+            MmFree(c->ParentProc->FileHandleTable);
+            ProcFreePML4(c->ParentProc->pml4);
+            MmFree(c->ParentProc->ThreadList);
+            if (c->ParentProc->TtyObj) MmFree(c->ParentProc->TtyObj);
+            MmFree(c->ParentProc);
         }
-        MmFree(DeathThread);
-        DeathThread = NULL;
-        SpnLckReleaseRfl(&SchedSpinlock, r);
+        MmFree(c);
+        c = n;
     }
+    SpnLckReleaseRfl(&DeathSpinlock, r);
 }
+
+// caller should preempt if Tcb == CurrentThread
+// see SysExit
+void ThrDeathMark(ThreadCtrlBlk* Tcb) {
+    uint64_t r = SpnLckAcquireRfl(&DeathSpinlock);
+    if (Tcb->State == SCHED_THREAD_READY) {
+        ThreadRemove(Tcb);
+    }
+    Tcb->State = SCHED_THREAD_DYING;
+    KeSchedQueue* Queue = &DeathQueue;
+    THR_DEATHADD(Queue, Tcb);
+    // printf("marked thread 0x%lx {tid = %d, pid=%d} for death.\r\n", Tcb, Tcb->tid, Tcb->ParentProc->pid);
+    SpnLckReleaseRfl(&DeathSpinlock, r);
+    // if (Tcb == CurrentThread) {
+    //     Schedule(KernelGetInformation()->Scheduler[Tcb->CpuNum]);
+    // } else {
+    //     // ... 
+    // }
+}
+
 void ThreadEntry() {
     // SpnLckRelease(&SchedSpinlock);
     ThrDeathCleanup();
     HAL_INT_ON();
-    //printf("sched: wrapper: entering thread(tid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->entry);
+    // printf("sched: wrapper: entering thread(tid=%d pid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;
     if (entry) {
         switch (CurrentThread->privilege) {
@@ -443,8 +458,8 @@ void ThreadEntry() {
 
 void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb) {
     tcb->ParentProc = proc;
-    tcb->ProcNext = proc->ThreadListHead;
-    proc->ThreadListHead = tcb;
+    KeSchedQueue* Queue = proc->ThreadList;
+    PROC_THRADD(Queue, tcb);
     proc->threads++;
     tcb->tid = proc->threads-1;
 }

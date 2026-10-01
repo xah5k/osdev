@@ -1,15 +1,18 @@
+// #include <sched/sched.h>
 #include "ldrelf.h"
 #include <external/elf.h>
 #include <memory.h>
 #include <external/printf.h>
 #include <mm/pmm.h>
 #include <mm/heap.h>
-#include <sched/process.h>
+// #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
 #include <util/spinlock.h>
 #include <hal/ps.h>
+#include <sched/sched.h>
 
+// this alone should probably tell you how bad this spaghetti code is
 static Spinlock LdrLock = {ATOMIC_FLAG_INIT};
 
 KSTATUS LdrElfValidate(Elf64_Ehdr* Elf);
@@ -48,7 +51,7 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
         kenvp[i] = (char*)MmAllocate(len);
         memcpy(kenvp[i], envp[i], len);
     }
-    ThreadCtrlBlk* curr = target->ThreadListHead;
+    ThreadCtrlBlk* curr = target->ThreadList->Head;
     while (curr != NULL) {
         ThreadCtrlBlk* next = curr->ProcNext;
         if (curr != ThrGetCurrent()) {
@@ -65,7 +68,8 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     target->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
     target->SbrkCurrent = PS_USER_BRK_BASE;
 
-    target->ThreadListHead = NULL;
+    target->ThreadList->Head = NULL;
+    target->ThreadList->Tail = NULL;
     target->threads = 1;
     self->ProcNext = NULL;
     uint64_t entry = (uint64_t)Elf->e_entry;
@@ -73,7 +77,8 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     ThreadMapUserStack(self);
     self->entry = (void*)entry;
     self->exitcode = 0;
-    target->ThreadListHead = self;
+    target->ThreadList->Head = NULL;
+    target->ThreadList->Tail = NULL;
     for (int i = 0; i < argc; i++) MmFree(kargv[i]);
     for (int i = 0; i < envc; i++) MmFree(kenvp[i]);
     MmFree(kargv);

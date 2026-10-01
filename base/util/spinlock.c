@@ -30,7 +30,7 @@ void SpnLckRelease(Spinlock* lock) {
 }
 KE_EXPORT_SYMBOL(SpnLckRelease);
 uint64_t SpnLckAcquireRfl(Spinlock* lock) {
-
+    
     // save rfl
     #ifdef __x86_64__
     uint64_t rfl;

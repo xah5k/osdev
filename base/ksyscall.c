@@ -27,7 +27,7 @@ extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
-extern ThreadCtrlBlk* DeathThread;
+
 static void UserAcBegin() {
     if (KernelGetInformation()->cpufeats->smap) {
         asm volatile ("stac");
@@ -40,6 +40,11 @@ static void UserAcEnd() {
 }
 
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
+    if (CurrentThread->ParentProc->pid == 0) {
+        printf("process: tried to exit from a kernel thread????????\r\n");
+        KSUCCESS(KINVALID);
+        __builtin_unreachable();
+    }
     // handle exit
     CurrentThread->exitcode = exitcode;
     CurrentThread->ParentProc->exitcode = exitcode;
@@ -50,43 +55,21 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
         blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail); // threadpophead nulls out globalnext
     }
     uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
-    //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
+    // printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
     ThreadCtrlBlk* c = CurrentThread;
-
     // remove it from process list of threads
-
-    if (c == c->ParentProc->ThreadListHead) {
-        c->ParentProc->ThreadListHead = c->ParentProc->ThreadListHead->ProcNext;
-        c->ParentProc->threads--;
-        goto _2;
-    }
-    ThreadCtrlBlk* current1 = c->ParentProc->ThreadListHead;
-    ThreadCtrlBlk* previous1 = NULL;
-    while (current1 != NULL) {
-        if (current1 == c) {
-            break;
-        }
-        previous1 = current1;
-        current1 = current1->ProcNext;
-    }
-
-    KATTEMPT(current1);
-    KATTEMPT(current1 == c);
-    // unlink from list
-    previous1->ProcNext = current1->ProcNext;
-    _2:
-    ThreadRemove(c);
-    _3:
+    KeSchedQueue* Queue = c->ParentProc->ThreadList;
+    PROC_THRRM(Queue, c);
     c->ProcNext = NULL;
     c->GlobalNext = NULL;
-    DeathThread = c;
-    if (DeathThread->ParentProc->MmapEntryHead) {
-        MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
+    ThrDeathMark(c);
+    if (c->ParentProc->MmapEntryHead) {
+        MmapEntry* c2 = c->ParentProc->MmapEntryHead;
         MmapEntry* n;
-        while (c != NULL) {
-            n = c->Next;
-            MmFree(c);
-            c = n;
+        while (c2 != NULL) {
+            n = c2->Next;
+            MmFree(c2);
+            c2= n;
         }
     }
     SpnLckReleaseRfl(&SchedSpinlock, r);
@@ -98,7 +81,7 @@ uint64_t SysKill(uint64_t pid, uint64_t sign, KE_SYSCALL_ARGS_UNUSED2) {
     if (pid == 0) return -1; // cant kill kernel process
     ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
     if (!process) return -1; // no such process
-    ThreadCtrlBlk* thrlist = process->ThreadListHead;
+    ThreadCtrlBlk* thrlist = process->ThreadList->Head;
     if (!thrlist) return -1; // well somethings probably gone wrong (process is probably in the process of being killed)
     // send SIGKILL
     ThreadCtrlBlk* current = thrlist;
@@ -207,7 +190,7 @@ uint64_t SysWaitPid(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = ProcFindByPid(pid, KernelGetInformation());
     if (!proc) return (uint64_t)-1;
     ThreadCtrlBlk* thr = ThrGetCurrent();
-    thr->state = SCHED_THREAD_SUSPENDED;
+    thr->State = SCHED_THREAD_SUSPENDED;
     ThreadPushTail(&proc->BlockedQueueHead, &proc->BlockedQueueTail, thr);
     SchedYield();
     return proc->exitcode;
