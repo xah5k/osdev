@@ -70,13 +70,13 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
 
     target->ThreadList->Head = NULL;
     target->ThreadList->Tail = NULL;
-    target->threads = 1;
+    target->Threads = 1;
     self->ProcNext = NULL;
     uint64_t entry = (uint64_t)Elf->e_entry;
     ThreadCreateUserStack(self, (void*)entry, (const char**)kargv, argc, (const char**)kenvp, envc);
     ThreadMapUserStack(self);
     self->entry = (void*)entry;
-    self->exitcode = 0;
+    self->Exitcode = 0;
     target->ThreadList->Head = NULL;
     target->ThreadList->Tail = NULL;
     for (int i = 0; i < argc; i++) MmFree(kargv[i]);
@@ -154,7 +154,7 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;
     kinfo->CurrentProcess = proc;
-    if (pidout != NULL) *pidout = proc->pid;
+    if (pidout != NULL) *pidout = proc->Pid;
     return KSUCCESS;
 }
 

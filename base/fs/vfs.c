@@ -143,7 +143,7 @@ int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
     if (path[0] == '.' && path[1] == '/') {
         uint64_t len __attribute__((unused)) = strlen((const char*)path)-2;
         char* ptr = path+2;
-        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, ptr);
+        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->Cwd, ptr);
         uint64_t nl = strlen(acpath);
         if (acpath[nl-1] == '/') {
             acpath[nl-1] = '\0';
@@ -156,7 +156,7 @@ int VfsTranslatePath(char* path, char* acpath, ProcessCtrlBlk* proc) {
         memcpy(acpath, (const void*)path, len);
         acpath[len] = '\0';
     } else {
-        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->cwd, (const char*)path);
+        snprintf((char*)acpath, VFS_MAX_ALLOWED_PATH, "%s/%s", proc->Cwd, (const char*)path);
     }
     return 0;
 }
@@ -176,9 +176,9 @@ int OsOpen(const char* path, int flags) {
     if (flags == 0) flags = VFS_OFD_OFLAG_RW;
     ProcessCtrlBlk* current = KernelGetCurrentProc();
     if (!current) { KernelUnlockRsLck(); return -1; }
-    if (current->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
-    int handle = current->nextfh;
-    current->nextfh++;
+    if (current->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) { KernelUnlockRsLck(); return -1; }
+    int handle = current->NextFh;
+    current->NextFh++;
     current->FileHandleTable[handle].Entry = f;
     current->FileHandleTable[handle].Flag = VFS_OFD_FLAG_FILE;
     current->FileHandleTable[handle].OpenFl = flags;

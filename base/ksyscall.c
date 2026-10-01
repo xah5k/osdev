@@ -40,14 +40,14 @@ static void UserAcEnd() {
 }
 
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
-    if (CurrentThread->ParentProc->pid == 0) {
+    if (CurrentThread->ParentProc->Pid == 0) {
         printf("process: tried to exit from a kernel thread????????\r\n");
         KSUCCESS(KINVALID);
         __builtin_unreachable();
     }
     // handle exit
-    CurrentThread->exitcode = exitcode;
-    CurrentThread->ParentProc->exitcode = exitcode;
+    CurrentThread->Exitcode = exitcode;
+    CurrentThread->ParentProc->Exitcode = exitcode;
     // wake up anyone waiting
     ThreadCtrlBlk* blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail);
     while (blthr != NULL) {
@@ -129,7 +129,7 @@ uint64_t SysYield(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
 }
 
 uint64_t SysGetPid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
-    return CurrentThread->ParentProc->pid;
+    return CurrentThread->ParentProc->Pid;
 }
 
 
@@ -193,7 +193,7 @@ uint64_t SysWaitPid(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     thr->State = SCHED_THREAD_SUSPENDED;
     ThreadPushTail(&proc->BlockedQueueHead, &proc->BlockedQueueTail, thr);
     SchedYield();
-    return proc->exitcode;
+    return proc->Exitcode;
 }
 
 uint64_t SysSeek(uint64_t handle, uint64_t offset, uint64_t whence, KE_SYSCALL_ARGS_UNUSED3) {
@@ -229,10 +229,10 @@ uint64_t SysGetClock(uint64_t clockid, uint64_t secondsOutPtr, uint64_t nanosecs
 }
 uint64_t SysGetCwd(uint64_t buf, uint64_t size, KE_SYSCALL_ARGS_UNUSED2) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
-    uint64_t length = strlen(proc->cwd)+1;
+    uint64_t length = strlen(proc->Cwd)+1;
     if (length > size) return (uint64_t)-1;
     if (buf == 0) return (uint64_t)-1;
-    memcpy((void*)buf, (const void*)proc->cwd, size);
+    memcpy((void*)buf, (const void*)proc->Cwd, size);
     return buf;
 }
 
@@ -251,7 +251,7 @@ uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
         return (uint64_t)-1;
     }
     OsClose(handle);
-    strlcpy(proc->cwd, acpath, sizeof(proc->cwd));
+    strlcpy(proc->Cwd, acpath, sizeof(proc->Cwd));
     return 0;
 }
 
@@ -423,8 +423,8 @@ uint64_t SysDup(uint64_t oldhandle, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
     if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
-    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
-    int newhdl = proc->nextfh++;
+    if (proc->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    int newhdl = proc->NextFh++;
     proc->FileHandleTable[newhdl] = proc->FileHandleTable[oldhandle];
     // refcount 
     if (proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_PIPE) {
@@ -437,7 +437,7 @@ uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
     if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES || newhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
-    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (proc->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (oldhandle == newhandle) return newhandle;
     int newhdl = (int)newhandle;
     if (proc->FileHandleTable[newhdl].Entry || proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_FILE) {
@@ -453,7 +453,7 @@ uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2
 }
 
 uint64_t SysGetPpid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
-    return ThrGetCurrent()->ParentProc->Parent->pid;
+    return ThrGetCurrent()->ParentProc->Parent->Pid;
 }
 
 uint64_t SysAccess(uint64_t patha, uint64_t exist, uint64_t readp, uint64_t writep, uint64_t execp) {

@@ -3,4 +3,4 @@
 #define OS_VER_MAJOR 1
 #define OS_VER_MINOR 0
 #define OS_VER_BUILD 011026
-#define OS_VER_REV (int)(31e0)
+#define OS_VER_REV (int)(45e0)

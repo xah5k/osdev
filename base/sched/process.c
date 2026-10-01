@@ -71,7 +71,7 @@ ProcessCtrlBlk* ProcFindByPid(uint64_t pid, KernelInformation* kinfo) {
     if (!list) return NULL;
     ProcessCtrlBlk* current = list;
     while (current != NULL) {
-        if (current->pid == pid) {
+        if (current->Pid == pid) {
             return current;
         }
         current = current->Next;
@@ -85,10 +85,10 @@ void ProcListRunning(KernelInformation* kinfo) {
     ProcessCtrlBlk* current = list;
     printf("process: List of running processes: \r\n");
     while (current != NULL) {
-        printf("process:     [*] %s (pid=%d)\r\n", current->name, current->pid);
+        printf("process:     [*] %s (pid=%d)\r\n", current->Name, current->Pid);
         ThreadCtrlBlk* thrc = current->ThreadList->Head;
         while (thrc != NULL) {
-            printf("process:            [*] TID %d (prior=%d state=%d)\r\n", thrc->tid, thrc->Priority, thrc->State);
+            printf("process:            [*] TID %d (prior=%d state=%d)\r\n", thrc->Tid, thrc->Priority, thrc->State);
             thrc = thrc->ProcNext;
         }
         current = current->Next;
@@ -102,14 +102,14 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, uint32_t prior, const char**
     //new->tid = ThreadGetTid();
     new->Priority = prior;
     new->Bpriority = prior;
-    new->tickdefault = ThrDecideTicksDefault(prior);
-    new->deadline = new->tickdefault;
-    new->privilege = priv;
+    new->TickDefault = ThrDecideTicksDefault(prior);
+    new->Deadline = new->TickDefault;
+    new->Privilege = priv;
     ThreadCreateKrnlStack(new, entry);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadCreateUserStack(new, entry, argv, argc, envp, envc);
     }
-    new->exitcode = 0;
+    new->Exitcode = 0;
     #ifdef __x86_64__
     new->FsBase = 0;
     new->GsBase = 0;
@@ -121,22 +121,22 @@ ThreadCtrlBlk* ThreadNew(void* entry, uint8_t priv, uint32_t prior, const char**
 ProcessCtrlBlk* ProcessNew(char* name) {
     ProcessCtrlBlk* new = MmAllocate(sizeof(ProcessCtrlBlk));
     uint64_t NameSz = strlen(name);
-    if (NameSz >= sizeof(new->name)) NameSz = sizeof(new->name) - 1;
-    memcpy(new->name, name, NameSz);
-    new->name[NameSz] = '\0';
-    memcpy((void*)new->cwd, (const void*)"initrd:/programs", 17);
+    if (NameSz >= sizeof(new->Name)) NameSz = sizeof(new->Name) - 1;
+    memcpy(new->Name, name, NameSz);
+    new->Name[NameSz] = '\0';
+    memcpy((void*)new->Cwd, (const void*)"initrd:/programs", 17);
     new->pml4 = ProcNewPML4();
     new->cr3 = (uint64_t)new->pml4;
-    new->pid = ProcGetPid()+1;
-    new->nextfh = 3; // reserve '0' for stdout '1' for stderr '2' for stdin
-    new->threads = 0;
+    new->Pid = ProcGetPid()+1;
+    new->NextFh = 3; // reserve '0' for stdout '1' for stderr '2' for stdin
+    new->Threads = 0;
     new->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     new->SbrkBase = PS_USER_BRK_BASE;
     new->SbrkCurrent = PS_USER_BRK_BASE;
     new->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
     new->Parent = KernelGetInformation()->KernelProcess;
     new->Next = NULL;
-    new->exitcode = 0;
+    new->Exitcode = 0;
     new->MmapEntryHead = NULL;
     new->MmapBumpNext = PS_USER_MMAPDEC_BASE;
     new->BlockedQueueHead = NULL;
@@ -222,7 +222,7 @@ extern void isr_syscall_resume();
 // only difference being actual pid and page table addr
 // its same thing as fork
 uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptArgs* frame) {
-    ProcessCtrlBlk* new = ProcessNew(proc->name);
+    ProcessCtrlBlk* new = ProcessNew(proc->Name);
     if (!new) {
         return (uint64_t)-1;
     }
@@ -231,20 +231,20 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     if (copyResult != 0) {
         return (uint64_t)-1;
     }
-    new->nextfh = proc->nextfh;
+    new->NextFh = proc->NextFh;
     new->SbrkBase = proc->SbrkBase;
     new->SbrkCurrent = proc->SbrkCurrent;
     new->SbrkLimit = proc->SbrkLimit;
     new->Parent = proc;
     new->MmapEntryHead = NULL;
     new->MmapBumpNext = PS_USER_MMAPDEC_BASE;
-    memcpy((void*)new->cwd, (void*)proc->cwd, strlen(proc->cwd)+1);
+    memcpy((void*)new->Cwd, (void*)proc->Cwd, strlen(proc->Cwd)+1);
     memcpy((void*)new->FileHandleTable, proc->FileHandleTable, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     ThreadCtrlBlk* thr = MmAllocate(sizeof(ThreadCtrlBlk));
     memset(thr, 0, sizeof(ThreadCtrlBlk));
     thr->State = SCHED_THREAD_READY;
-    thr->privilege = caller->privilege;
-    thr->exitcode = 0;
+    thr->Privilege = caller->Privilege;
+    thr->Exitcode = 0;
 
     // fake a stack cuz if we use cpuinterruptargs directly itll pop absolute garbage
     uint64_t* StackBase = (uint64_t*)MmAllocate(16384);
@@ -281,7 +281,7 @@ uint64_t ProcessCopy(ProcessCtrlBlk* proc, ThreadCtrlBlk* caller, CpuInterruptAr
     new->Next = KernelGetInformation()->ProcessListHead;
     KernelGetInformation()->ProcessListHead = new;
     ThreadAdd(thr);
-    return new->pid;
+    return new->Pid;
 }
 
 
@@ -397,9 +397,9 @@ void ThrDeathCleanup() {
         if (c->UserStackBase) {
             PmmFreePages((void*)V2P(c->UserStackBase), PS_USER_STACK_PAGES);
         }
-        c->ParentProc->threads--;
-        if(c->ParentProc->threads <= 0) {
-            printf("todo: remove process from list..\r\n");
+        c->ParentProc->Threads--;
+        if(c->ParentProc->Threads <= 0) {
+            
             _s:
             KernelUnlockRsLck();
             MmFree(c->ParentProc->FileHandleTable);
@@ -440,7 +440,7 @@ void ThreadEntry() {
     // printf("sched: wrapper: entering thread(tid=%d pid=%d, entry=0x%lx)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid, CurrentThread->entry);
     void (*entry)() = CurrentThread->entry;
     if (entry) {
-        switch (CurrentThread->privilege) {
+        switch (CurrentThread->Privilege) {
             case SCHED_PRIV_KERNEL: {
                 entry();
                 break;
@@ -460,6 +460,6 @@ void ProcAttachThread(ProcessCtrlBlk* proc, ThreadCtrlBlk* tcb) {
     tcb->ParentProc = proc;
     KeSchedQueue* Queue = proc->ThreadList;
     PROC_THRADD(Queue, tcb);
-    proc->threads++;
-    tcb->tid = proc->threads-1;
+    proc->Threads++;
+    tcb->Tid = proc->Threads-1;
 }

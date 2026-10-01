@@ -31,12 +31,12 @@ void SchedInitalize(KernelInformation* kinfo) {
     kinfo->CurrentSchedCount++;
 
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
-    memcpy((void*)KernelProc->name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
-    memcpy((void*)KernelProc->cwd, (void*)"initrd:/boot", 13);
+    memcpy((void*)KernelProc->Name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
+    memcpy((void*)KernelProc->Cwd, (void*)"initrd:/boot", 13);
     KernelProc->pml4 = (virtaddr*)HalGetPageTable();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
-    KernelProc->pid = 0;
-    KernelProc->nextfh = 3; // process.c
+    KernelProc->Pid = 0;
+    KernelProc->NextFh = 3; // process.c
     KernelProc->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     KernelProc->ThreadList = MmAllocate(sizeof(KeSchedQueue));
     memset(KernelProc->FileHandleTable, 0, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
@@ -45,14 +45,14 @@ void SchedInitalize(KernelInformation* kinfo) {
     // create kernel thread
     ThreadCtrlBlk* KernelThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
     memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
-    KernelThread->tid = 0;
+    KernelThread->Tid = 0;
     KernelThread->State = SCHED_THREAD_RUNNING;
     KernelThread->KernelRsp = HalGetStack();
-    KernelThread->privilege = SCHED_PRIV_KERNEL;
+    KernelThread->Privilege = SCHED_PRIV_KERNEL;
     KernelThread->Priority = 4;
     KernelThread->Bpriority = 4;
-    KernelThread->tickdefault = 64;
-    KernelThread->deadline = 64;
+    KernelThread->TickDefault = 64;
+    KernelThread->Deadline = 64;
 
     // create idle thread
     ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, SCHED_THREAD_PLOW, 0, 0, 0, 0);
@@ -79,7 +79,7 @@ void Schedule(KeScheduler* Sched) {
     }
 
     if (OldThr->State == SCHED_THREAD_READY) {
-        OldThr->deadline = OldThr->tickdefault;
+        OldThr->Deadline = OldThr->TickDefault;
         ThreadQueueAdd(&Sched->Queues[OldThr->Priority], OldThr);
         Sched->Bitmap |= (1ULL << OldThr->Priority);
     }
@@ -97,7 +97,7 @@ void Schedule(KeScheduler* Sched) {
             if (NextThr->ParentProc->cr3) HalSwPageTable(NextThr->ParentProc->cr3);
             else {
                 printf("sched: warn: cr3 of next process is NULL?\r\n");
-                printf("sched: warn: OldThr=0x%lx NextThr=0x%lx NextThr->ParentProc{pid=%d, cr3=0x%lx} OldThr->ParentProc{pid=%d, cr3=0x%lx}\r\n", OldThr, NextThr, NextThr->ParentProc->pid, NextThr->ParentProc->cr3, OldThr->ParentProc->pid, OldThr->ParentProc->cr3);
+                printf("sched: warn: OldThr=0x%lx NextThr=0x%lx NextThr->ParentProc{pid=%d, cr3=0x%lx} OldThr->ParentProc{pid=%d, cr3=0x%lx}\r\n", OldThr, NextThr, NextThr->ParentProc->Pid, NextThr->ParentProc->cr3, OldThr->ParentProc->Pid, OldThr->ParentProc->cr3);
             }
         }
 

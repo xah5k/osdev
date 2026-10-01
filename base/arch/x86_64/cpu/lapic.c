@@ -31,8 +31,8 @@ void CpuEnableLapic() {
 void CpuLapicTimerHandler(CpuInterruptArgs* r) {
     lapictimertick++;
     CpuLapicEoi();
-    ThrGetCurrent()->deadline--;
-    if (ThrGetCurrent()->deadline == 0) {
+    ThrGetCurrent()->Deadline--;
+    if (ThrGetCurrent()->Deadline == 0) {
         SchedYield();
     }
     if ((((r)->cs & 3) == 3)) {

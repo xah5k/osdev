@@ -26,8 +26,8 @@ static void KdTraceStack(uint32_t Frames, CpuInterruptArgs* r) {
 
 
 void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
-    printf("kdbg: current{pid=%d, tid=%d}\r\n", ThrGetCurrent()->ParentProc->pid, ThrGetCurrent()->tid);
-    if (ThrGetCurrent()->privilege == SCHED_PRIV_USER) {
+    printf("kdbg: current{pid=%d, tid=%d}\r\n", ThrGetCurrent()->ParentProc->Pid, ThrGetCurrent()->Tid);
+    if (ThrGetCurrent()->Privilege == SCHED_PRIV_USER) {
         printf("kdbg: bugcheck in usermode.\r\n");
         if (HAL_GET_INUM(registers) == 14) {
             printf("kdbg: page fault.\r\n");
@@ -61,7 +61,7 @@ void KdBugcheck(BugcheckCode code, CpuInterruptArgs* registers) {
         printf("kdbg: no interrupt frame provided (non interrupt?)\r\n");
     }
     KdTraceStack(5, registers);
-    if (ThrGetCurrent()->privilege == SCHED_PRIV_KERNEL) {
+    if (ThrGetCurrent()->Privilege == SCHED_PRIV_KERNEL) {
         printf("kdbg: halting\r\n");
         HAL_HALT();
     }

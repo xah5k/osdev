@@ -6,12 +6,12 @@
 IoPipeObj* IoCreatePipe(struct ProcessCtrlBlk* proc) {
     if (!proc) return NULL;
     if (!proc->FileHandleTable) return NULL;
-    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return NULL;
-    if ((proc->nextfh + 2) >= VFS_MAX_ALLOWED_OPEN_HANDLES) return NULL;
-    int readhandle = proc->nextfh;
-    proc->nextfh++;
-    int writehandle = proc->nextfh;
-    proc->nextfh++;
+    if (proc->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return NULL;
+    if ((proc->NextFh + 2) >= VFS_MAX_ALLOWED_OPEN_HANDLES) return NULL;
+    int readhandle = proc->NextFh;
+    proc->NextFh++;
+    int writehandle = proc->NextFh;
+    proc->NextFh++;
     IoPipeObj* pipe = MmAllocate(sizeof(IoPipeObj));
     pipe->ReadHandle = (uint64_t)readhandle;
     pipe->WriteHandle = (uint64_t)writehandle;

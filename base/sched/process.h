@@ -39,17 +39,17 @@ typedef struct MmapEntry {
 } MmapEntry;
 
 typedef struct ProcessCtrlBlk {
-    char name[256]; // after like 20 years
-    char cwd[VFS_MAX_ALLOWED_PATH];
+    char Name[256]; // after like 20 years
+    char Cwd[VFS_MAX_ALLOWED_PATH];
     physaddr cr3;
     virtaddr* pml4;
-    uint64_t pid;
-    int nextfh;
-    int threads;
+    uint64_t Pid;
+    int NextFh;
+    int Threads;
     uint64_t SbrkBase;
     uint64_t SbrkCurrent;
     uint64_t SbrkLimit;
-    uint64_t exitcode;
+    uint64_t Exitcode;
     uint64_t Mode; // stub for umask
     KeTerminalObj* TtyObj;
     MmapEntry* MmapEntryHead;
@@ -73,15 +73,15 @@ typedef struct ThreadCtrlBlk {
     uint64_t KernelStackBase; // vaddr
     uint64_t UserRsp;
     uint64_t UserStackBase; // vaddr
-    uint32_t tid;
+    uint32_t Tid;
     uint8_t State;
     uint32_t Priority;
     uint32_t Bpriority; // priority when first created
-    uint32_t deadline; // ticks countdown
-    uint32_t tickdefault;
+    uint32_t Deadline; // ticks countdown
+    uint32_t TickDefault;
     void* entry;
-    uint8_t privilege; // 0 = kernel, 1 = user
-    uint64_t exitcode;
+    uint8_t Privilege; // 0 = kernel, 1 = user
+    uint64_t Exitcode;
     uint64_t SigPendingSet;
     uint64_t SigBlockedSet;
     char** UserArgv;
