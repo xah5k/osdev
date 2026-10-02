@@ -399,8 +399,19 @@ void ThrDeathCleanup() {
         }
         c->ParentProc->Threads--;
         if(c->ParentProc->Threads <= 0) {
-            
-            _s:
+            if (c->ParentProc == KernelGetInformation()->ProcessListHead) {
+                KernelGetInformation()->ProcessListHead = KernelGetInformation()->ProcessListHead->Next;
+            } else {
+                ProcessCtrlBlk* current = KernelGetInformation()->ProcessListHead;
+                ProcessCtrlBlk* prev = current;
+                while (current != NULL) {
+                    if (current->Next == c->ParentProc) {
+                        current->Next = current->Next->Next;
+                    }
+                    prev = current;
+                    current = current->Next;
+                }
+            }
             KernelUnlockRsLck();
             MmFree(c->ParentProc->FileHandleTable);
             ProcFreePML4(c->ParentProc->pml4);
