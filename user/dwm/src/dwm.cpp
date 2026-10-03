@@ -102,7 +102,7 @@ KSTATUS Dwm::HandleInput(int handle, int kbdhandle) {
                     r.MouseBtnRight = mouse->RightClickPress;
                     r.KbdChar = 0;
                     KSTATUS s = this->MsgServer->SendEventMsg(wnd->OwningPid, &r);
-                    // if (r.MouseBtnLeft) printf("dwm: sent event message for mouse lclick event. ts = %d\r\n", time(NULL));
+                    if (r.MouseBtnLeft) printf("dwm: sent event message for mouse lclick event. ts = %d\r\n", time(NULL));
                 }
             }
             // printf("dwm: send event to pid kstatus 0x%lx\r\n", s);

@@ -3,7 +3,7 @@
 #include <sched/process.h>
 #include <ksyscall.h>
 #include <printfwrapper.h>
-
+#include <sched/sched.h>
 void KeMessagePushTail(KeMessageObj** Head, KeMessageObj** Tail, uint64_t* MCount, KeMessageObj* Msg, Spinlock* QueueLock) {
     if (!Msg || !Head || !Tail) return;
     uint64_t r = SpnLckAcquireRfl(QueueLock);
@@ -44,7 +44,7 @@ KSTATUS KeMessageSend(KeMessageObj* Obj) {
     Obj->Next = NULL;
     KeMessagePushTail(&to->MessageHead, &to->MessageTail, &to->MessageCount, Obj, &to->MessageQueueLock);
     // printf("setting signal %d for pid %d because of message{from=%d, to=%d, len=%lu} msgcount=%d\r\n", KE_SIGNAL_RECEIVEMSG, to->pid, Obj->FromPid, Obj->ToPid, Obj->Length, to->MessageCount);
-    ThreadCtrlBlk* current = to->ThreadListHead;
+    ThreadCtrlBlk* current = to->ThreadList->Head;
     while (current != NULL) {
         // printf("current@0x%lx\r\n", current);
         current->SigPendingSet |= (1ULL << KE_SIGNAL_RECEIVEMSG);

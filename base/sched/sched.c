@@ -17,8 +17,7 @@
 Spinlock SchedSpinlock = {ATOMIC_FLAG_INIT};
 
 ThreadCtrlBlk* CurrentThread;
-ThreadCtrlBlk* ReadyQueueHead;
-ThreadCtrlBlk* DeathThread;
+KeSchedQueue DeathQueue = {NULL, NULL};
 ThreadCtrlBlk* IdleThreadPtr;
 static KernelInformation* gkinfoPtr;
 void SchedIdleThread() {
@@ -26,33 +25,43 @@ void SchedIdleThread() {
 }
 
 void SchedInitalize(KernelInformation* kinfo) {
+    KeScheduler* Scheduler = MmAllocate(sizeof(KeScheduler));
+    memset((void*)Scheduler, 0, sizeof(KeScheduler));
+    kinfo->Scheduler[kinfo->CurrentSchedCount] = Scheduler;
+    kinfo->CurrentSchedCount++;
+
     ProcessCtrlBlk* KernelProc = (ProcessCtrlBlk*)MmAllocate(sizeof(ProcessCtrlBlk));
-    memcpy((void*)KernelProc->name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
-    memcpy((void*)KernelProc->cwd, (void*)"initrd:/boot", 13);
+    memcpy((void*)KernelProc->Name, (void*)"Kernel Process", sizeof("Kernel Process")+1);
+    memcpy((void*)KernelProc->Cwd, (void*)"initrd:/boot", 13);
     KernelProc->pml4 = (virtaddr*)HalGetPageTable();
     KernelProc->cr3 = (uint64_t)KernelProc->pml4;
-    KernelProc->pid = 0;
-    KernelProc->nextfh = 3; // process.c
+    KernelProc->Pid = 0;
+    KernelProc->NextFh = 3; // process.c
     KernelProc->FileHandleTable = MmAllocate(sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
+    KernelProc->ThreadList = MmAllocate(sizeof(KeSchedQueue));
     memset(KernelProc->FileHandleTable, 0, sizeof(VfsOpenFileDescr) * VFS_MAX_ALLOWED_OPEN_HANDLES);
     KernelProc->Next = NULL;
 
     // create kernel thread
     ThreadCtrlBlk* KernelThread = (ThreadCtrlBlk*)MmAllocate(sizeof(ThreadCtrlBlk));
     memset(KernelThread, 0, sizeof(ThreadCtrlBlk));
-    KernelThread->tid = 0;
-    KernelThread->state = SCHED_THREAD_RUNNING;
+    KernelThread->Tid = 0;
+    KernelThread->State = SCHED_THREAD_RUNNING;
     KernelThread->KernelRsp = HalGetStack();
-    KernelThread->privilege = SCHED_PRIV_KERNEL;
+    KernelThread->Privilege = SCHED_PRIV_KERNEL;
+    KernelThread->Priority = 4;
+    KernelThread->Bpriority = 4;
+    KernelThread->TickDefault = 64;
+    KernelThread->Deadline = 64;
 
     // create idle thread
-    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, 0, 0, 0, 0);
-
+    ThreadCtrlBlk* IdleThread = ThreadNew(SchedIdleThread, SCHED_PRIV_KERNEL, SCHED_THREAD_PLOW, 0, 0, 0, 0);
     ProcAttachThread(KernelProc, KernelThread);
     ProcAttachThread(KernelProc, IdleThread);
 
     CurrentThread = KernelThread;
-    ReadyQueueHead = IdleThread;
+    ThreadAdd(KernelThread);
+    ThreadAdd(IdleThread);
     IdleThreadPtr = IdleThread;
     // add kernel process to list of proccesses
     gkinfoPtr = kinfo;
@@ -60,56 +69,24 @@ void SchedInitalize(KernelInformation* kinfo) {
     gkinfoPtr->CurrentProcess = KernelProc;
     gkinfoPtr->KernelProcess = KernelProc;
 }
-void Schedule() {
+void Schedule(KeScheduler* Sched) {
     uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
-
-    if (ReadyQueueHead == NULL && CurrentThread->state == SCHED_THREAD_RUNNING) {
-        SpnLckReleaseRfl(&SchedSpinlock, r);
-        return;
-    }
     ThreadCtrlBlk* OldThr = CurrentThread;
-
-    if (OldThr == DeathThread) {
-        OldThr->state = SCHED_THREAD_DEAD;
-    } else if (OldThr->state == SCHED_THREAD_RUNNING) {
-        OldThr->state = SCHED_THREAD_READY;
+    if (OldThr->State == SCHED_THREAD_DYING) {
+        OldThr->State = SCHED_THREAD_DEAD;
+    } else if (OldThr->State == SCHED_THREAD_RUNNING) {
+        OldThr->State = SCHED_THREAD_READY;
     }
 
-    if (OldThr->state == SCHED_THREAD_READY) {
-        OldThr->GlobalNext = NULL;
-        if (ReadyQueueHead == NULL) {
-            ReadyQueueHead = OldThr;
-        } else {
-            ThreadCtrlBlk* LastThr = ReadyQueueHead;
-            while (LastThr->GlobalNext != NULL) {
-                LastThr = LastThr->GlobalNext;
-            }
-            LastThr->GlobalNext = OldThr;
-        }
+    if (OldThr->State == SCHED_THREAD_READY) {
+        OldThr->Deadline = OldThr->TickDefault;
+        ThreadQueueAdd(&Sched->Queues[OldThr->Priority], OldThr);
+        Sched->Bitmap |= (1ULL << OldThr->Priority);
     }
-
-    ThreadCtrlBlk* PrevThr = NULL;
-    ThreadCtrlBlk* NextThr = ReadyQueueHead;
-
-    while (NextThr != NULL && NextThr->state != SCHED_THREAD_READY) {
-        PrevThr = NextThr;
-        NextThr = NextThr->GlobalNext;
-    }
-
-    if (NextThr != NULL) {
-        if (PrevThr == NULL) {
-            ReadyQueueHead = NextThr->GlobalNext;
-        } else {
-            PrevThr->GlobalNext = NextThr->GlobalNext;
-        }
-        NextThr->GlobalNext = NULL;
-    } else {
-        // deadass why and how would this even happen.
-        NextThr = IdleThreadPtr; 
-    }
-
+    ThreadCtrlBlk* NextThr = ThreadNext(Sched);
+    if (!NextThr) NextThr = IdleThreadPtr;
     CurrentThread = NextThr;
-    NextThr->state = SCHED_THREAD_RUNNING;
+    NextThr->State = SCHED_THREAD_RUNNING;
 
     if (OldThr != NextThr) {
         if (NextThr->ParentProc != OldThr->ParentProc) {
@@ -117,19 +94,26 @@ void Schedule() {
         }
 
         if (NextThr->ParentProc->cr3 != OldThr->ParentProc->cr3) {
-            HalSwPageTable(NextThr->ParentProc->cr3);
+            if (NextThr->ParentProc->cr3) HalSwPageTable(NextThr->ParentProc->cr3);
+            else {
+                printf("sched: warn: cr3 of next process is NULL?\r\n");
+                printf("sched: warn: OldThr=0x%lx NextThr=0x%lx NextThr->ParentProc{pid=%d, cr3=0x%lx} OldThr->ParentProc{pid=%d, cr3=0x%lx}\r\n", OldThr, NextThr, NextThr->ParentProc->Pid, NextThr->ParentProc->cr3, OldThr->ParentProc->Pid, OldThr->ParentProc->cr3);
+            }
         }
 
         HAL_INT_OFF();
         HalContextSwPrep(NextThr);
         SpnLckReleaseRfl(&SchedSpinlock, r);
         HalContextSw(&OldThr->KernelRsp, NextThr->KernelRsp);
+    } else {
+        SpnLckReleaseRfl(&SchedSpinlock, r);
     }
-    ThrDeathCleanup();
+    SpnLckReleaseRfl(&SchedSpinlock, r);
     HAL_INT_ON();
+    ThrDeathCleanup();
 }
 
 void SchedYield() {
-    Schedule();
+    Schedule(KernelGetInformation()->Scheduler[0]);
 }
 KE_EXPORT_SYMBOL(SchedYield);

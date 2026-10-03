@@ -45,6 +45,8 @@ typedef struct KernelInformation {
     #endif
     struct ProcessCtrlBlk* CurrentProcess;
     struct ProcessCtrlBlk* KernelProcess;
+    struct KeScheduler* Scheduler[1]; // in the future when multiple cpus
+    uint64_t CurrentSchedCount;
     int DriverExt2Load;
     int FwType; // 0 = bios, 1 = uefi
     KeNetInfo net;

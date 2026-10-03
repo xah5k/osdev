@@ -165,7 +165,7 @@ KSTATUS Rtl8139Read(KeDeviceObj* dev, KeIoRequest* irp) {
     Rtl8139Packet* Pck;
     while (!Rtl8139RmQueue(DrvSt, &Pck)) {
         ThreadCtrlBlk* cthr = ThrGetCurrent();
-        cthr->state = SCHED_THREAD_SUSPENDED;
+        cthr->State = SCHED_THREAD_SUSPENDED;
         ThreadPushTail(&gNic->RxWaitListHead, &gNic->RxWaitListTail, cthr);
         SchedYield();
     }

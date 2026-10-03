@@ -1,15 +1,18 @@
+// #include <sched/sched.h>
 #include "ldrelf.h"
 #include <external/elf.h>
 #include <memory.h>
 #include <external/printf.h>
 #include <mm/pmm.h>
 #include <mm/heap.h>
-#include <sched/process.h>
+// #include <sched/process.h>
 #include <kedriver.h>
 #include <util/util.h>
 #include <util/spinlock.h>
 #include <hal/ps.h>
+#include <sched/sched.h>
 
+// this alone should probably tell you how bad this spaghetti code is
 static Spinlock LdrLock = {ATOMIC_FLAG_INIT};
 
 KSTATUS LdrElfValidate(Elf64_Ehdr* Elf);
@@ -48,7 +51,7 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
         kenvp[i] = (char*)MmAllocate(len);
         memcpy(kenvp[i], envp[i], len);
     }
-    ThreadCtrlBlk* curr = target->ThreadListHead;
+    ThreadCtrlBlk* curr = target->ThreadList->Head;
     while (curr != NULL) {
         ThreadCtrlBlk* next = curr->ProcNext;
         if (curr != ThrGetCurrent()) {
@@ -65,15 +68,17 @@ KSTATUS LdrElfReplaceImage(ProcessCtrlBlk* target, void* image, const char** arg
     target->SbrkLimit = PS_USER_BRK_BASE + PS_USER_BRK_SIZE;
     target->SbrkCurrent = PS_USER_BRK_BASE;
 
-    target->ThreadListHead = NULL;
-    target->threads = 1;
+    target->ThreadList->Head = NULL;
+    target->ThreadList->Tail = NULL;
+    target->Threads = 1;
     self->ProcNext = NULL;
     uint64_t entry = (uint64_t)Elf->e_entry;
     ThreadCreateUserStack(self, (void*)entry, (const char**)kargv, argc, (const char**)kenvp, envc);
     ThreadMapUserStack(self);
     self->entry = (void*)entry;
-    self->exitcode = 0;
-    target->ThreadListHead = self;
+    self->Exitcode = 0;
+    target->ThreadList->Head = NULL;
+    target->ThreadList->Tail = NULL;
     for (int i = 0; i < argc; i++) MmFree(kargv[i]);
     for (int i = 0; i < envc; i++) MmFree(kenvp[i]);
     MmFree(kargv);
@@ -139,7 +144,7 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
     KernelInformation* kinfo = KernelGetInformation();
     uint64_t entry = (uint64_t)Elf->e_entry;
     // printf("ldr: elf64: create new thread with entry 0x%lx relative to page table.\r\n", entry)
-    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv, argv, argc, envp, envc);
+    ThreadCtrlBlk* thr = ThreadNew((void*)entry, priv, SCHED_THREAD_PMEDIUM, argv, argc, envp, envc);
     ProcAttachThread(proc, thr);
     if (priv > SCHED_PRIV_KERNEL) {
         ThreadMapUserStack(thr);
@@ -149,7 +154,7 @@ KSTATUS LdrElfExecute(void* addr, uint8_t priv, uint64_t* pidout, const char** a
     proc->Next = kinfo->ProcessListHead;
     kinfo->ProcessListHead = proc;
     kinfo->CurrentProcess = proc;
-    if (pidout != NULL) *pidout = proc->pid;
+    if (pidout != NULL) *pidout = proc->Pid;
     return KSUCCESS;
 }
 

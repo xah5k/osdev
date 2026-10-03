@@ -27,7 +27,7 @@ extern Spinlock SchedSpinlock;
 
 extern ThreadCtrlBlk* CurrentThread;
 extern ThreadCtrlBlk* ReadyQueueHead;
-extern ThreadCtrlBlk* DeathThread;
+
 static void UserAcBegin() {
     if (KernelGetInformation()->cpufeats->smap) {
         asm volatile ("stac");
@@ -40,9 +40,14 @@ static void UserAcEnd() {
 }
 
 uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
+    if (CurrentThread->ParentProc->Pid == 0) {
+        printf("process: tried to exit from a kernel thread????????\r\n");
+        KSUCCESS(KINVALID);
+        __builtin_unreachable();
+    }
     // handle exit
-    CurrentThread->exitcode = exitcode;
-    CurrentThread->ParentProc->exitcode = exitcode;
+    CurrentThread->Exitcode = exitcode;
+    CurrentThread->ParentProc->Exitcode = exitcode;
     // wake up anyone waiting
     ThreadCtrlBlk* blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail);
     while (blthr != NULL) {
@@ -50,65 +55,23 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
         blthr = ThreadPopHead(&CurrentThread->ParentProc->BlockedQueueHead, &CurrentThread->ParentProc->BlockedQueueTail); // threadpophead nulls out globalnext
     }
     uint64_t r = SpnLckAcquireRfl(&SchedSpinlock);
-    //printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
+    // printf("process: handling exit of thread(tid=%d, belonging to pid %d)\r\n", CurrentThread->tid, CurrentThread->ParentProc->pid);
     ThreadCtrlBlk* c = CurrentThread;
-
     // remove it from process list of threads
-
-    if (c == c->ParentProc->ThreadListHead) {
-        c->ParentProc->ThreadListHead = c->ParentProc->ThreadListHead->ProcNext;
-        c->ParentProc->threads--;
-        goto _2;
-    }
-    ThreadCtrlBlk* current1 = c->ParentProc->ThreadListHead;
-    ThreadCtrlBlk* previous1 = NULL;
-    while (current1 != NULL) {
-        if (current1 == c) {
-            break;
-        }
-        previous1 = current1;
-        current1 = current1->ProcNext;
-    }
-
-    KATTEMPT(current1);
-    KATTEMPT(current1 == c);
-    // unlink from list
-    previous1->ProcNext = current1->ProcNext;
-    _2:
-    if (c != CurrentThread) {
-        if (c == ReadyQueueHead) {
-            ReadyQueueHead = c->GlobalNext;
-            c->GlobalNext = NULL;
-            goto _3;
-        }
-        
-        ThreadCtrlBlk* current2 = ReadyQueueHead;
-        ThreadCtrlBlk* previous2 = NULL;
-        while (current2 != NULL && current2 != c) {
-            //printf("current2=0x%lx\r\n", current2);
-            previous2 = current2;
-            current2 = current2->GlobalNext;
-        }
-
-        if (!current2 || current2 != c) {
-           // printf("current2=0x%lx c=0x%lx\r\n", current2, c);
-            KdBugcheck2(KERNEL_CORE_COMP_FAIL, NULL, __LINE__, __FILE__);
-        }
-        previous2->GlobalNext = current2->GlobalNext;
-        current2->GlobalNext = NULL;
-    }
-    _3:
+    KeSchedQueue* Queue = c->ParentProc->ThreadList;
+    PROC_THRRM(Queue, c);
     c->ProcNext = NULL;
     c->GlobalNext = NULL;
-    DeathThread = c;
-    if (DeathThread->ParentProc->MmapEntryHead) {
-        MmapEntry* c = DeathThread->ParentProc->MmapEntryHead;
+    ThrDeathMark(c);
+    if (c->ParentProc->MmapEntryHead) {
+        MmapEntry* c2 = c->ParentProc->MmapEntryHead;
         MmapEntry* n;
-        while (c != NULL) {
-            n = c->Next;
-            MmFree(c);
-            c = n;
+        while (c2 != NULL) {
+            n = c2->Next;
+            MmFree(c2);
+            c2 = n;
         }
+        c->ParentProc->MmapEntryHead = NULL;
     }
     SpnLckReleaseRfl(&SchedSpinlock, r);
     SchedYield();
@@ -119,7 +82,7 @@ uint64_t SysKill(uint64_t pid, uint64_t sign, KE_SYSCALL_ARGS_UNUSED2) {
     if (pid == 0) return -1; // cant kill kernel process
     ProcessCtrlBlk* process = ProcFindByPid(pid, KernelGetInformation());
     if (!process) return -1; // no such process
-    ThreadCtrlBlk* thrlist = process->ThreadListHead;
+    ThreadCtrlBlk* thrlist = process->ThreadList->Head;
     if (!thrlist) return -1; // well somethings probably gone wrong (process is probably in the process of being killed)
     // send SIGKILL
     ThreadCtrlBlk* current = thrlist;
@@ -167,7 +130,7 @@ uint64_t SysYield(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
 }
 
 uint64_t SysGetPid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
-    return CurrentThread->ParentProc->pid;
+    return CurrentThread->ParentProc->Pid;
 }
 
 
@@ -228,10 +191,10 @@ uint64_t SysWaitPid(uint64_t pid, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = ProcFindByPid(pid, KernelGetInformation());
     if (!proc) return (uint64_t)-1;
     ThreadCtrlBlk* thr = ThrGetCurrent();
-    thr->state = SCHED_THREAD_SUSPENDED;
+    thr->State = SCHED_THREAD_SUSPENDED;
     ThreadPushTail(&proc->BlockedQueueHead, &proc->BlockedQueueTail, thr);
     SchedYield();
-    return proc->exitcode;
+    return proc->Exitcode;
 }
 
 uint64_t SysSeek(uint64_t handle, uint64_t offset, uint64_t whence, KE_SYSCALL_ARGS_UNUSED3) {
@@ -267,10 +230,10 @@ uint64_t SysGetClock(uint64_t clockid, uint64_t secondsOutPtr, uint64_t nanosecs
 }
 uint64_t SysGetCwd(uint64_t buf, uint64_t size, KE_SYSCALL_ARGS_UNUSED2) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
-    uint64_t length = strlen(proc->cwd)+1;
+    uint64_t length = strlen(proc->Cwd)+1;
     if (length > size) return (uint64_t)-1;
     if (buf == 0) return (uint64_t)-1;
-    memcpy((void*)buf, (const void*)proc->cwd, size);
+    memcpy((void*)buf, (const void*)proc->Cwd, size);
     return buf;
 }
 
@@ -289,7 +252,7 @@ uint64_t SysChdir(uint64_t path, KE_SYSCALL_ARGS_UNUSED1) {
         return (uint64_t)-1;
     }
     OsClose(handle);
-    strlcpy(proc->cwd, acpath, sizeof(proc->cwd));
+    strlcpy(proc->Cwd, acpath, sizeof(proc->Cwd));
     return 0;
 }
 
@@ -461,8 +424,8 @@ uint64_t SysDup(uint64_t oldhandle, KE_SYSCALL_ARGS_UNUSED1) {
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
     if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
-    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
-    int newhdl = proc->nextfh++;
+    if (proc->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    int newhdl = proc->NextFh++;
     proc->FileHandleTable[newhdl] = proc->FileHandleTable[oldhandle];
     // refcount 
     if (proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_PIPE) {
@@ -475,7 +438,7 @@ uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2
     ProcessCtrlBlk* proc = CurrentThread->ParentProc;
     if (oldhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES || newhandle >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (!proc->FileHandleTable[oldhandle].Entry && proc->FileHandleTable[oldhandle].Flag != VFS_OFD_FLAG_PIPE) return (uint64_t)-1;
-    if (proc->nextfh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
+    if (proc->NextFh >= VFS_MAX_ALLOWED_OPEN_HANDLES) return (uint64_t)-1;
     if (oldhandle == newhandle) return newhandle;
     int newhdl = (int)newhandle;
     if (proc->FileHandleTable[newhdl].Entry || proc->FileHandleTable[newhdl].Flag == VFS_OFD_FLAG_FILE) {
@@ -491,7 +454,7 @@ uint64_t SysDup2(uint64_t oldhandle, uint64_t newhandle, KE_SYSCALL_ARGS_UNUSED2
 }
 
 uint64_t SysGetPpid(uint64_t arg1, KE_SYSCALL_ARGS_UNUSED1) {
-    return ThrGetCurrent()->ParentProc->Parent->pid;
+    return ThrGetCurrent()->ParentProc->Parent->Pid;
 }
 
 uint64_t SysAccess(uint64_t patha, uint64_t exist, uint64_t readp, uint64_t writep, uint64_t execp) {
@@ -551,7 +514,7 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
             args->addr = (void*)ThrGetCurrent()->ParentProc->MmapBumpNext;
             ThrGetCurrent()->ParentProc->MmapBumpNext += length;
         }
-        for (int i = 0; i < length; i+=PAGE_SIZE) {
+        for (uint64_t i = 0; i < length; i+=PAGE_SIZE) {
             void* physframe = PmmAllocate();
             memset((void*)P2V(physframe), 0, MMU_PAGE_SIZE);
             MmuMapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), ((uint64_t)args->addr + i), (physaddr)physframe, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER); // todo actually set perms based off the args passed
@@ -569,10 +532,10 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
 
 // stupid memory corruption caused so much issues
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
+    uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
     MmapEntry** pp = &ThrGetCurrent()->ParentProc->MmapEntryHead;
     MmapEntry* e = *pp;
-    uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
-    while (e != NULL && (uint64_t)e > 0x1000) {
+    while (e != NULL) {
         if (e->Vaddr == addr && e->Length == length) {
             for (uint64_t i = 0; i < e->Length; i += PAGE_SIZE) {
                 MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), (e->Vaddr + i));

@@ -76,7 +76,7 @@ KSTATUS KbdRead(KeDeviceObj* dev, KeIoRequest* irp) {
         while (!KbdBufferRm(&scancode)) {
             ThreadCtrlBlk* cthr = ThrGetCurrent();
             // KeDrvWriteFmt("kbd driver: suspend thread{tid=%d, parent pid=%d}\r\n", cthr->tid, cthr->ParentProc->pid);
-            cthr->state = SCHED_THREAD_SUSPENDED;
+            cthr->State = SCHED_THREAD_SUSPENDED;
             ThreadPushTail(&gKbdWaitQueueHead, &gKbdWaitQueueTail, cthr);
             SchedYield();
         }
