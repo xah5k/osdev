@@ -69,8 +69,9 @@ uint64_t SysExit(uint64_t exitcode, KE_SYSCALL_ARGS_UNUSED1) {
         while (c2 != NULL) {
             n = c2->Next;
             MmFree(c2);
-            c2= n;
+            c2 = n;
         }
+        c->ParentProc->MmapEntryHead = NULL;
     }
     SpnLckReleaseRfl(&SchedSpinlock, r);
     SchedYield();
@@ -513,7 +514,7 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
             args->addr = (void*)ThrGetCurrent()->ParentProc->MmapBumpNext;
             ThrGetCurrent()->ParentProc->MmapBumpNext += length;
         }
-        for (int i = 0; i < length; i+=PAGE_SIZE) {
+        for (uint64_t i = 0; i < length; i+=PAGE_SIZE) {
             void* physframe = PmmAllocate();
             memset((void*)P2V(physframe), 0, MMU_PAGE_SIZE);
             MmuMapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), ((uint64_t)args->addr + i), (physaddr)physframe, MMU_PAGE_BIT_P_PRESENT | MMU_PAGE_BIT_RW_WRITABLE | MMU_PAGE_BIT_US_USER); // todo actually set perms based off the args passed
@@ -531,10 +532,10 @@ uint64_t SysMmap(uint64_t structptr, KE_SYSCALL_ARGS_UNUSED1) {
 
 // stupid memory corruption caused so much issues
 uint64_t SysMunmap(uint64_t addr, uint64_t length, KE_SYSCALL_ARGS_UNUSED2) {
+    uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
     MmapEntry** pp = &ThrGetCurrent()->ParentProc->MmapEntryHead;
     MmapEntry* e = *pp;
-    uint64_t r = SpnLckAcquireRfl(&ThrGetCurrent()->ParentProc->MmapListLock);
-    while (e != NULL && (uint64_t)e > 0x1000) {
+    while (e != NULL) {
         if (e->Vaddr == addr && e->Length == length) {
             for (uint64_t i = 0; i < e->Length; i += PAGE_SIZE) {
                 MmuUnmapPage((pagetable*)P2V(ThrGetCurrent()->ParentProc->cr3), (e->Vaddr + i));

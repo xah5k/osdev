@@ -679,7 +679,7 @@ void KeUtilShell() {
     KeShlFillEnv("HOME=initrd:/home");
     KeShlFillEnv("TERM=ah5kos");
     KeShlFillEnv("PATH=initrd:/programs");
-    KeTestExec("initrd:/programs/uname.elf");
+    // KeTestExec("initrd:/programs/uname.elf");
     // printf("0x%lx\r\n", KernelGetInformation()->Scheduler[0]->Bitmap);
     // KeShlProcess("lsproc");
     // KeTestExec("initrd:/programs/hello.elf");

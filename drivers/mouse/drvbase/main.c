@@ -19,6 +19,8 @@
 #define PS2YOVERFLW 0b10000000
 
 static KeDevMousePacket gMousePacket;
+ThreadCtrlBlk* gMouseWaitQueueHead = NULL;
+ThreadCtrlBlk* gMouseWaitQueueTail = NULL;
 
 static void MouseHandle(uint8_t Data);
 
@@ -41,6 +43,11 @@ void MouseInterruptHandler(CpuInterruptArgs* r) {
     if (status & 0x01) {
         uint8_t In = inb(0x60);
         MouseHandle(In);
+        ThreadCtrlBlk* SuspendedThr = ThreadPopHead(&gMouseWaitQueueHead, &gMouseWaitQueueTail);
+        if (SuspendedThr != NULL) {
+            // KeDrvWriteFmt("mouse: wake thread@0x%lx{tid=%d, parent pid=%d}\r\n", SuspendedThr, SuspendedThr->Tid, SuspendedThr->ParentProc->Pid);
+            ThreadWake(SuspendedThr);
+        }
     } else if (status & 0x01) {
         inb(0x60);
     }
@@ -125,7 +132,13 @@ KSTATUS MouseHwSpec(KeDeviceObj* dev, KeIoRequest* irp) {
 KSTATUS MouseRead(KeDeviceObj* dev, KeIoRequest* irp) {
     (void)dev;
     KeDevMousePacket* pck = MouseProcessPacket();
-    if (!pck) return KRESEND;
+    while (!pck) {
+        ThreadCtrlBlk* cthr = ThrGetCurrent();
+        cthr->State = SCHED_THREAD_SUSPENDED;
+        ThreadPushTail(&gMouseWaitQueueHead, &gMouseWaitQueueTail, cthr);
+        SchedYield();
+        pck = MouseProcessPacket();
+    }
 
     if (irp->Length > sizeof(KeDevMousePacket)) irp->Length = sizeof(KeDevMousePacket);
     memcpy((void*)irp->Buffer, pck, irp->Length);
